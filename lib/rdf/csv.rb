@@ -8,10 +8,11 @@ module RDF
   # @see http://w3c.github.io/csvw/
   #
   # @author [Gregg Kellogg](http://greggkellogg.net/)
-  module LD
+  module CSV
     require 'rdf/csv/format'
-    autoload :Reader,  'rdf/csv/reader'
-    autoload :VERSION, 'rdf/csv/version'
-    autoload :Writer,  'rdf/csv/writer'
+    autoload :JSON,     'rdf/csv/json'
+    autoload :Metadata, 'rdf/csv/metadata'
+    autoload :Reader,   'rdf/csv/reader'
+    autoload :VERSION,  'rdf/csv/version'
   end
 end

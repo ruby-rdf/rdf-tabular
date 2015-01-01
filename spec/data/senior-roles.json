@@ -1,0 +1,29 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "@id": "http://example.org/schema/senior-roles.json",
+  "columns": [{
+    "name": "ref",
+    "title": "Post Unique Reference"
+  }, {
+    "name": "name",
+    "title": "Name"
+  }, {
+    "name": "grade",
+    "title": "Grade"
+  }, {
+    "name": "job",
+    "title": "Job Title"
+  }, {
+    "name": "reportsTo",
+    "title": "Reports to Senior Post"
+  }],
+  "primaryKey": "ref",
+  "urlTemplate": "#post-{ref}",
+  "foreignKeys": [{
+    "columns": "reportsTo",
+    "reference": {
+      "schema": "http://example.org/schema/senior-roles.json",
+      "columns": "ref"
+    }
+  }]
+}

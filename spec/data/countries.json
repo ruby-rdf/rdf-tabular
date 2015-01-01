@@ -1,0 +1,44 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "resources": [{
+    "@id": "https://example.org/countries.csv",
+    "schema": {
+      "columns": [{
+        "name": "countryCode",
+        "datatype": "string"
+      }, {
+        "name": "latitude",
+        "datatype": "number"
+      }, {
+        "name": "longitude",
+        "datatype": "number"
+      }, {
+        "name": "name",
+        "datatype": "string"
+      }],
+      "urlTemplate": "http://example.org/countries.csv{#countryCode}",
+      "primaryKey": "countryCode"
+    }
+  }, {
+    "@id": "http://example.com/country_slice.csv",
+    "schema": {
+      "columns": [{
+        "name": "countryRef",
+        "datatype": "string"
+      }, {
+        "name": "year",
+        "datatype": "gYear"
+      }, {
+        "name": "population",
+        "datatype": "integer"
+      }],
+      "foreignKeys": [{
+        "columns": "countryRef",
+        "reference": {
+          "resource": "http://example.org/countries.csv",
+          "columns": "countryCode"
+        }
+      }]
+    }
+  }]
+}
