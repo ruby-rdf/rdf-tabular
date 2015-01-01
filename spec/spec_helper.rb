@@ -3,6 +3,7 @@ $:.unshift File.dirname(__FILE__)
 
 require "bundler/setup"
 require 'rspec'
+require 'rspec/its'
 require 'rdf/isomorphic'
 require 'rdf/csv'
 require 'rdf/turtle'

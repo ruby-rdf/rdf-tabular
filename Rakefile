@@ -34,6 +34,25 @@ namespace :doc do
   end
 end
 
+desc "Create CSVW vocabulary definition"
+task :vocab do
+  puts "Generate lib/rdf/csv/csvw.rb"
+  require 'linkeddata'
+  require 'rdf/cli/vocab-loader'
+  begin
+    File.open("lib/rdf/csv/csvw.rb", "w") do |out|
+      loader = RDF::VocabularyLoader.new("CSVW")
+      loader.uri = "http://www.w3.org/ns/csvw#"
+      loader.module_name = "RDF::CSV"
+      loader.strict = true
+      loader.output = out
+      loader.run
+    end
+  rescue
+    puts "Failed to load CSVW: #{$!.message}"
+  end
+end
+
 task :default => :spec
 task :specs => :spec
 

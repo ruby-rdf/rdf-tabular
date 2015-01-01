@@ -1,5 +1,9 @@
 $:.unshift(File.expand_path("..", __FILE__))
 require 'rdf' # @see http://rubygems.org/gems/rdf
+begin
+  require 'byebug'  # REMOVE ME
+rescue LoadError
+end
 
 module RDF
   ##
@@ -10,7 +14,8 @@ module RDF
   # @author [Gregg Kellogg](http://greggkellogg.net/)
   module CSV
     require 'rdf/csv/format'
-    autoload :JSON,     'rdf/csv/json'
+    autoload :CSVW,     'rdf/csv/csvw'
+    autoload :JSON,     'rdf/csv/literal'
     autoload :Metadata, 'rdf/csv/metadata'
     autoload :Reader,   'rdf/csv/reader'
     autoload :VERSION,  'rdf/csv/version'

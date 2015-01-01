@@ -15,16 +15,49 @@ require 'bcp47'
 # @author [Gregg Kellogg](http://greggkellogg.net/)
 module RDF::CSV
   class Metadata < Hash
+    # Possible properties for a TableGroup
     TABLE_GROUP_PROPERTIES = %w(
       @id @type resources schema table-direction dialect templates
     ).map(&:to_sym).freeze
+    # Required properties for a TableGroup
     TABLE_GROUP_REQUIRED = [].freeze
 
+    # Possible properties for a Table
     TABLE_PROPERTIES = %w(
       @id @type schema notes table-direction templates dialect
     ).map(&:to_sym).freeze
+    # Required properties for a Table
     TABLE_REQUIRED = [:@id].freeze
 
+    # Possible properties for a Template
+    TEMPLATE_PROPERTIES = %w(
+      @id @type targetFormat templateFormat title source @type
+    ).map(&:to_sym).freeze
+    # Required properties for a Template
+    TEMPLATE_REQUIRED = %w(targetFormat templateFormat).map(&:to_sym).freeze
+
+    # Possible properties for a Schema
+    SCHEMA_PROPERTIES = %w(
+      @id @type columns primaryKey foreignKeys urlTemplate @type
+    ).map(&:to_sym).freeze
+    # Required properties for a Schema
+    SCHEMA_REQUIRED = [].freeze
+
+    # Possible properties for a Column
+    COLUMN_PROPERTIES = %w(
+      @id @type name title required predicateUrl @type
+    ).map(&:to_sym).freeze
+    # Required properties for a Column
+    COLUMN_REQUIRED = [:name].freeze
+
+    # Inheritect properties, valid for all types
+    INHERITED_PROPERTIES = %w(
+      null language text-direction separator default format datatype
+      length minLength maxLength minimum maximum
+      minInclusive maxInclusive minExclusive maxExclusive
+    ).map(&:to_sym).freeze
+
+    # Defaults for dialects
     DIALECT_DEFAULTS = {
       commentPrefix:      nil,
       delimiter:          ",".freeze,
@@ -43,26 +76,53 @@ module RDF::CSV
       "@type" =>          nil
     }.freeze
 
-    TEMPLATE_PROPERTIES = %w(
-      @id @type targetFormat templateFormat title source @type
-    ).map(&:to_sym).freeze
-    TEMPLATE_REQUIRED = %w(targetFormat templateFormat).map(&:to_sym).freeze
+    # Valid datatypes
+    DATATYPES = {
+      anySimpleType: RDF::XSD.anySimpleType,
+      string: RDF::XSD.string,
+      normalizedString: RDF::XSD.normalizedString,
+      token: RDF::XSD.token,
+      language: RDF::XSD.language,
+      Name: RDF::XSD.Name,
+      NCName: RDF::XSD.NCName,
+      boolean: RDF::XSD.boolean,
+      decimal: RDF::XSD.decimal,
+      integer: RDF::XSD.integer,
+      nonPositiveInteger: RDF::XSD.nonPositiveInteger,
+      negativeInteger: RDF::XSD.negativeInteger,
+      long: RDF::XSD.long,
+      int: RDF::XSD.int,
+      short: RDF::XSD.short,
+      byte: RDF::XSD.byte,
+      nonNegativeInteger: RDF::XSD.nonNegativeInteger,
+      unsignedLong: RDF::XSD.unsignedLong,
+      unsignedInt: RDF::XSD.unsignedInt,
+      unsignedShort: RDF::XSD.unsignedShort,
+      unsignedByte: RDF::XSD.unsignedByte,
+      positiveInteger: RDF::XSD.positiveInteger,
+      float: RDF::XSD.float,
+      double: RDF::XSD.double,
+      duration: RDF::XSD.duration,
+      dateTime: RDF::XSD.dateTime,
+      time: RDF::XSD.time,
+      date: RDF::XSD.date,
+      gYearMonth: RDF::XSD.gYearMonth,
+      gYear: RDF::XSD.gYear,
+      gMonthDay: RDF::XSD.gMonthDay,
+      gDay: RDF::XSD.gDay,
+      gMonth: RDF::XSD.gMonth,
+      hexBinary: RDF::XSD.hexBinary,
+      base64Binary: RDF::XSD.basee65Binary,
+      anyURI: RDF::XSD.anyURI,
 
-    SCHEMA_PROPERTIES = %w(
-      @id @type columns primaryKey foreignKeys urlTemplate @type
-    ).map(&:to_sym).freeze
-    SCHEMA_REQUIRED = [].freeze
-
-    COLUMN_PROPERTIES = %w(
-      @id @type name title required predicateUrl @type
-    ).map(&:to_sym).freeze
-    COLUMN_REQUIRED = [:name].freeze
-
-    INHERITED_PROPERTIES = %w(
-      null language text-direction separator default format datatype
-      length minLength maxLength minimum maximum
-      minInclusive maxInclusive minExclusive maxExclusive
-    ).map(&:to_sym).freeze
+      number: RDF::XSD.double,
+      binary: RDF::XSD.base64Binary,
+      datetime: RDF::XSD.dateTime,
+      any: RDF::XSD.anySimpleType,
+      xml: RDF.XMLLiteral,
+      html: RDF.HTML,
+      json: RDF::CSV::CSVW.json
+    }
 
     # Type of this Metadata
     # @return [:TableGroup, :Table, :Template, :Schema, :Column]
@@ -186,18 +246,27 @@ module RDF::CSV
           end
         when :targetFormat, :templateFormat, :source
           @type ||= :Template
-          self[key] = value
+          self.send("#{key}=".to_sym, value)
         when :primaryKey, :foreignKeys, :urlTemplate
           @type ||= :Schema
           self[key] = value
         when :predicateUrl
           @type ||= :Column
-          require 'byebug'; byebug
-          # SPEC CONFUSION: what's the point of having an array?
-          self[key] = Array(value).map {|v| RDF::URI(v)}
+          predicateUrl = value
         when :name, :required
           @type ||= :Column
-          self[key] = value
+          self.send("#{key}=".to_sym, value)
+        when :encoding, :lineTerminator, :quoteChar, :doubleQuote,
+             :skipRows, :commentPrefix, :header, :headerRowCount, :delimiter,
+             :skipColumns, :headerColumnCount, :skipBlankRows, :skipInitialSpace,
+             :trim, :targetFormat, :templateFormat, :title, :source, :urlTemplate,
+             :name, :title, :required, :null, :language, :separator, :default,
+             :format, :datatype,
+             :length, :maxLength, :minLength,
+             :minimum, :maximum,
+             :minInclusive, :maxInclusive,
+             :minExclusive, :maxExclusive
+          self.send("#{key}=".to_sym, value)
         when :@id
           # URL of CSV relative to metadata
           # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
@@ -209,9 +278,29 @@ module RDF::CSV
       end
 
       # Set type from @type, if present and not otherwise defined
-      @type ||= self[:@type] if self[:@type]
+      @type ||= self[:@type].to_sym if self[:@type]
 
       validate! if options[:validate]
+    end
+
+    # Setters
+    def predicateUrl=(value)
+      # SPEC CONFUSION: what's the point of having an array?
+      self[:predicateUrl] = Array(value).map {|v| RDF::URI(v)}
+    end
+    %w(
+      name title source required urlTemplate targetFormat templateFormat
+      encoding lineTerminator quoteChar doubleQuote skipRows commentPrefix header headerRowCount
+      delimiter skipColumns headerColumnCount skipBlankRows skipInitialSpace trim
+      null language text-direction separator default format datatype
+      length minLength maxLength
+      minimum maximum
+      minInclusive maxInclusive
+      minExclusive maxExclusive
+    ).each do |a|
+      define_method("#{a}=".to_sym) do |value|
+        self[a.to_sym] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
     end
 
     # Do we have valid metadata?
@@ -248,68 +337,32 @@ module RDF::CSV
       keys.each do |key|
         value = self[key]
         is_valid = case key
-        when :columns then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.type == :Column && v.validate!}
+        when :columns
+          column_names = value.map(&:name)
+          value.is_a?(Array) &&
+          value.all? {|v| v.is_a?(Metadata) && v.type == :Column && v.validate!} &&
+          begin
+            # The name properties of the column descriptions must be unique within a given table description.
+            column_names = value.map(&:name)
+            raise "Columns must have unique names" if column_names.uniq != column_names
+            true
+          end
         when :commentPrefix then value.is_a?(String) && value.length == 1
-        when :datatype then value.is_a?(String) # FIXME validate against defined datatypes?
+        when :datatype then value.is_a?(String) && DATATYPES.keys.map(&:to_s).include?(value)
         when :default then value.is_a?(String)
         when :delimiter then value.is_a?(String) && value.length == 1
         when :dialect then value.is_a?(Metadata) && v.type == :Dialect && v.validate!
-        when :doubleQuote then value == TrueClass || value == FalseClass
+        when :doubleQuote then %w(true false 1 0).include?(value.to_s.downcase)
         when :encoding then Encoding.find(value)
-        when :format then value.is_a?(String)
-        when :header then value == TrueClass || value == FalseClass
-        when :headerColumnCount then value.is_a?(String) && value.length == 1
-        when :headerRowCount then value.is_a?(String) && value.length == 1
-        when :length
-          value.is_a?(Number) && value.integer? && value >= 0 &&
-          self.fetch(:minLength, value) == value &&
-          self.fetch(:maxLength, value) == value
-        when :language then BCP47::Language.identify(value)
-        when :lineTerminator then value.is_a?(String)
-        when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
-          value.is_a?(Number) ||
-            RDF::Literal::Date.new(value).valid? ||
-            RDF::Literal::Time.new(value).valid? ||
-            RDF::Literal::DateTime.new(value).valid?
-        when :minLength, :maxLength
-          value.is_a?(Number) && value.integer? && value >= 0
-        when :name then value.is_a?(String) && !name.start_with?("_")
-        when :notes then value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-        when :null then value.is_a?(String)
-        when :predicateUrl then Array(value).all? {|v| RDF::URI(v).valid?}
-        when :quoteChar then value.is_a?(String) && value.length == 1
-        when :required then %w(true false 1 0).include?(value.to_s.downcase)
-        when :resources then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.type == :Table && v.validate!}
-        when :schema then value.is_a?(Metadata) && value.type == :Schema && value.validate!
-        when :separator then value.nil? || value.is_a?(String) && value.length == 1
-        when :skipInitialSpace then value == TrueClass || value == FalseClass
-        when :skipBlankRows then value == TrueClass || value == FalseClass
-        when :skipColumns then value.is_a?(Number) && value.integer? && value >= 0
-        when :skipRows then value.is_a?(Number) && value.integer? && value >= 0
-        when :source then %w(json rdf).include?(value)
-        when :"table-direction" then %w(rtl ltr default).include?(value)
-        when :targetFormat, :templateFormat then RDF::URI(value).valid?
-        when :templates then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.type == :Template && v.validate!}
-        when :"text-direction" then %w(rtl ltr).include?(value)
-        when :title then valid_natural_language_property?(value)
-        when :trim then value == TrueClass || value == FalseClass || %w(true false start end).include?(value)
-        when :urlTemplate then value.is_a?(String)
-        when :"@id" then @location.valid?
-        when :"@type" then value.to_sym == type
-        when :primaryKey
-          # A column reference property that holds either a single reference to a column description object or an array of references.
-          Array(value).all? do |k|
-            self.columns.any? {|c| c.name == k}
-          end
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
           value.is_a?(Array) && value.all? do |fk|
             raise "Foreign key must be an object" unless fk.is_a?(Hash)
             columns, reference = fk['columns'], fk['reference']
             raise "Foreign key missing columns and reference" unless columns && reference
-            raise "Foreign key has extra keys" unless fk.keys.length == 2
+            raise "Foreign key has extra entries" unless fk.keys.length == 2
             raise "Foreign key must reference columns" unless Array(columns).all? {|k| self.columns.any? {|c| c.name == k}}
-            raise "Foreign key resference must be an Object" unless reference.is_a?(Hash)
+            raise "Foreign key reference must be an Object" unless reference.is_a?(Hash)
 
             if reference.has_key?('resource')
               raise "Foreign key having a resource reference, must not have a schema" if reference.has_key?('schema')
@@ -320,13 +373,63 @@ module RDF::CSV
             # FIXME: columns
             true
           end
+        when :format then value.is_a?(String)
+        when :header then %w(true false 1 0).include?(value.to_s.downcase)
+        when :headerColumnCount, :headerRowCount
+          value.is_a?(Numeric) && value.integer? && value > 0
+        when :length
+          # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
+          raise "Use if minLength or maxLength with length requires separator" if self[:minLength] || self[:maxLength] && !self[:separator]
+          raise "Use of both length and minLength requires they be equal" unless self.fetch(:minLength, value) == value
+          raise "Use of both length and maxLength requires they be equal" unless self.fetch(:maxLength, value) == value
+          value.is_a?(Numeric) && value.integer? && value > 0
+        when :language then BCP47::Language.identify(value)
+        when :lineTerminator then value.is_a?(String)
+        when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
+          value.is_a?(Numeric) ||
+          RDF::Literal::Date.new(value).valid? ||
+          RDF::Literal::Time.new(value).valid? ||
+          RDF::Literal::DateTime.new(value).valid?
+        when :minLength, :maxLength
+          value.is_a?(Numeric) && value.integer? && value > 0
+        when :name then value.is_a?(String) && !name.start_with?("_")
+        when :notes then value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
+        when :null then value.is_a?(String)
+        when :predicateUrl then Array(value).all? {|v| RDF::URI(v).valid?}
+        when :primaryKey
+          # A column reference property that holds either a single reference to a column description object or an array of references.
+          Array(value).all? do |k|
+            self.columns.any? {|c| c.name == k}
+          end
+        when :quoteChar then value.is_a?(String) && value.length == 1
+        when :required then %w(true false 1 0).include?(value.to_s.downcase)
+        when :resources then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.type == :Table && v.validate!}
+        when :schema then value.is_a?(Metadata) && value.type == :Schema && value.validate!
+        when :separator then value.nil? || value.is_a?(String) && value.length == 1
+        when :skipInitialSpace then %w(true false 1 0).include?(value.to_s.downcase)
+        when :skipBlankRows then %w(true false 1 0).include?(value.to_s.downcase)
+        when :skipColumns then value.is_a?(Numeric) && value.integer? && value >= 0
+        when :skipRows then value.is_a?(Numeric) && value.integer? && value >= 0
+        when :source then %w(json rdf).include?(value)
+        when :"table-direction" then %w(rtl ltr default).include?(value)
+        when :targetFormat, :templateFormat then RDF::URI(value).valid?
+        when :templates then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.type == :Template && v.validate!}
+        when :"text-direction" then %w(rtl ltr).include?(value)
+        when :title then valid_natural_language_property?(value)
+        when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
+        when :urlTemplate then value.is_a?(String)
+        when :"@id" then @location.valid?
+        when :"@type" then value.to_sym == type
         else
           raise "?!?! shouldn't get here for key #{key}"
         end
-
         raise "#{type} has invalid #{key}: #{value.inspect}" unless is_valid
-        self
       end
+
+      case type
+      when :Schema
+      end
+      self
     end
 
     # Determine if a natural language property is valid
