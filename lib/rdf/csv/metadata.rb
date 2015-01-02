@@ -72,8 +72,7 @@ module RDF::CSV
       skipColumns:        0,
       skipInitialSpace:   false,
       skipRows:           0,
-      trim:               false,
-      :"@type" =>         nil
+      trim:               false
     }.freeze
 
     NON_INHERITED_PROPERTIES = (
@@ -82,7 +81,6 @@ module RDF::CSV
       TEMPLATE_PROPERTIES +
       SCHEMA_PROPERTIES +
       COLUMN_PROPERTIES +
-      DIALECT_DEFAULTS.keys -
       %w(@id @type table-direction).map(&:to_sym)
     ).freeze
 
@@ -138,6 +136,10 @@ module RDF::CSV
     # @return [:TableGroup, :Table, :Template, :Schema, :Column]
     attr_reader :type
 
+    # ID of this Metadata
+    # @return [RDF::URI]
+    attr_reader :id
+
     # Parent of this Metadata (TableGroup for Table, ...)
     # @return [Metadata]
     attr_reader :parent
@@ -146,6 +148,7 @@ module RDF::CSV
     # @return [JSON::LD::Context]
     attr_reader :context
 
+    ##
     # Attempt to retrieve the file at the specified path. If it is valid metadata, create a new Metadata object from it, otherwise, an empty Metadata object
     #
     # @param [String] path
@@ -161,6 +164,7 @@ module RDF::CSV
       RDF::Util::File.open_file(path, options) {|file| Metadata.new(file, options.merge(base: path))}
     end
 
+    ##
     # Create Metadata from IO, Hash or String
     #
     # @param [Metadata, Hash, #read, #to_s] input
@@ -281,7 +285,7 @@ module RDF::CSV
           # URL of CSV relative to metadata
           # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
           self[:@id] = value
-          @location = context.base.join(value)
+          @id = context.base.join(value)
         else
           self[key] = value
         end
@@ -298,24 +302,13 @@ module RDF::CSV
       # SPEC CONFUSION: what's the point of having an array?
       self[:predicateUrl] = Array(value).map {|v| RDF::URI(v)}
     end
-    (INHERITED_PROPERTIES + NON_INHERITED_PROPERTIES - [:predicateUrl]).map(&:to_sym).each do |a|
+    (INHERITED_PROPERTIES + NON_INHERITED_PROPERTIES + DIALECT_DEFAULTS.keys - [:predicateUrl]).map(&:to_sym).each do |a|
       define_method("#{a}=".to_sym) do |value|
         self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
       end
     end
 
-    # Getters for inherited properties. Retrieves through parents, as necessary
-    INHERITED_PROPERTIES.map(&:to_sym).each do |a|
-      define_method(a) do |value=nil|
-        # FIXME why is value=nil necessary
-        self.fetch(a) {parent ? parent.send(a) : nil}
-      end
-    end
-
-    NON_INHERITED_PROPERTIES.map(&:to_sym).each do |a|
-      define_method(a) {self[a]}
-    end
-
+    ##
     # Do we have valid metadata?
     def valid?
       validate!
@@ -324,13 +317,14 @@ module RDF::CSV
       false
     end
 
+    ##
     # Raise error if metadata has any unexpected properties
     # @return [self]
     def validate!
       expected_props, required_props = case type
       when :TableGroup then [TABLE_GROUP_PROPERTIES, TABLE_GROUP_REQUIRED]
       when :Table      then [TABLE_PROPERTIES, TABLE_REQUIRED]
-      when :Dialect    then [DIALECT_DEFAULTS.keys, []]
+      when :Dialect    then [DIALECT_DEFAULTS.keys + [:@type], []]
       when :Template   then [TEMPLATE_PROPERTIES, TEMPLATE_REQUIRED]
       when :Schema     then [SCHEMA_PROPERTIES, SCHEMA_REQUIRED]
       when :Column     then [COLUMN_PROPERTIES, COLUMN_REQUIRED]
@@ -435,7 +429,7 @@ module RDF::CSV
         when :title then valid_natural_language_property?(value)
         when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
         when :urlTemplate then value.is_a?(String)
-        when :"@id" then @location.valid?
+        when :"@id" then @id.valid?
         when :"@type" then value.to_sym == type
         else
           raise "?!?! shouldn't get here for key #{key}"
@@ -446,6 +440,7 @@ module RDF::CSV
       self
     end
 
+    ##
     # Determine if a natural language property is valid
     # @param [String, Array<String>, Hash{String => String}]
     # @return [Boolean]
@@ -459,6 +454,7 @@ module RDF::CSV
       end
     end
 
+    ##
     # Using Metadata, extract a new Metadata document from the file or data provided
     #
     # @param [#read, Array<String>, #to_s] table_data IO, or file path
@@ -477,6 +473,33 @@ module RDF::CSV
       # Join each header row value 
     end
 
+    ##
+    # Return Table-level metadata with inherited properties merged. If IO is
+    # provided, read CSV-level metadata from that file and merge
+    #
+    # @param [String, #to_s] id of Table if metadata is a TableGroup
+    # @param [#read, Hash, Array<Array<String>>] file IO, or Hash or Array of Arrays of column info
+    def table_data(id, file = nil)
+      table = case type
+      when :TableGroup then resources.detect {|t| t.id == id}
+      when :Table then self if self.id == id
+      else
+        raise "Metadata is #{type}, not useable"
+      end
+      raise "No table with id #{id}" unless table
+
+      if file
+        table.merge!(file_metadata(file)) 
+      else
+        table
+      end
+    end
+
+    # Return expanded annotation properties
+    # @return [Hash{String => Object}] FIXME
+    def expanded_annotation_properties
+    end
+
     # Merge metadata into this a copy of this metadata
     def merge(metadata)
       self.dup.merge(Metadata.new(metadata, context: context))
@@ -492,45 +515,11 @@ module RDF::CSV
       "Metadata(#{type})" + super
     end
 
-    # Return Table-level metadata with inherited properties merged. If IO is
-    # provided, read CSV-level metadata from that file and merge
-    #
-    # @param [String, #to_s] id of Table if metadata is a TableGroup
-    # @param [#read, Hash, Array<Array<String>>] file IO, or Hash or Array of Arrays of column info
-    def table_data(id, file = nil)
-      table = if table_group?
-        data = table_group[id.to_s]
-        raise "No table with id #{id}" unless data
-        data = data.dup
-        inherited_properties.each do |p, v|
-          data.merge_property_value(p, v)
-        end
-        data
-      else
-        self.dup
-      end
-
-      if file
-        table.merge!(file_metadata(file)) 
-      else
-        table
-      end
-    end
-
-    ##
-    # Determine if a value is a valid natural-language property. These include strings, arrays of strings, and objects which are a language map
-    #
-    # 
-    # Return expanded annotation properties
-    # @return [Hash{String => Object}] FIXME
-    def expanded_annotation_properties
-    end
-
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if DIALECT_DEFAULTS.has_key?(method.to_sym)
         # As set, or with default
-        self.fetch(method, DIALECT_DEFAULTS(method.to_sym))
+        self.fetch(method, DIALECT_DEFAULTS[method.to_sym])
       elsif INHERITED_PROPERTIES.include?(method.to_sym)
         # Inherited properties
         self.fetch(method.to_sym, parent ? parent.send(method) : nil)
