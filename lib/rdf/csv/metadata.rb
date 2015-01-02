@@ -73,7 +73,7 @@ module RDF::CSV
       skipInitialSpace:   false,
       skipRows:           0,
       trim:               false,
-      "@type" =>          nil
+      :"@type" =>         nil
     }.freeze
 
     # Valid datatypes
@@ -324,10 +324,14 @@ module RDF::CSV
       else
         raise "Unknown metadata type: #{type}"
       end
-      expected_props = expected_props + INHERITED_PROPERTIES
+
+      unless [:Dialect, :Template].include?(type)
+        expected_props = expected_props + INHERITED_PROPERTIES
+      end
 
       # It has only expected properties (exclude metadata)
-      keys = self.keys.reject {|k| k.to_s.include?(':') || %w(@context).include?(k.to_s)}
+      keys = self.keys - [:"@context"]
+      keys = keys.reject {|k| k.to_s.include?(':')} unless type == :Dialect
       raise "#{type} has unexpected keys: #{keys - expected_props}" unless keys.all? {|k| expected_props.include?(k)}
 
       # It has required properties
@@ -426,9 +430,6 @@ module RDF::CSV
         raise "#{type} has invalid #{key}: #{value.inspect}" unless is_valid
       end
 
-      case type
-      when :Schema
-      end
       self
     end
 

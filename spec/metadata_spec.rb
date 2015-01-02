@@ -37,7 +37,7 @@ describe RDF::CSV::Metadata do
       end
     end
 
-    shared_examples "inherited properties" do
+    shared_examples "inherited properties" do |allowed = true|
       {
         null: {
           valid: ["foo"],
@@ -105,17 +105,53 @@ describe RDF::CSV::Metadata do
         }
       }.each do |prop, params|
         context prop.to_s do
-          it "validates" do
-            params[:valid].each do |v|
-              subject.send("#{prop}=".to_sym, v)
-              expect(subject).to be_valid
+          if allowed
+            it "validates" do
+              params[:valid].each do |v|
+                subject.send("#{prop}=".to_sym, v)
+                expect(subject).to be_valid
+              end
+            end
+            it "invalidates" do
+              params[:invalid].each do |v|
+                subject.send("#{prop}=".to_sym, v)
+                expect(subject).not_to be_valid
+              end
+            end
+          else
+            it "does not allow" do
+              params[:valid].each do |v|
+                subject.send("#{prop}=".to_sym, v)
+                expect(subject).not_to be_valid
+              end
             end
           end
-          it "invalidates" do
-            params[:invalid].each do |v|
-              subject.send("#{prop}=".to_sym, v)
-              expect(subject).not_to be_valid
-            end
+        end
+      end
+    end
+
+    shared_examples "common properties" do |allowed = true|
+      let(:valid) {%w(dc:description dcat:keyword http://schema.org/copyrightHolder)}
+      let(:invalid) {%w(foo bar:baz)}
+      if allowed
+        it "allows defined prefixed names and absolute URIs" do
+          valid.each do |v|
+            subject[v.to_sym] = "foo"
+            expect(subject).to be_valid
+          end
+        end
+
+        it "Does not allow unknown prefxies or unprefixed names" do
+          invalid.each do |v|
+            subject[v.to_sym] = "foo"
+            expect(subject).not_to be_valid
+          end
+        end
+      else
+        it "Does not allow defined prefixed names and absolute URIs" do
+          (valid + invalid).each do |v|
+            subject[v.to_sym] = "foo"
+            expect(subject).not_to be_valid
           end
         end
       end
@@ -125,6 +161,7 @@ describe RDF::CSV::Metadata do
       subject {described_class.new({"name" => "foo"}, base: RDF::URI("http://example.org/base"))}
       specify {is_expected.to be_valid}
       it_behaves_like("inherited properties")
+      it_behaves_like("common properties")
 
       it "detects invalid names" do
         [1, true, nil, "_foo"].each {|v| expect(described_class.new("name" => v)).not_to be_valid}
@@ -171,6 +208,7 @@ describe RDF::CSV::Metadata do
       subject {described_class.new({"@type" => "Schema"}, base: RDF::URI("http://example.org/base"))}
       specify {is_expected.to be_valid}
       it_behaves_like("inherited properties")
+      it_behaves_like("common properties")
       its(:type) {is_expected.to eql :Schema}
 
       describe "columns" do
@@ -255,6 +293,50 @@ describe RDF::CSV::Metadata do
           end
         end
       end
+    end
+
+    describe "Template" do
+      let(:targetFormat) {"http://example.org/targetFormat"}
+      let(:templateFormat) {"http://example.org/templateFormat"}
+      subject {described_class.new({"targetFormat" => targetFormat, "templateFormat" => templateFormat}, base: RDF::URI("http://example.org/base"))}
+      specify {is_expected.to be_valid}
+      it_behaves_like("inherited properties", false)
+      it_behaves_like("common properties")
+      its(:type) {is_expected.to eql :Template}
+
+      it "FIXME"
+    end
+
+    describe "Dialect" do
+      subject {described_class.new({"@type" => "Dialect"}, base: RDF::URI("http://example.org/base"))}
+      specify {is_expected.to be_valid}
+      it_behaves_like("inherited properties", false)
+      it_behaves_like("common properties", false)
+      its(:type) {is_expected.to eql :Dialect}
+
+      it "FIXME"
+    end
+
+    describe "Table" do
+      subject {described_class.new({"@id" => "http://example.org/table.csv", "@type" => "Table"}, base: RDF::URI("http://example.org/base"))}
+      specify {is_expected.to be_valid}      
+      it_behaves_like("inherited properties")
+      it_behaves_like("common properties")
+      its(:type) {is_expected.to eql :Table}
+
+      it "FIXME"
+    end
+
+    describe "TableGroup" do
+      let(:table) {{"@id" => "http://example.org/table.csv", "@type" => "Table"}}
+      subject {described_class.new({"resources" => [table]}, base: RDF::URI("http://example.org/base"))}
+      specify {is_expected.to be_valid}
+      
+      it_behaves_like("inherited properties")
+      it_behaves_like("common properties")
+      its(:type) {is_expected.to eql :TableGroup}
+
+      it "FIXME"
     end
   end
 end
