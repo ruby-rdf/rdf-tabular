@@ -19,24 +19,6 @@ describe RDF::CSV::Metadata do
   end
 
   describe ".new" do
-    context "parses example metadata" do
-      Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
-        context filename do
-          specify {expect {RDF::CSV::Metadata.open(filename)}.not_to raise_error}
-        end
-      end
-    end
-
-    context "validates example metadata" do
-      Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
-        context filename do
-          specify do
-            expect{RDF::CSV::Metadata.open(filename).validate!}.not_to raise_error
-          end
-        end
-      end
-    end
-
     shared_examples "inherited properties" do |allowed = true|
       {
         null: {
@@ -338,5 +320,40 @@ describe RDF::CSV::Metadata do
 
       it "FIXME"
     end
+
+    context "parses example metadata" do
+      Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
+        context filename do
+          specify {expect {RDF::CSV::Metadata.open(filename)}.not_to raise_error}
+        end
+      end
+    end
+
+    context "inherited properties" do
+      let(:table) {{"@id" => "http://example.org/table.csv", "schema" => {"@type" => "Schema"}, "@type" => "Table"}}
+      subject {described_class.new(table, base: RDF::URI("http://example.org/base"))}
+
+      it "inherits properties from parent" do
+        subject.language = "en"
+        expect(subject.schema.language).to eql "en" 
+      end
+
+      it "overrides properties in parent" do
+        subject.language = "en"
+        subject.schema.language = "de"
+        expect(subject.schema.language).to eql "de" 
+      end
+    end
+
+    context "validates example metadata" do
+      Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
+        context filename do
+          specify do
+            expect{RDF::CSV::Metadata.open(filename).validate!}.not_to raise_error
+          end
+        end
+      end
+    end
+
   end
 end

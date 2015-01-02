@@ -31,21 +31,21 @@ module RDF::CSV
 
     # Possible properties for a Template
     TEMPLATE_PROPERTIES = %w(
-      @id @type targetFormat templateFormat title source @type
+      @id @type targetFormat templateFormat title source
     ).map(&:to_sym).freeze
     # Required properties for a Template
     TEMPLATE_REQUIRED = %w(targetFormat templateFormat).map(&:to_sym).freeze
 
     # Possible properties for a Schema
     SCHEMA_PROPERTIES = %w(
-      @id @type columns primaryKey foreignKeys urlTemplate @type
+      @id @type columns primaryKey foreignKeys urlTemplate
     ).map(&:to_sym).freeze
     # Required properties for a Schema
     SCHEMA_REQUIRED = [].freeze
 
     # Possible properties for a Column
     COLUMN_PROPERTIES = %w(
-      @id @type name title required predicateUrl @type
+      @id @type name title required predicateUrl
     ).map(&:to_sym).freeze
     # Required properties for a Column
     COLUMN_REQUIRED = [:name].freeze
@@ -75,6 +75,16 @@ module RDF::CSV
       trim:               false,
       :"@type" =>         nil
     }.freeze
+
+    NON_INHERITED_PROPERTIES = (
+      TABLE_GROUP_PROPERTIES +
+      TABLE_PROPERTIES +
+      TEMPLATE_PROPERTIES +
+      SCHEMA_PROPERTIES +
+      COLUMN_PROPERTIES +
+      DIALECT_DEFAULTS.keys -
+      %w(@id @type table-direction).map(&:to_sym)
+    ).freeze
 
     # Valid datatypes
     DATATYPES = {
@@ -288,19 +298,22 @@ module RDF::CSV
       # SPEC CONFUSION: what's the point of having an array?
       self[:predicateUrl] = Array(value).map {|v| RDF::URI(v)}
     end
-    %w(
-      name title source required urlTemplate targetFormat templateFormat
-      encoding lineTerminator quoteChar doubleQuote skipRows commentPrefix header headerRowCount
-      delimiter skipColumns headerColumnCount skipBlankRows skipInitialSpace trim
-      null language text-direction separator default format datatype
-      length minLength maxLength
-      minimum maximum
-      minInclusive maxInclusive
-      minExclusive maxExclusive
-    ).each do |a|
+    (INHERITED_PROPERTIES + NON_INHERITED_PROPERTIES - [:predicateUrl]).map(&:to_sym).each do |a|
       define_method("#{a}=".to_sym) do |value|
-        self[a.to_sym] = value.to_s =~ /^\d+/ ? value.to_i : value
+        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
       end
+    end
+
+    # Getters for inherited properties. Retrieves through parents, as necessary
+    INHERITED_PROPERTIES.map(&:to_sym).each do |a|
+      define_method(a) do |value=nil|
+        # FIXME why is value=nil necessary
+        self.fetch(a) {parent ? parent.send(a) : nil}
+      end
+    end
+
+    NON_INHERITED_PROPERTIES.map(&:to_sym).each do |a|
+      define_method(a) {self[a]}
     end
 
     # Do we have valid metadata?
