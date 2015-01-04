@@ -18,31 +18,26 @@ module RDF::CSV
     #
     # @param  [String, #to_s] filename
     # @param  [Hash{Symbol => Object}] options
-    #   see `RDF::Util::File.open_file` in RDF.rb
+    #   @see `RDF::Reader.open` in RDF.rb and `#initialize`
     # @yield  [reader]
     # @yieldparam  [RDF::CSV::Reader] reader
     # @yieldreturn [void] ignored
     def self.open(filename, options = {}, &block)
       Util::File.open_file(filename, options) do |file|
         # load link metadata, if available
-        metadata = if file.respond_to?(:links)
+        options = {base: filename}.merge(options)
+
+        metadata = options[:metadata]
+        metadata ||= if file.respond_to?(:links)
           link = file.links.find_link(%w(rel describedby))
           Metadata.open(link, options)
         end
 
         # Otherwise, look for metadata based on filename
-        metadata ||= Metadata.open("#{filename}-metadata.json", options)
+        metadata ||= Metadata.open("#{File.basename(filename)}-metadata.json", options)
 
         # Otherwise, look for metadata in directory
         metadata ||= Metadata.open(RDF::URI(filename).join("metadata.json"), options)
-
-        if metadata
-          # Merge options
-          metadata.merge!(options[:metadata]) if options[:metadata]
-        else
-          # Just use options
-          metadata = options[:metadata]
-        end
 
         # Return an open CSV with possible block
         RDF::CSV::Reader.new(file, options.merge(metadata: metadata), &block)
@@ -52,7 +47,9 @@ module RDF::CSV
     ##
     # Initializes the RDF::CSV Reader instance.
     #
-    # @param  [IO, File, String]       input
+    # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>]       input
+    #   An opened file possibly JSON Metadata,
+    #   or an Array used as an internalized array of arrays
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Reader#initialize`)
     # @option options [Metadata, Hash] :metadata extracted when file opened
@@ -65,13 +62,22 @@ module RDF::CSV
       options[:base_uri] ||= options[:base]
       super do
         @options[:base] ||= base_uri.to_s if base_uri
-        # Construct metadata from that passed from file open, along with information from the file.
-        @metadata = Metadata.new(options[:metadata]).table_data(base_uri, input)
+        @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
 
-        # Merge any user-supplied metadata
-        # SPEC CONFUSION: Note issue described in https://github.com/w3c/csvw/issues/76#issuecomment-65914880
-        @metadata.merge(Metadata.new(options[:user_metadata])) if options[:user_metadata]
-        @doc = input.respond_to?(:read) ? input : StringIO.new(input.to_s)
+        # If input is JSON, then the input is the metadata
+        if @options[:base] =~ /\.json(?:ld)?$/ ||
+           input.respond_to?(:content_type) && input.content_type =~ %r(application/(?:ld+)json)
+          input = Metadata.new(input, options)
+        end
+
+        # Use either passed metadata, or create an empty one to start
+        @metadata = options.fetch(:metadata, Metadata.new({"@type" => :Table}, options))
+
+        # Extract file metadata, and left-merge if appropriate
+        unless input.is_a?(Metadata)
+          embedded_metadata = @metadata.embedded_metadata(input, options)
+          @metadata = embedded_metadata.merge(@metadata)
+        end
 
         if block_given?
           case block.arity
@@ -89,45 +95,79 @@ module RDF::CSV
       if block_given?
         @callback = block
 
+        # Construct metadata from that passed from file open, along with information from the file.
+        if input.is_a?(Metadata)
+          # Get Metadata to invoke and open referenced files
+          case input.type
+          when :TableGroup
+            table_group = Node.new
+            add_statement(0, table_group, RDF.type, CSVW.TableGroup)
+
+            # Common Properties
+            input.common_properties.each do |prop, value|
+              pred = input.context.expand_iri(prop)
+              add_statement(0, table_group, pred, value)
+            end
+
+            input.resources.each do |table|
+              add_statement(0, table_group, CSVW.table, table.id + "#table")
+              Reader.new(table.id, options.merge(metadata: table)).each_statemenet(&block)
+            end
+          when :Table
+            Reader.new(input.id, options.merge(metadata: table)).each_statemenet(&block)
+          else
+            raise "Opened inappropriate metadata type: #{input.type}"
+          end
+          return
+        end
+
         # Output Table-Level RDF triples
         # SPEC FIXME: csvw:Table, not csv:Table
-        add_triple(0, RDF::URI(metadata.id), RDF.type, CSVW.Table) if metadata.type?
+        table_resource = metadata.id + "#table"
+        add_statement(0, table_resource, RDF.type, CSVW.Table)
 
-        # Output other table-level metadata
-        # SPEC AMBIGUITY(2RDF):
-        #   output all optional properties in DC space? (they're typically defined in CSVM space)
-        #   output all namespaced properties?
-        #   output all non-namespaced properties which aren't specifically defined in CSVM in DC space?
-        # We assume to only output namesspaced-properties
-        metadata.expanded_annotation_properties.each do |prop, values|
-          Array(value).each do |v|
-            # Assume prop and value(s) are in RDF form? or expand here?
-            add_triple(0, metadata.uri, RDF::URI(prop), v)
+        # Distribution
+        distribution = Node.new
+        add_statement(0, table_resource, DCAT.distribution, distribution)
+        add_statement(0, distribution, RDF.type, DCAT.Distribution)
+        add_statement(0, distribution, DCAT.downloadURL, metadata.id)
+
+        # Output table common properties
+        metadata.common_properties.each do |prop, value|
+          pred = metadata.context.expand_iri(prop)
+          add_statement(0, table_resource, pred, value)
+        end
+
+        # Column metadata
+        metadata.columns.each do |column|
+          pred = column.predicateUrl
+
+          # SPEC FIXME: Output csvw:Column, if set
+          add_statement(0, pred, RDF.type, RDF.Property)
+
+          # Titles
+          column.rdf_values {|v| add_statement(0, pred, CSVW.title, v)}
+
+          # Common Properties
+          column.common_properties.each do |prop, value|
+            pred = column.context.expand_iri(prop)
+            add_statement(0, table_group, pred, value)
           end
         end
 
-        # SPEC CONFUSION(2RDF):
-        #   Where to output column-level, vs. cell-level metadata?
-        metadata.columns.each do |column|
-          # SPEC FIXME: Output csvw:Column, if set
-          add_triple(0, RDF::URI(column.uri), RDF.type, CSVW.Column) if column.type?
-          column.expanded_annotation_properties.each do |prop, values|
+        # Input is file containing CSV data.
+        # Output ROW-Level statements
+        metadata.each_row(input) do |row|
+          # Output row-level metadata
+          add_statement(row.rownum, table_resource, CSVW.row, row.resource)
+          row.values.each_with_index do |value, index|
+            column = metadata[columns][index]
             Array(value).each do |v|
-              # Assume prop and value(s) are in RDF form? or expand here?
-              add_triple(0, RDF::URI(column.uri), RDF::URI(prop), v)
+              add_statement(row.rownum, row.resource, column.predicateUrl, v)
             end
           end
         end
 
-        # Output Cell-Level RDF triples
-        metadata.rows.each do |row|
-          # Output row-level metadata
-          add_triple(row.rownum, RDF::URI(row.uri), CSVW.row, RDF::Literal::Integer(row.rownum))
-          add_triple(row.rownum, RDF::URI(row.uri), RDF.type, CSVW.Row) if row.type?
-          row.columns.each_with_index do |column|
-            add_triple("#{row.rownum}", RDF::URI(row.uri), RDF::URI(column.uri), column.rdf_value)
-          end
-        end
       end
       enum_for(:each_statement)
     end

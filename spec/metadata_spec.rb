@@ -4,6 +4,10 @@ require 'spec_helper'
 
 describe RDF::CSV::Metadata do
   before(:each) do
+    WebMock.stub_request(:get, "https://example.org/countries.csv").
+      to_return(body: File.read(File.expand_path("../data/countries.csv", __FILE__)),
+                status: 200,
+                headers: { 'Content-Type' => 'text.csv'})
     WebMock.stub_request(:get, "http://example.org/schema/senior-roles.json").
       to_return(body: File.read(File.expand_path("../data/senior-roles.json", __FILE__)),
                 status: 200,
@@ -367,12 +371,69 @@ describe RDF::CSV::Metadata do
     end
   end
 
-  describe "#file_metadata" do
+  describe "#embedded_metadata" do
+    subject {described_class.new({"@type" => "Table"}, base: RDF::URI("http://example.org/base"))}
+    {
+      "with defaults" => {
+        input: "https://example.org/countries.csv",
+        result: %({
+          "@id": "https://example.org/countries.csv",
+          "@type": "Table",
+          "schema": {
+            "@type": "Schema",
+            "columns": [{
+              "name": "countryCode",
+              "title": "countryCode",
+              "predicateUrl": "#countryCode"
+            }, {
+              "name": "latitude",
+              "title": "latitude",
+              "predicateUrl": "#latitude"
+            }, {
+              "name": "longitude",
+              "title": "longitude",
+              "predicateUrl": "#longitude"
+            }, {
+              "name": "name",
+              "title": "name",
+              "predicateUrl": "#name"
+            }]
+          }
+        })
+      }
+    }.each do |name, props|
+      it name do
+        byebug
+        metadata = props[:metadata] ? subject.merge(props[:metadata]) : subject
+        result = metadata.embedded_metadata(props[:input])
+        expect(result.to_json).to eq props[:result]
+      end
+    end
   end
 
-  describe "#table_data" do
+  describe "#each_row" do
+  end
+
+  describe "#common_properties" do
+  end
+
+  describe "#rdf_values" do
   end
 
   describe "#merge" do
+  end
+
+  describe RDF::CSV::Metadata::Row do
+    describe "#initialize" do
+    end
+
+    describe "#rownum" do
+    end
+
+    describe "#resource" do
+    end
+
+    describe "#values" do
+    end
   end
 end

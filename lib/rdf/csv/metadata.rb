@@ -1,6 +1,7 @@
 require 'json'
 require 'json/ld'
 require 'bcp47'
+require 'addressable/template'
 
 ##
 # CSVM Metadata processor
@@ -66,13 +67,13 @@ module RDF::CSV
       header:             true,
       headerColumnnCount: 0,
       headerRowCount:     1,
-      lineTerminator:     %r(\r?\n), # SPEC says "\r\n"
+      lineTerminator:     :auto, # SPEC says "\r\n"
       quoteChar:          '"',
       skipBlankRows:      false,
       skipColumns:        0,
       skipInitialSpace:   false,
       skipRows:           0,
-      trim:               false
+      trim:               "false"
     }.freeze
 
     NON_INHERITED_PROPERTIES = (
@@ -266,7 +267,7 @@ module RDF::CSV
           self[key] = value
         when :predicateUrl
           @type ||= :Column
-          predicateUrl = value
+          self.predicateUrl = value
         when :name, :required
           @type ||= :Column
           self.send("#{key}=".to_sym, value)
@@ -298,13 +299,30 @@ module RDF::CSV
     end
 
     # Setters
+    # Create predicateUrl by merging with table ID
     def predicateUrl=(value)
       # SPEC CONFUSION: what's the point of having an array?
-      self[:predicateUrl] = Array(value).map {|v| RDF::URI(v)}
+      table = parent while parent && parent.type != :Table
+      self[:predicateUrl] = table && table.id ? table.id.join(value) : RDF::URI(value)
     end
+
+    # When setting language, also update the default language in the context
+    def language=(value)
+      context.default_language = self[:language] = value
+    end
+
     (INHERITED_PROPERTIES + NON_INHERITED_PROPERTIES + DIALECT_DEFAULTS.keys - [:predicateUrl]).map(&:to_sym).each do |a|
       define_method("#{a}=".to_sym) do |value|
         self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
+    end
+
+    # Treat `dialect` similar to an inherited property, but default
+    def dialect
+      self[:dialect] ||= if parent
+        parent.dialect
+      else
+        Metadata.new({}, @options.merge(type: :Dialect, parent: self, context: context))
       end
     end
 
@@ -455,49 +473,132 @@ module RDF::CSV
     end
 
     ##
-    # Using Metadata, extract a new Metadata document from the file or data provided
+    # Extract a new Metadata document from the file or data provided
     #
-    # @param [#read, Array<String>, #to_s] table_data IO, or file path
+    # @param [#read, #to_s] input IO, or file path or URL
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Util::File.open_file`)
-    # @return [Metadata]
-    def file_metadata(table_data, options = {})
-      header_rows = []
-      CSV.new(table_data.respond_to?(:read) ? table_data : table_data.to_s) do |csv|
-        (0..skipRows.to_i).each {csv.shift } # Skip initial lines
-        (0..(headerRowCount || 1)).each do
-          csv.shift.each_with_index {|value, index| header_rows[index] << value}
-        end
+    # @return [Metadata] Tabular metadata
+    # @see http://w3c.github.io/csvw/syntax/#parsing
+    def embedded_metadata(input, options = {})
+      table = {
+        "@id" => (options.fetch(:base, "")),
+        "@type" => "Table",
+        "schema" => {
+          "@type" => "Schema",
+          "columns" => []
+        }
+      }
+
+      # Normalize input to an IO object
+      if !input.respond_to?(:read)
+        return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options)}
       end
 
-      # Join each header row value 
+      # Set encoding on input
+      ::CSV.new(input, csv_options) do |csv|
+        (0..dialect.skipRows.to_i).each do
+          row = csv.shift.join("")  # Skip initial lines, these form comment annotations
+          row = row[1..-1] if dialect.commentPrefix && row.start_with?(dialect.commentPrefix)
+          table["notes"] ||= [] << row unless row.empty?
+        end
+
+        (0..(dialect.headerRowCount || 1)).each do
+          csv.shift.each_with_index do |value, index|
+            # Skip columns
+            next if index < (dialect.skipColumns - 1)
+
+            # Trim value
+            value = ltrim(value) if %w(true start).include?(dialect.trim)
+            value = rtrim(value) if %w(true end).include?(dialect.trim)
+
+            # Initialize name, title, and predicateUrl
+            # SPEC CONFUSION: do name and title get an array, or concatenated values?
+            column = table["schema"]["columns"][index] ||= {
+              "@type" => "Column",
+              "title" => [],
+              "predicateUrl" => "#_col=#{index}"
+            }
+            column["title"] << value
+          end
+        end
+
+        # Create name by concatenating title
+        # Create predicateUrl as a fragment using URI encoded name
+        table["schema"]["columns"].each do |c|
+          next unless c # Skipped columns
+          c["name"] = c["title"].join("\n") if c["title"]
+          c["predicateUrl"] = "##{URI.encode(c["name"])}" if c["name"]
+        end
+      end
+      input.rewind if table_data.respond_to?(:rewind)
+
+      Metadata.new(table, options)
     end
 
     ##
-    # Return Table-level metadata with inherited properties merged. If IO is
-    # provided, read CSV-level metadata from that file and merge
+    # Yield each data row from the input file
     #
-    # @param [String, #to_s] id of Table if metadata is a TableGroup
-    # @param [#read, Hash, Array<Array<String>>] file IO, or Hash or Array of Arrays of column info
-    def table_data(id, file = nil)
-      table = case type
-      when :TableGroup then resources.detect {|t| t.id == id}
-      when :Table then self if self.id == id
-      else
-        raise "Metadata is #{type}, not useable"
-      end
-      raise "No table with id #{id}" unless table
+    # @param [:read] input
+    # @yield [Row]
+    def each_row(input)
+      ::CSV.new(input, csv_options) do |csv|
+        # Skip skip rows and header rows
+        rownum = dialect.skipRows.to_i + (dialect.headerRowCount || 1)
+        (0..to_skip).each {csv.shift}
+        rownum += 1
 
-      if file
-        table.merge!(file_metadata(file)) 
-      else
-        table
+        csv.each {|row| yield(Row.new(row, self, rownum))}
       end
     end
 
-    # Return expanded annotation properties
-    # @return [Hash{String => Object}] FIXME
-    def expanded_annotation_properties
+    ##
+    # Return or yield common properties (those which are CURIEs or URLS)
+    #
+    # @yield property, value
+    # @yieldparam [String] property as a PName or URL
+    # @yieldparam [RDF::Value] value
+    # @return [Hash{String => RDF::Value, Array<RDF::Value>}]
+    def common_properties
+      if block_given?
+        each do |key, value|
+          next unless key.to_s.include?(':')  # Only common properties
+          rdf_values(key, value) do |v|
+            yield(key.to_s, v)
+          end
+        end
+      else
+        props = {}
+        common_properties.each do |p, v|
+          case props[p]
+          when nil then props[p] = v
+          when Array then props[p] << v
+          else props[p] = [props[p], v]
+          end
+        end
+        props
+      end
+    end
+
+    # Yield RDF statements after expanding property values
+    #
+    # @param [#to_s] property
+    # @param [Object] value
+    # @yield new_value
+    # @yieldparam [RDF::Value] new_value
+    def rdf_values(property, value)
+      @@jld_api ||= JSON::LD::API.new({}, context)
+
+      expanded_values = if value.is_a?(Array)
+        value.map do |v|
+          context.expand_value(property.to_s, v)
+        end
+      else
+        [context.expand_value(property.to_s, value)]
+      end
+      expanded_values.each do |ev|
+        yield(jld_api.parse_object(v))
+      end
     end
 
     # Merge metadata into this a copy of this metadata
@@ -507,8 +608,8 @@ module RDF::CSV
 
     # Merge metadata into self
     def merge!(metadata)
-      other = Metadata.new(other, context: context)
-      # XXX ...
+      #other = Metadata.new(metadata, context: context)
+      self # FIXME ...
     end
 
     def inspect
@@ -517,18 +618,139 @@ module RDF::CSV
 
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
-      if DIALECT_DEFAULTS.has_key?(method.to_sym)
+      if DIALECT_DEFAULTS.has_key?(method.to_sym) && type == :Dialect
         # As set, or with default
         self.fetch(method, DIALECT_DEFAULTS[method.to_sym])
       elsif INHERITED_PROPERTIES.include?(method.to_sym)
         # Inherited properties
         self.fetch(method.to_sym, parent ? parent.send(method) : nil)
-      elsif method.to_sym == :name
+      elsif method.to_sym == :name && type == :Column
         # If not set, name comes from title
         self.fetch(:name, self[:title])
       else
+        case type
+        when :TableGroup
+          if TABLE_GROUP_PROPERTIES.include?(method.to_sym)
+            # As set, or with default
+            self.fetch(method, nil)
+          else
+            super
+          end
+        when :Table
+          if TABLE_PROPERTIES.include?(method.to_sym)
+            self.fetch(method, nil)
+          else
+            super
+          end
+        when :Dialect
+          if DIALECT_DEFAULTS.has_key?(method.to_sym)
+            # As set, or with default
+            self.fetch(method, DIALECT_DEFAULTS[method.to_sym])
+          else
+            super
+          end
+        when :Template
+          if TEMPLATE_PROPERTIES.include?(method.to_sym)
+            self.fetch(method, nil)
+          else
+            super
+          end
+        when :Schema
+          if SCHEMA_PROPERTIES.include?(method.to_sym)
+            self.fetch(method, nil)
+          else
+            super
+          end
+        when :Column
+          if COLUMN_PROPERTIES.include?(method.to_sym)
+            self.fetch(method, nil)
+          else
+            super
+          end
+        else
+          super
+        end
         # Otherwise, retrieve key value defaulting to super
         self[method.to_sym] || super
+      end
+    end
+
+  private
+    # Options passed to CSV.new based on dialect
+    def csv_options
+      {
+        col_sep: dialect.delimiter,
+        row_sep: dialect.lineTerminator,
+        quote_char: dialect.quoteChar,
+      }
+    end
+
+    # Wraps each resulting row
+    class Row
+      # URI or BNode of this row, after expanding `uriTemplate`
+      # @return [RDF::Resource] resource
+      attr_reader :resource
+
+      # Row values, hashed by `name`
+      attr_reader :values
+
+      # Row number of this row
+      # @return [Integer]
+      attr_reader :rownum
+
+      ##
+      # @param [Array<Array<String>>] row
+      # @param [Metadata] Table metadata
+      # @param [rownum] 1-based row number
+      # @return [Row]
+      def initialize(row, metadata, rownum)
+        @rownum = rownum
+
+        # Create values hash
+        # SPEC CONFUSION: are values pre-or-post conversion?
+        map_values = {"_row" => rownum}
+        row.each_with_index do |value, index|
+          name = metadata.columns[index].name || "_col=#{index}"
+          map_values[name] = value
+        end
+
+        # Create resource using urlTemplate and values hash
+        @resource = if metadata.urlTemplate
+          t = Addressable::Template.new(meetadata.urlTemplate)
+          RDF::URI(t.expand(map_values))
+        else
+          BNode.new
+        end
+
+        # Yield each value, after conversion
+        @values = []
+        row.each_with_index do |cell, index|
+          # Skip columns
+          next if index < (metadata.dialect.skipColumns - 1)
+
+          cv = cell
+          # Trim value
+          cv = ltrim(cv.to_s) if %w(true start).include?(metadata.dialect.trim)
+          cv = rtrim(cv.to_s) if %w(true end).include?(metadata.dialect.trim)
+
+          cell_values = metadata.dialect.separator ? cv.split(metadata.dialect.separator) : [cv]
+
+          cell_values = cell_values.map do |v|
+            case
+            when v.empty? then metadata.dialect.null
+            when v.nil? then metadata.dialect.default
+            when metadata.dialect.datatype == :anyUri
+              metadata.id.join(v)
+            when metadata.dialect.datatype
+              # FIXME: use of format in extracting information
+              RDF::Literal(v, datatype: metadata.context.expand_iri(metadata.datatype))
+            else
+              RDF::Literal(v, language: metadata.language)
+            end
+          end.compact
+
+          @values << metadata.dialect.separator ? cell_values : cell_values.first
+        end
       end
     end
   end
