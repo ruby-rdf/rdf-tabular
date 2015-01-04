@@ -5,7 +5,7 @@ require "bundler/setup"
 require 'rspec'
 require 'rspec/its'
 require 'rdf/isomorphic'
-require 'rdf/csv'
+require 'rdf/tabular'
 require 'rdf/turtle'
 require 'rdf/spec/matchers'
 require 'webmock/rspec'

@@ -1,10 +1,11 @@
-module RDF::CSV
+module RDF::Tabular
   ##
   # Tabular Data/CSV format specification.
   #
-  # @example Obtaining a CSV format class
-  #     RDF::Format.for(:csv)            #=> RDF::CSV::Format
-  #     RDF::Format.for(:tsv)            #=> RDF::CSV::Format
+  # @example Obtaining a Tabular format class
+  #     RDF::Format.for(:tabular)        #=> RDF::Tabular::Format
+  #     RDF::Format.for(:csv)            #=> RDF::Tabular::Format
+  #     RDF::Format.for(:tsv)            #=> RDF::Tabular::Format
   #     RDF::Format.for("etc/foaf.csv")
   #     RDF::Format.for("etc/foaf.tsv")
   #     RDF::Format.for(:file_name      => "etc/foaf.csv")
@@ -15,7 +16,7 @@ module RDF::CSV
   #     RDF::Format.for(:content_type   => "text/tab-separated-values")
   #
   # @example Obtaining serialization format MIME types
-  #     RDF::Format.content_types      #=> {"text/csv" => [RDF::CSV::Format]}
+  #     RDF::Format.content_types      #=> {"text/csv" => [RDF::Tabular::Format]}
   #
   # @example Obtaining serialization format file extension mappings
   #     RDF::Format.file_extensions    #=> {:csv => "text/csv"}
@@ -27,7 +28,7 @@ module RDF::CSV
                      alias: 'text/tab-separated-values'
     content_encoding 'utf-8'
 
-    reader { RDF::CSV::Reader }
+    reader { RDF::Tabular::Reader }
 
     ##
     # Sample detection to see if it matches JSON-LD

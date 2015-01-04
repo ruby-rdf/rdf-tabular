@@ -6,18 +6,18 @@ begin
   require 'linkeddata'
 rescue LoadError
 end
-require 'rdf/csv'
+require 'rdf/tabular'
 require 'getoptlong'
 
 def run(input, options)
 
   start = Time.new
   output = if input.is_a?(String) && input.end_with?(".json")
-    RDF::CSV::Metadata.open(input, options[:parser_options])
+    RDF::Tabular::Metadata.open(input, options[:parser_options])
   elsif input.is_a?(String) && input.end_with(".csv")
     RDF::Graph.load(input, options[:parse_options].merge(format: :csv))
   else
-    RDF::Graph.new << RDF::CSV::Reader.new(input, options[:parse_options])
+    RDF::Graph.new << RDF::Tabular::Reader.new(input, options[:parse_options])
   end
   secs = Time.new - start
 

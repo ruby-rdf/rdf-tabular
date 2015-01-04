@@ -5,11 +5,11 @@ Gem::Specification.new do |gem|
   gem.version               = File.read('VERSION').chomp
   gem.date                  = File.mtime('VERSION').strftime('%Y-%m-%d')
 
-  gem.name                  = "rdf-csv"
-  gem.homepage              = "http://github.com/ruby-rdf/rdf-csv"
+  gem.name                  = "rdf-tabular"
+  gem.homepage              = "http://github.com/ruby-rdf/rdf-tabular"
   gem.license               = 'Public Domain' if gem.respond_to?(:license=)
   gem.summary               = "Tabular Data RDF Reader and JSON serializer."
-  gem.description           = "RDF::CSV processes tabular data with metadata creating RDF or JSON output."
+  gem.description           = "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."
 
   gem.authors               = ['Gregg Kellogg']
   gem.email                 = 'public-rdf-ruby@w3.org'

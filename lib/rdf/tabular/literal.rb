@@ -3,11 +3,11 @@
 require 'rdf'
 require 'rdf/xsd'
 
-module RDF::CSV
+module RDF::Tabular
   ##
   # A JSON literal.
   class JSON < RDF::Literal
-    DATATYPE = RDF::CSV::CSVW.json
+    DATATYPE = RDF::Tabular::CSVW.json
     GRAMMAR  = nil
 
     ##

@@ -14,7 +14,7 @@ require 'addressable/template'
 # * Return row iterator with column information
 #
 # @author [Gregg Kellogg](http://greggkellogg.net/)
-module RDF::CSV
+module RDF::Tabular
   class Metadata < Hash
     # Possible properties for a TableGroup
     TABLE_GROUP_PROPERTIES = %w(
@@ -130,7 +130,7 @@ module RDF::CSV
       any: RDF::XSD.anySimpleType,
       xml: RDF.XMLLiteral,
       html: RDF.HTML,
-      json: RDF::CSV::CSVW.json
+      json: RDF::Tabular::CSVW.json
     }
 
     # Type of this Metadata

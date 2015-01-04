@@ -2,7 +2,7 @@
 $:.unshift "."
 require 'spec_helper'
 
-describe RDF::CSV::Metadata do
+describe RDF::Tabular::Metadata do
   before(:each) do
     WebMock.stub_request(:get, "https://example.org/countries.csv").
       to_return(body: File.read(File.expand_path("../data/countries.csv", __FILE__)),
@@ -338,7 +338,7 @@ describe RDF::CSV::Metadata do
   context "parses example metadata" do
     Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
       context filename do
-        specify {expect {RDF::CSV::Metadata.open(filename)}.not_to raise_error}
+        specify {expect {RDF::Tabular::Metadata.open(filename)}.not_to raise_error}
       end
     end
   end
@@ -364,7 +364,7 @@ describe RDF::CSV::Metadata do
       Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
         context filename do
           specify do
-            expect{RDF::CSV::Metadata.open(filename).validate!}.not_to raise_error
+            expect{RDF::Tabular::Metadata.open(filename).validate!}.not_to raise_error
           end
         end
       end
@@ -403,7 +403,6 @@ describe RDF::CSV::Metadata do
       }
     }.each do |name, props|
       it name do
-        byebug
         metadata = props[:metadata] ? subject.merge(props[:metadata]) : subject
         result = metadata.embedded_metadata(props[:input])
         expect(result.to_json).to eq props[:result]
@@ -423,7 +422,7 @@ describe RDF::CSV::Metadata do
   describe "#merge" do
   end
 
-  describe RDF::CSV::Metadata::Row do
+  describe RDF::Tabular::Metadata::Row do
     describe "#initialize" do
     end
 

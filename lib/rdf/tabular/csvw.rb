@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 # This file generated automatically using vocab-fetch from http://www.w3.org/ns/csvw#
 require 'rdf'
-module RDF::CSV
+module RDF::Tabular
   class CSVW < RDF::StrictVocabulary("http://www.w3.org/ns/csvw#")
 
     # Class definitions

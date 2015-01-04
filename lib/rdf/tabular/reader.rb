@@ -1,6 +1,6 @@
 require 'rdf'
 
-module RDF::CSV
+module RDF::Tabular
   ##
   # A Tabular Data to RDF parser in Ruby.
   #
@@ -20,7 +20,7 @@ module RDF::CSV
     # @param  [Hash{Symbol => Object}] options
     #   @see `RDF::Reader.open` in RDF.rb and `#initialize`
     # @yield  [reader]
-    # @yieldparam  [RDF::CSV::Reader] reader
+    # @yieldparam  [RDF::Tabular::Reader] reader
     # @yieldreturn [void] ignored
     def self.open(filename, options = {}, &block)
       Util::File.open_file(filename, options) do |file|
@@ -40,12 +40,12 @@ module RDF::CSV
         metadata ||= Metadata.open(RDF::URI(filename).join("metadata.json"), options)
 
         # Return an open CSV with possible block
-        RDF::CSV::Reader.new(file, options.merge(metadata: metadata), &block)
+        RDF::Tabular::Reader.new(file, options.merge(metadata: metadata), &block)
       end
     end
 
     ##
-    # Initializes the RDF::CSV Reader instance.
+    # Initializes the RDF::Tabular Reader instance.
     #
     # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>]       input
     #   An opened file possibly JSON Metadata,
