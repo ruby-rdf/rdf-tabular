@@ -88,3 +88,16 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     (@info.trace ? "\nDebug:\n#{@info.trace}" : "")
   end  
 end
+
+RSpec::Matchers.define :produce do |expected, info = []|
+  match do |actual|
+    expect(actual).to eq expected
+  end
+  
+  failure_message do |actual|
+    "Expected: #{expected.is_a?(String) ? expected : expected.to_json(JSON_STATE)}\n" +
+    "Actual  : #{actual.is_a?(String) ? actual : actual.to_json(JSON_STATE)}\n" +
+    #(expected.is_a?(Hash) && actual.is_a?(Hash) ? "Diff: #{expected.diff(actual).to_json(JSON_STATE)}\n" : "") +
+    "Processing results:\n#{info.join("\n")}"
+  end
+end

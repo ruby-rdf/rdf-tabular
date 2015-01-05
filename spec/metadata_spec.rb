@@ -20,6 +20,7 @@ describe RDF::Tabular::Metadata do
       to_return(body: File.read(File.expand_path("../w3c-csvw/ns/csvw.jsonld", __FILE__)),
                 status: 200,
                 headers: { 'Content-Type' => 'application/ld+json'})
+    RDF::Tabular.debug = []
   end
 
   shared_examples "inherited properties" do |allowed = true|
@@ -384,55 +385,125 @@ describe RDF::Tabular::Metadata do
             "columns": [{
               "name": "countryCode",
               "title": "countryCode",
-              "predicateUrl": "#countryCode"
+              "predicateUrl": "https://example.org/countries.csv#countryCode"
             }, {
               "name": "latitude",
               "title": "latitude",
-              "predicateUrl": "#latitude"
+              "predicateUrl": "https://example.org/countries.csv#latitude"
             }, {
               "name": "longitude",
               "title": "longitude",
-              "predicateUrl": "#longitude"
+              "predicateUrl": "https://example.org/countries.csv#longitude"
             }, {
               "name": "name",
               "title": "name",
-              "predicateUrl": "#name"
+              "predicateUrl": "https://example.org/countries.csv#name"
             }]
           }
         })
-      }
+      },
+      #"with skipRows" => {
+      #  input: "https://example.org/countries.csv",
+      #  metadata: %({
+      #    "@type": "Table",
+      #    "dialect": {
+      #      "skipRows": 1
+      #    }
+      #  }),
+      #  result: %({
+      #    "@id": "https://example.org/countries.csv",
+      #    "@type": "Table",
+      #    "schema": {
+      #      "@type": "Schema",
+      #      "columns": [{
+      #        "name": "AD",
+      #        "title": "AD",
+      #        "predicateUrl": "https://example.org/countries.csv#AD"
+      #      }, {
+      #        "name": "42.546245",
+      #        "title": "42.546245",
+      #        "predicateUrl": "https://example.org/countries.csv#42.546245"
+      #      }, {
+      #        "name": "1.601554",
+      #        "title": "1.601554",
+      #        "predicateUrl": "https://example.org/countries.csv#1.601554"
+      #      }, {
+      #        "name": "Andorra",
+      #        "title": "Andorra",
+      #        "predicateUrl": "https://example.org/countries.csv#Andorra"
+      #      }]
+      #    }
+      #  })
+      #},
     }.each do |name, props|
       it name do
-        metadata = props[:metadata] ? subject.merge(props[:metadata]) : subject
+        metadata = props[:metadata] ? subject.merge(JSON.parse(props[:metadata])) : subject
         result = metadata.embedded_metadata(props[:input])
-        expect(result.to_json).to eq props[:result]
+        expect(result.to_json(JSON_STATE)).to produce(::JSON.parse(props[:result]).to_json(JSON_STATE), RDF::Tabular.debug)
       end
     end
   end
 
   describe "#each_row" do
+    subject {
+      described_class.new(JSON.parse(%({
+        "@id": "https://example.org/countries.csv",
+        "@type": "Table",
+        "schema": {
+          "@type": "Schema",
+          "columns": [{
+            "name": "countryCode",
+            "title": "countryCode",
+            "predicateUrl": "https://example.org/countries.csv#countryCode"
+          }, {
+            "name": "latitude",
+            "title": "latitude",
+            "predicateUrl": "https://example.org/countries.csv#latitude"
+          }, {
+            "name": "longitude",
+            "title": "longitude",
+            "predicateUrl": "https://example.org/countries.csv#longitude"
+          }, {
+            "name": "name",
+            "title": "name",
+            "predicateUrl": "https://example.org/countries.csv#name"
+          }]
+        }
+      })), base: RDF::URI("http://example.org/base"))
+    }
+    let(:input) {RDF::Util::File.open_file("https://example.org/countries.csv")}
+
+    specify {expect {|b| subject.each_row(input, &b)}.to yield_control.exactly(3)}
+
+    it "returns consecutive row numbers" do
+      nums = subject.to_enum(:each_row, input).map(&:rownum)
+      expect(nums).to eql([2, 3, 4])
+    end
+
+    it "returns resources BNode resources" do
+      resources = subject.to_enum(:each_row, input).map(&:resource)
+      expect(resources).to include(RDF::Node, RDF::Node, RDF::Node, RDF::Node)
+    end
+
+    it "returns resources values" do
+      values = subject.to_enum(:each_row, input).map(&:values)
+      expect(values).to produce([
+        %w(AD 42.546245 1.601554 Andorra),
+        %w(AE 23.424076 53.847818) << "United Arab Emirates",
+        %w(AF 33.93911 67.709953 Afghanistan),
+      ], RDF::Tabular.debug)
+    end
   end
 
   describe "#common_properties" do
+    it "FIXME"
   end
 
   describe "#rdf_values" do
+    it "FIXME"
   end
 
   describe "#merge" do
-  end
-
-  describe RDF::Tabular::Metadata::Row do
-    describe "#initialize" do
-    end
-
-    describe "#rownum" do
-    end
-
-    describe "#resource" do
-    end
-
-    describe "#values" do
-    end
+    it "FIXME"
   end
 end

@@ -75,7 +75,7 @@ module RDF::Tabular
 
         # Extract file metadata, and left-merge if appropriate
         unless input.is_a?(Metadata)
-          embedded_metadata = @metadata.embedded_metadata(input, options)
+          embedded_metadata = @metadata.embedded_metadata(input, @options)
           @metadata = embedded_metadata.merge(@metadata)
         end
 

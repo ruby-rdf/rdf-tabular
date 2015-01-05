@@ -16,6 +16,8 @@ require 'addressable/template'
 # @author [Gregg Kellogg](http://greggkellogg.net/)
 module RDF::Tabular
   class Metadata < Hash
+    include Utils
+
     # Possible properties for a TableGroup
     TABLE_GROUP_PROPERTIES = %w(
       @id @type resources schema table-direction dialect templates
@@ -168,7 +170,7 @@ module RDF::Tabular
     ##
     # Create Metadata from IO, Hash or String
     #
-    # @param [Metadata, Hash, #read, #to_s] input
+    # @param [Metadata, Hash, #read] input
     # @param [Hash{Symbol => Object}] options
     # @option options [:TableGroup, :Table, :Template, :Schema, :Column] :type
     #   Type of schema, if not set, intuited from properties
@@ -181,7 +183,10 @@ module RDF::Tabular
     # @return [Metadata]
     def initialize(input, options = {})
       @options = options.dup
-      @context = options.fetch(:context, ::JSON::LD::Context.new(options))
+      @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
+      @options[:base] ||= input.filename if input.respond_to?(:filename)
+      @options[:base] = RDF::URI(@options[:base])
+      @context = options.fetch(:context, ::JSON::LD::Context.new(@options))
 
       # Triveal case
       return input if input.is_a?(Metadata)
@@ -199,17 +204,19 @@ module RDF::Tabular
       # If we already have a context, merge in the context from this object, otherwise, set it to this object
       @context.merge!(jsonld.context)
 
-      if options[:type]
-        @type = options[:type]
-        raise "If provided, type must be one of :TableGroup, :Table, :Template, :Schema, :Column]" unless
-          [:TableGroup, :Table, :Template, :Schema, :Column].include?(@type)
+      if @options[:type]
+        @type = @options[:type]
+        raise "If provided, type must be one of :TableGroup, :Table, :Template, :Schema, :Column, :Dialect]" unless
+          [:TableGroup, :Table, :Template, :Schema, :Column, :Dialect].include?(@type)
       end
 
       # Parent of this Metadata, if any
-      @parent = options[:parent]
+      @parent = @options[:parent]
 
+      debug("md.new") {inspect}
       # Metadata is object with symbolic keys
       object.each do |key, value|
+        debug("md.new") {"key: #{key.inspect}, value: #{value.inspect}"}
         key = key.to_sym
         case key
         when :columns
@@ -290,19 +297,20 @@ module RDF::Tabular
         else
           self[key] = value
         end
+
+        # Set type from @type, if present and not otherwise defined
+        @type ||= self[:@type].to_sym if self[:@type]
+
+        validate! if options[:validate]
       end
-
-      # Set type from @type, if present and not otherwise defined
-      @type ||= self[:@type].to_sym if self[:@type]
-
-      validate! if options[:validate]
     end
 
     # Setters
     # Create predicateUrl by merging with table ID
     def predicateUrl=(value)
       # SPEC CONFUSION: what's the point of having an array?
-      table = parent while parent && parent.type != :Table
+      table = self
+      table = table.parent while table.parent && table.type != :Table
       self[:predicateUrl] = table && table.id ? table.id.join(value) : RDF::URI(value)
     end
 
@@ -492,35 +500,34 @@ module RDF::Tabular
 
       # Normalize input to an IO object
       if !input.respond_to?(:read)
-        return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options)}
+        return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
       end
 
       # Set encoding on input
-      ::CSV.new(input, csv_options) do |csv|
-        (0..dialect.skipRows.to_i).each do
-          row = csv.shift.join("")  # Skip initial lines, these form comment annotations
-          row = row[1..-1] if dialect.commentPrefix && row.start_with?(dialect.commentPrefix)
-          table["notes"] ||= [] << row unless row.empty?
-        end
+      csv = ::CSV.new(input, csv_options)
+      (1..dialect.skipRows.to_i).each do
+        row = csv.shift.join("")  # Skip initial lines, these form comment annotations
+        row = row[1..-1] if dialect.commentPrefix && row.start_with?(dialect.commentPrefix)
+        table["notes"] ||= [] << row unless row.empty?
+      end
 
-        (0..(dialect.headerRowCount || 1)).each do
-          csv.shift.each_with_index do |value, index|
-            # Skip columns
-            next if index < (dialect.skipColumns - 1)
+      (1..(dialect.headerRowCount || 1)).each do
+        csv.shift.each_with_index do |value, index|
+          # Skip columns
+          next if index < (dialect.skipColumns - 1)
 
-            # Trim value
-            value = ltrim(value) if %w(true start).include?(dialect.trim)
-            value = rtrim(value) if %w(true end).include?(dialect.trim)
+          # Trim value
+          value = ltrim(value) if %w(true start).include?(dialect.trim)
+          value = rtrim(value) if %w(true end).include?(dialect.trim)
 
-            # Initialize name, title, and predicateUrl
-            # SPEC CONFUSION: do name and title get an array, or concatenated values?
-            column = table["schema"]["columns"][index] ||= {
-              "@type" => "Column",
-              "title" => [],
-              "predicateUrl" => "#_col=#{index}"
-            }
-            column["title"] << value
-          end
+          # Initialize name, title, and predicateUrl
+          # SPEC CONFUSION: do name and title get an array, or concatenated values?
+          column = table["schema"]["columns"][index] ||= {
+            "name" => "",
+            "title" => [],
+            "predicateUrl" => "#_col=#{index}"
+          }
+          column["title"] << value
         end
 
         # Create name by concatenating title
@@ -529,9 +536,10 @@ module RDF::Tabular
           next unless c # Skipped columns
           c["name"] = c["title"].join("\n") if c["title"]
           c["predicateUrl"] = "##{URI.encode(c["name"])}" if c["name"]
+          c["title"] = c["title"].first if c["title"].length == 1
         end
       end
-      input.rewind if table_data.respond_to?(:rewind)
+      input.rewind if input.respond_to?(:rewind)
 
       Metadata.new(table, options)
     end
@@ -542,13 +550,13 @@ module RDF::Tabular
     # @param [:read] input
     # @yield [Row]
     def each_row(input)
-      ::CSV.new(input, csv_options) do |csv|
-        # Skip skip rows and header rows
-        rownum = dialect.skipRows.to_i + (dialect.headerRowCount || 1)
-        (0..to_skip).each {csv.shift}
+      csv = ::CSV.new(input, csv_options)
+      # Skip skip rows and header rows
+      rownum = dialect.skipRows.to_i + (dialect.headerRowCount || 1)
+      (1..rownum).each {csv.shift}
+      csv.each do |row|
         rownum += 1
-
-        csv.each {|row| yield(Row.new(row, self, rownum))}
+        yield(Row.new(row, self.schema, rownum))
       end
     end
 
@@ -603,7 +611,7 @@ module RDF::Tabular
 
     # Merge metadata into this a copy of this metadata
     def merge(metadata)
-      self.dup.merge(Metadata.new(metadata, context: context))
+      self.dup.merge!(Metadata.new(metadata, context: context))
     end
 
     # Merge metadata into self
@@ -632,13 +640,13 @@ module RDF::Tabular
         when :TableGroup
           if TABLE_GROUP_PROPERTIES.include?(method.to_sym)
             # As set, or with default
-            self.fetch(method, nil)
+            self[method]
           else
             super
           end
         when :Table
           if TABLE_PROPERTIES.include?(method.to_sym)
-            self.fetch(method, nil)
+            self[method]
           else
             super
           end
@@ -651,27 +659,25 @@ module RDF::Tabular
           end
         when :Template
           if TEMPLATE_PROPERTIES.include?(method.to_sym)
-            self.fetch(method, nil)
+            self[method]
           else
             super
           end
         when :Schema
           if SCHEMA_PROPERTIES.include?(method.to_sym)
-            self.fetch(method, nil)
+            self[method]
           else
             super
           end
         when :Column
           if COLUMN_PROPERTIES.include?(method.to_sym)
-            self.fetch(method, nil)
+            self[method]
           else
             super
           end
         else
           super
         end
-        # Otherwise, retrieve key value defaulting to super
-        self[method.to_sym] || super
       end
     end
 
@@ -719,7 +725,7 @@ module RDF::Tabular
           t = Addressable::Template.new(meetadata.urlTemplate)
           RDF::URI(t.expand(map_values))
         else
-          BNode.new
+          RDF::Node.new
         end
 
         # Yield each value, after conversion
@@ -749,7 +755,7 @@ module RDF::Tabular
             end
           end.compact
 
-          @values << metadata.dialect.separator ? cell_values : cell_values.first
+          @values << (metadata.dialect.separator ? cell_values : cell_values.first)
         end
       end
     end

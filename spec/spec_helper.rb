@@ -8,8 +8,17 @@ require 'rdf/isomorphic'
 require 'rdf/tabular'
 require 'rdf/turtle'
 require 'rdf/spec/matchers'
+require 'json'
 require 'webmock/rspec'
 require 'matchers'
+
+JSON_STATE = JSON::State.new(
+  :indent       => "  ",
+  :space        => " ",
+  :space_before => "",
+  :object_nl    => "\n",
+  :array_nl     => "\n"
+)
 
 # Heuristically detect the input stream
 def detect_format(stream)
