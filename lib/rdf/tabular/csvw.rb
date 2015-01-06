@@ -57,8 +57,12 @@ module RDF::Tabular
       type: "rdf:Property".freeze
     property :datatype,
       comment: %(The main datatype of the values of the cell. If the cell contains a list \(ie separator is specified and not null\) then this is the datatype of each value within the list.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "datatype".freeze,
+      "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
+      type: "rdf:Property".freeze
+    property :default,
+      comment: %(An atomic property holding a single string that provides a default string value for the cell in cases where the original string value is a null value. This default value may be used when converting the table into other formats.).freeze,
+      label: "default".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :delimiter,
@@ -74,8 +78,11 @@ module RDF::Tabular
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :doubleQuote,
-      comment: %().freeze,
+      comment: %(If true, sets the escape character flag to ". If false, to \.).freeze,
+      domain: "http://www.w3.org/ns/csvw#Dialect".freeze,
       label: "double quote".freeze,
+      range: "xsd:boolean".freeze,
+      "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :encoding,
       comment: %(The character encoding for the file, one of the encodings listed in [encoding]. The default is utf-8.).freeze,
@@ -84,26 +91,13 @@ module RDF::Tabular
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :foreignKeys,
-      comment: %(An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
-
-columns
-A column reference property that holds either a single reference to a column description object within this schema, or an array of references.
-reference
-An object with the properties:
-
-resource
-A URL that is the identifier for a specific resource that is being referenced. If this is present then schema must not be present. The metadata document must contain a description of the resource.
-schema
-A URL that is the identifier for a schema that is being referenced. If this is present then resource must not be present. The metadata document that forms the basis of processing must contain a description of a resource that uses the referenced schema, and there must not be more than one such resource.
-columns
-A column reference property that holds either a single reference to a column description object within this schema, or an array of references.).freeze,
+      comment: %(An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables.).freeze,
       domain: "http://www.w3.org/ns/csvw#Schema".freeze,
       label: "foreign keys".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :format,
       comment: %(A definition of the format of the cell, used when parsing the cell.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "format".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
@@ -131,13 +125,11 @@ A column reference property that holds either a single reference to a column des
       type: "rdf:Property".freeze
     property :language,
       comment: %(A language code as defined by [BCP47]. Indicates the language of the value within the cell.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "language".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :length,
       comment: %(The exact length of the value of the cell.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "length".freeze,
       range: "xsd:nonNegativeInteger".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
@@ -150,38 +142,32 @@ A column reference property that holds either a single reference to a column des
       type: "rdf:Property".freeze
     property :maxExclusive,
       comment: %(The maximum value for the cell \(exclusive\).).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "max exclusive".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :maxInclusive,
       comment: %(The maximum value for the cell \(inclusive\). ).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "max inclusive".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :maxLength,
       comment: %(The maximum length of the value of the cell.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "max length".freeze,
       range: "xsd:nonNegativeInteger".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :minExclusive,
       comment: %(The minimum value for the cell \(exclusive\).).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "min exclusive".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :minInclusive,
       comment: %(The minimum value for the cell \(inclusive\).).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "min inclusive".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :minLength,
       comment: %(The minimum length of the value of the cell.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "min length".freeze,
       range: "xsd:nonNegativeInteger".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
@@ -200,7 +186,6 @@ A column reference property that holds either a single reference to a column des
       type: "rdf:Property".freeze
     property :null,
       comment: %(The string used for null values. If not specified, the default for this is the empty string.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "null".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
@@ -237,6 +222,13 @@ A column reference property that holds either a single reference to a column des
       range: "http://www.w3.org/ns/csvw#Table".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
+    property :row,
+      comment: %(Relates a Table to each Row output.).freeze,
+      domain: "http://www.w3.org/ns/csvw#Table".freeze,
+      label: "row".freeze,
+      "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
+      subPropertyOf: "rdfs:member".freeze,
+      type: "rdf:Property".freeze
     property :schema,
       comment: %(An object property that provides a schema description for an individual table, or all the tables in a group.).freeze,
       label: "schema".freeze,
@@ -244,8 +236,7 @@ A column reference property that holds either a single reference to a column des
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :separator,
-      comment: %(The character used to separate items in the string value of the cell. If null or unspecified, the cell does not contain a list. Otherwise, application must split the string value of the cell on the specified separator character and parse each of the resulting strings separately. The cell's value will then be a list. Conversion specifications must use the separator to determine the conversion of a cell into the target format. See 3.12 Parsing cells for more details.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
+      comment: %(The character used to separate items in the string value of the cell.).freeze,
       label: "separator".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
@@ -278,10 +269,18 @@ A column reference property that holds either a single reference to a column des
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :source,
-      comment: %(If included, the format to which the tabular data should be transformed prior to the transformation using the template. If the value is "json", the tabular data should first be transformed first to JSON based on the simple mapping defined in Generating JSON from Tabular Data on the Web. If the value is "rdf", it should similarly first be transformed to XML based on the simple mapping defined in Generating RDF from Tabular Data on the Web. If the source property is missing or null then the source of the transformation is the annotated tabular data model.).freeze,
+      comment: %(The format to which the tabular data should be transformed prior to the transformation using the template. If the value is "json", the tabular data should first be transformed first to JSON based on the simple mapping defined in Generating JSON from Tabular Data on the Web. If the value is "rdf", it should similarly first be transformed to XML based on the simple mapping defined in Generating RDF from Tabular Data on the Web.).freeze,
       domain: "http://www.w3.org/ns/csvw#Template".freeze,
       label: "source".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
+      type: "rdf:Property".freeze
+    property :table,
+      comment: %(Relates an Table group to annotated tables. \(Note, this is different from csvw:resources, which relates metadata, rather than resulting annotated table descriptions.).freeze,
+      domain: "http://www.w3.org/ns/csvw#TableGroup".freeze,
+      label: "table".freeze,
+      range: "http://www.w3.org/ns/csvw#Table".freeze,
+      "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
+      subPropertyOf: "rdfs:member".freeze,
       type: "rdf:Property".freeze
     property :"table-direction",
       comment: %(One of csvw:rtl csvw:ltr or csvw:default. Indicates whether the tables in the group should be displayed with the first column on the right, on the left, or based on the first character in the table that has a specific direction. ).freeze,
@@ -309,7 +308,6 @@ A column reference property that holds either a single reference to a column des
       type: "rdf:Property".freeze
     property :"text-direction",
       comment: %(One of csvw:rtl or csvw:ltr. Indicates whether the text within cells should be displayed by default as left-to-right or right-to-left text. ).freeze,
-      domain: "http://www.w3.org/ns/csvw#Column".freeze,
       label: "text direction".freeze,
       range: "http://www.w3.org/ns/csvw#Direction".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
@@ -354,11 +352,6 @@ For a Column: A natural language property that provides possible alternative nam
       "dc:title" => %(Metadata Vocabulary for Tabular Data).freeze,
       label: "".freeze,
       type: "owl:Ontology".freeze
-    term :default,
-      comment: %(Indicates to use the default text direction.).freeze,
-      label: "default direction".freeze,
-      "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
-      type: "http://www.w3.org/ns/csvw#Direction".freeze
     term :ltr,
       comment: %(Indicates text should be processed left to right.).freeze,
       label: "left to right".freeze,

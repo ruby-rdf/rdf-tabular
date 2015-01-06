@@ -11,6 +11,7 @@ require 'rdf/spec/matchers'
 require 'json'
 require 'webmock/rspec'
 require 'matchers'
+require 'suite_helper'
 
 JSON_STATE = JSON::State.new(
   :indent       => "  ",

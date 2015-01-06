@@ -50,19 +50,17 @@ def normalize(graph)
   end
 end
 
-Info = Struct.new(:about, :information, :trace, :compare, :action, :result, :format)
+Info = Struct.new(:about, :debug, :action, :result)
 
 RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   match do |actual|
     @info = if info.respond_to?(:action)
       info
     elsif info.is_a?(Hash)
-      identifier = info[:identifier] || expected.is_a?(RDF::Enumerable) ? expected.context : info[:about]
-      trace = info[:trace]
-      trace = trace.join("\n") if trace.is_a?(Array)
-      i = Info.new(identifier, info[:information] || "", trace, info[:compare])
-      i.format = info[:format]
-      i
+      about = info[:about]
+      debug = info[:debug]
+      debug = Array(debug).join("\n")
+      Info.new(about, debug, info[:action], info[:result])
     else
       Info.new(expected.is_a?(RDF::Enumerable) ? expected.context : info, info.to_s)
     end
@@ -72,7 +70,7 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   end
   
   failure_message do |actual|
-    info = @info.respond_to?(:information) ? @info.information : @info.inspect
+    info = @info.about
     if @expected.is_a?(RDF::Enumerable) && @actual.size != @expected.size
       "Graph entry count differs:\nexpected: #{@expected.size}\nactual:   #{@actual.size}"
     elsif @expected.is_a?(Array) && @actual.size != @expected.length
@@ -83,9 +81,9 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     "\n#{info + "\n" unless info.empty?}" +
     (@info.action ? "Action: #{@info.action}\n" : "") +
     (@info.result ? "Result: #{@info.result}\n" : "") +
-    "Expected:\n#{@expected.dump((@info.format || :ttl), standard_prefixes: true)}" +
-    "Results:\n#{@actual.dump((@info.format || :ttl), standard_prefixes: true)}" +
-    (@info.trace ? "\nDebug:\n#{@info.trace}" : "")
+    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action})}" +
+    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action})}" +
+    (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
   end  
 end
 

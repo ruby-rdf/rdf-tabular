@@ -182,10 +182,12 @@ module RDF::Tabular
     # @return [Metadata]
     def initialize(input, options = {})
       @options = options.dup
+      @context = options.fetch(:context)
+
+      @options[:base] ||= context.base
       @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
       @options[:base] ||= input.filename if input.respond_to?(:filename)
       @options[:base] = RDF::URI(@options[:base])
-      @context = options.fetch(:context)
 
       @properties = self.class.const_get(:PROPERTIES)
       @required = self.class.const_get(:REQUIRED)
@@ -249,7 +251,7 @@ module RDF::Tabular
           # URL of CSV relative to metadata
           # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
           self[:@id] = value
-          @id = context.base.join(value)
+          @id = base.join(value)
         else
           if @properties.include?(key)
             self.send("#{key}=".to_sym, value)
@@ -289,6 +291,10 @@ module RDF::Tabular
     # Type of this Metadata
     # @return [:TableGroup, :Table, :Template, :Schema, :Column]
     def type; self.class.name.split('::').last.to_sym; end
+
+    # Base URL of metadata
+    # @return [RDF::URI]
+    def base; @options[:base]; end
 
     ##
     # Do we have valid metadata?
@@ -542,7 +548,7 @@ module RDF::Tabular
     # @yield new_value
     # @yieldparam [RDF::Value] new_value
     def rdf_values(property, value)
-      @@jld_api ||= JSON::LD::API.new({}, context)
+      @jld_api ||= ::JSON::LD::API.new({}, context)
 
       expanded_values = if value.is_a?(Array)
         value.map do |v|
@@ -552,7 +558,7 @@ module RDF::Tabular
         [context.expand_value(property.to_s, value)]
       end
       expanded_values.each do |ev|
-        yield(jld_api.parse_object(v))
+        yield(@jld_api.parse_object(ev))
       end
     end
 

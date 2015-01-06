@@ -7,11 +7,17 @@ module RDF::Tabular
   # @author [Gregg Kellogg](http://greggkellogg.net/)
   class Reader < RDF::Reader
     format Format
+    include Utils
 
     # Metadata associated with the CSV
     #
     # @return [Metadata]
     attr_reader :metadata
+
+    ##
+    # Input open to read
+    # @return [:read]
+    attr_reader :input
 
     ##
     # Open a CSV file or URI. Also attempts to load relevant metadata
@@ -64,18 +70,20 @@ module RDF::Tabular
         @options[:base] ||= base_uri.to_s if base_uri
         @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
 
+        @input = input.is_a?(String) ? StringIO.new(input) : input
+
         # If input is JSON, then the input is the metadata
         if @options[:base] =~ /\.json(?:ld)?$/ ||
-           input.respond_to?(:content_type) && input.content_type =~ %r(application/(?:ld+)json)
-          input = Metadata.new(input, options)
+           @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
+          @input = Metadata.new(@input, options)
         end
 
         # Use either passed metadata, or create an empty one to start
         @metadata = options.fetch(:metadata, Metadata.new({"@type" => :Table}, options))
 
         # Extract file metadata, and left-merge if appropriate
-        unless input.is_a?(Metadata)
-          embedded_metadata = @metadata.embedded_metadata(input, @options)
+        unless @input.is_a?(Metadata)
+          embedded_metadata = @metadata.embedded_metadata(@input, @options)
           @metadata = embedded_metadata.merge(@metadata)
         end
 
@@ -127,10 +135,10 @@ module RDF::Tabular
         add_statement(0, table_resource, RDF.type, CSVW.Table)
 
         # Distribution
-        distribution = Node.new
-        add_statement(0, table_resource, DCAT.distribution, distribution)
-        add_statement(0, distribution, RDF.type, DCAT.Distribution)
-        add_statement(0, distribution, DCAT.downloadURL, metadata.id)
+        distribution = RDF::Node.new
+        add_statement(0, table_resource, RDF::DCAT.distribution, distribution)
+        add_statement(0, distribution, RDF.type, RDF::DCAT.Distribution)
+        add_statement(0, distribution, RDF::DCAT.downloadURL, metadata.id)
 
         # Output table common properties
         metadata.common_properties.each do |prop, value|
@@ -139,14 +147,14 @@ module RDF::Tabular
         end
 
         # Column metadata
-        metadata.columns.each do |column|
+        metadata.schema.columns.each do |column|
           pred = column.predicateUrl
 
           # SPEC FIXME: Output csvw:Column, if set
           add_statement(0, pred, RDF.type, RDF.Property)
 
           # Titles
-          column.rdf_values {|v| add_statement(0, pred, CSVW.title, v)}
+          column.rdf_values(:title, column.title) {|v| add_statement(0, pred, CSVW.title, v)}
 
           # Common Properties
           column.common_properties.each do |prop, value|
@@ -161,7 +169,7 @@ module RDF::Tabular
           # Output row-level metadata
           add_statement(row.rownum, table_resource, CSVW.row, row.resource)
           row.values.each_with_index do |value, index|
-            column = metadata[columns][index]
+            column = metadata.schema.columns[index]
             Array(value).each do |v|
               add_statement(row.rownum, row.resource, column.predicateUrl, v)
             end
@@ -183,6 +191,25 @@ module RDF::Tabular
       end
       enum_for(:each_triple)
     end
+
+    private
+    ##
+    # add a statement, object can be literal or URI or bnode
+    #
+    # @param [Nokogiri::XML::Node, any] node XML Node or string for showing context
+    #
+    # @param [URI, BNode] subject the subject of the statement
+    # @param [URI] predicate the predicate of the statement
+    # @param [URI, BNode, Literal] object the object of the statement
+    # @return [Statement] Added statement
+    # @raise [ReaderError] Checks parameter types and raises if they are incorrect if parsing mode is _validate_.
+    def add_statement(node, subject, predicate, object)
+      statement = RDF::Statement.new(subject, predicate, object)
+      raise RDF::ReaderError, "#{statement.inspect} is invalid" if validate? && statement.invalid?
+      debug(node) {"statement: #{RDF::NTriples.serialize(statement)}"}
+      @callback.call(statement)
+    end
+
   end
 end
 

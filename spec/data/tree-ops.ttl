@@ -1,0 +1,45 @@
+@prefix : <tree-ops.csv#> .
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:GID a rdf:Property;
+   csvw:title "GID" .
+
+:Inventory%20Date a rdf:Property;
+   csvw:title "Inventory Date" .
+
+:On%20Street a rdf:Property;
+   csvw:title "On Street" .
+
+:Species a rdf:Property;
+   csvw:title "Species" .
+
+:Trim%20Cycle a rdf:Property;
+   csvw:title "Trim Cycle" .
+
+:table a csvw:Table;
+   csvw:row [
+     :GID "1";
+     :Inventory%20Date "10/18/2010";
+     :On%20Street "ADDISON AV";
+     :Species "Celtis australis";
+     :Trim%20Cycle "Large Tree Routine Prune"
+   ],  [
+     :GID "2";
+     :Inventory%20Date "6/2/2010";
+     :On%20Street "EMERSON ST";
+     :Species "Liquidambar styraciflua";
+     :Trim%20Cycle "Large Tree Routine Prune"
+   ],  [
+     :GID "3";
+     :Inventory%20Date "6/2/2010";
+     :On%20Street "EMERSON ST";
+     :Species "Liquidambar styraciflua";
+     :Trim%20Cycle "Large Tree Routine Prune"
+   ];
+   dcat:distribution [
+     a dcat:Distribution;
+     dcat:downloadURL </Users/gregg/Projects/rdf-tabular/spec/data/tree-ops.csv>
+   ] .
