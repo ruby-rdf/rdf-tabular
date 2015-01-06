@@ -143,7 +143,7 @@ describe RDF::Tabular::Metadata do
     end
   end
 
-  describe "Column" do
+  describe RDF::Tabular::Column do
     subject {described_class.new({"name" => "foo"}, base: RDF::URI("http://example.org/base"))}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
@@ -190,8 +190,8 @@ describe RDF::Tabular::Metadata do
     end
   end
 
-  describe "Schema" do
-    subject {described_class.new({"@type" => "Schema"}, base: RDF::URI("http://example.org/base"))}
+  describe RDF::Tabular::Schema do
+    subject {described_class.new({}, base: RDF::URI("http://example.org/base"))}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -281,7 +281,7 @@ describe RDF::Tabular::Metadata do
     end
   end
 
-  describe "Template" do
+  describe RDF::Tabular::Template do
     let(:targetFormat) {"http://example.org/targetFormat"}
     let(:templateFormat) {"http://example.org/templateFormat"}
     subject {described_class.new({"targetFormat" => targetFormat, "templateFormat" => templateFormat}, base: RDF::URI("http://example.org/base"))}
@@ -293,8 +293,8 @@ describe RDF::Tabular::Metadata do
     it "FIXME"
   end
 
-  describe "Dialect" do
-    subject {described_class.new({"@type" => "Dialect"}, base: RDF::URI("http://example.org/base"))}
+  describe RDF::Tabular::Dialect do
+    subject {described_class.new({}, base: RDF::URI("http://example.org/base"))}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties", false)
@@ -314,8 +314,8 @@ describe RDF::Tabular::Metadata do
     end
   end
 
-  describe "Table" do
-    subject {described_class.new({"@id" => "http://example.org/table.csv", "@type" => "Table"}, base: RDF::URI("http://example.org/base"))}
+  describe RDF::Tabular::Table do
+    subject {described_class.new({"@id" => "http://example.org/table.csv"}, base: RDF::URI("http://example.org/base"))}
     specify {is_expected.to be_valid}      
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -324,8 +324,8 @@ describe RDF::Tabular::Metadata do
     it "FIXME"
   end
 
-  describe "TableGroup" do
-    let(:table) {{"@id" => "http://example.org/table.csv", "@type" => "Table"}}
+  describe RDF::Tabular::TableGroup do
+    let(:table) {{"@id" => "http://example.org/table.csv"}}
     subject {described_class.new({"resources" => [table]}, base: RDF::URI("http://example.org/base"))}
     specify {is_expected.to be_valid}
     

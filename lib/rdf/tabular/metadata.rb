@@ -18,74 +18,12 @@ module RDF::Tabular
   class Metadata < Hash
     include Utils
 
-    # Possible properties for a TableGroup
-    TABLE_GROUP_PROPERTIES = %w(
-      @id @type resources schema table-direction dialect templates
-    ).map(&:to_sym).freeze
-    # Required properties for a TableGroup
-    TABLE_GROUP_REQUIRED = [].freeze
-
-    # Possible properties for a Table
-    TABLE_PROPERTIES = %w(
-      @id @type schema notes table-direction templates dialect
-    ).map(&:to_sym).freeze
-    # Required properties for a Table
-    TABLE_REQUIRED = [:@id].freeze
-
-    # Possible properties for a Template
-    TEMPLATE_PROPERTIES = %w(
-      @id @type targetFormat templateFormat title source
-    ).map(&:to_sym).freeze
-    # Required properties for a Template
-    TEMPLATE_REQUIRED = %w(targetFormat templateFormat).map(&:to_sym).freeze
-
-    # Possible properties for a Schema
-    SCHEMA_PROPERTIES = %w(
-      @id @type columns primaryKey foreignKeys urlTemplate
-    ).map(&:to_sym).freeze
-    # Required properties for a Schema
-    SCHEMA_REQUIRED = [].freeze
-
-    # Possible properties for a Column
-    COLUMN_PROPERTIES = %w(
-      @id @type name title required predicateUrl
-    ).map(&:to_sym).freeze
-    # Required properties for a Column
-    COLUMN_REQUIRED = [:name].freeze
-
     # Inheritect properties, valid for all types
     INHERITED_PROPERTIES = %w(
       null language text-direction separator default format datatype
       length minLength maxLength minimum maximum
       minInclusive maxInclusive minExclusive maxExclusive
     ).map(&:to_sym).freeze
-
-    # Defaults for dialects
-    DIALECT_DEFAULTS = {
-      commentPrefix:      nil,
-      delimiter:          ",".freeze,
-      doubleQuote:        true,
-      encoding:           "utf-8".freeze,
-      header:             true,
-      headerColumnnCount: 0,
-      headerRowCount:     1,
-      lineTerminator:     :auto, # SPEC says "\r\n"
-      quoteChar:          '"',
-      skipBlankRows:      false,
-      skipColumns:        0,
-      skipInitialSpace:   false,
-      skipRows:           0,
-      trim:               "false"
-    }.freeze
-
-    NON_INHERITED_PROPERTIES = (
-      TABLE_GROUP_PROPERTIES +
-      TABLE_PROPERTIES +
-      TEMPLATE_PROPERTIES +
-      SCHEMA_PROPERTIES +
-      COLUMN_PROPERTIES +
-      %w(@id @type table-direction).map(&:to_sym)
-    ).freeze
 
     # Valid datatypes
     DATATYPES = {
@@ -135,10 +73,6 @@ module RDF::Tabular
       json: RDF::Tabular::CSVW.json
     }
 
-    # Type of this Metadata
-    # @return [:TableGroup, :Table, :Template, :Schema, :Column]
-    attr_reader :type
-
     # ID of this Metadata
     # @return [RDF::URI]
     attr_reader :id
@@ -164,7 +98,72 @@ module RDF::Tabular
         }
       )
       path = "file:" + path unless path =~ /^\w+:/
-      RDF::Util::File.open_file(path, options) {|file| Metadata.new(file, options.merge(base: path))}
+      RDF::Util::File.open_file(path, options) {|file| self.new(file, options.merge(base: path))}
+    end
+
+
+    ##
+    # @private
+    def self.new(input, options = {})
+      # Triveal case
+      return input if input.is_a?(Metadata)
+
+      context = options.fetch(:context, ::JSON::LD::Context.new(options))
+
+      # Open as JSON-LD to get context
+      jsonld = ::JSON::LD::API.new(input, context)
+      if context.empty? && jsonld.context.empty?
+        input.rewind if input.respond_to?(:rewind)
+        jsonld = ::JSON::LD::API.new(input, 'http://www.w3.org/ns/csvw')
+      end
+
+      # If we already have a context, merge in the context from this object, otherwise, set it to this object
+      context.merge!(jsonld.context)
+
+      options = options.merge(context: context)
+
+      # Get both parsed JSON and context from jsonld
+      object = jsonld.value
+
+      klass = case
+        when !self.equal?(RDF::Tabular::Metadata)
+          self # subclasses can be directly constructed without type dispatch
+        else
+          type = if options[:type]
+            type = options[:type]
+            raise "If provided, type must be one of :TableGroup, :Table, :Template, :Schema, :Column, :Dialect]" unless
+              [:TableGroup, :Table, :Template, :Schema, :Column, :Dialect].include?(@type)
+            options[:type].to_sym
+          end
+
+          # Figure out type by @type
+          type ||= object['@type']
+
+          # Figure out type by site
+          object_keys = object.keys.map(&:to_s)
+          type ||= case
+          when %w(resources).any? {|k| object_keys.include?(k)} then :TableGroup
+          when %w(dialect schema templates).any? {|k| object_keys.include?(k)} then :Table
+          when %w(targetFormat templateFormat :source).any? {|k| object_keys.include?(k)} then :Template
+          when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
+          when %w(predicateUrl name required).any? {|k| object_keys.include?(k)} then :Column
+          end
+
+          case type.to_sym
+          when :TableGroup then RDF::Tabular::TableGroup
+          when :Table then RDF::Tabular::Table
+          when :Template then RDF::Tabular::Template
+          when :Schema then RDF::Tabular::Schema
+          when :Column then RDF::Tabular::Column
+          when :Dialect then RDF::Tabular::Dialect
+          else
+            raise "Unkown metadata type: #{type.inspect}"
+          end
+        end
+
+      md = klass.allocate
+      md.send(:initialize, object, options)
+      md
     end
 
     ##
@@ -172,7 +171,7 @@ module RDF::Tabular
     #
     # @param [Metadata, Hash, #read] input
     # @param [Hash{Symbol => Object}] options
-    # @option options [:TableGroup, :Table, :Template, :Schema, :Column] :type
+    # @option options [:TableGroup, :Table, :Template, :Schema, :Column, :Dialect] :type
     #   Type of schema, if not set, intuited from properties
     # @option options [JSON::LD::Context] context
     #   Context used for this metadata. Taken from input if not provided
@@ -186,29 +185,13 @@ module RDF::Tabular
       @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
       @options[:base] ||= input.filename if input.respond_to?(:filename)
       @options[:base] = RDF::URI(@options[:base])
-      @context = options.fetch(:context, ::JSON::LD::Context.new(@options))
+      @context = options.fetch(:context)
 
-      # Triveal case
-      return input if input.is_a?(Metadata)
+      @properties = self.class.const_get(:PROPERTIES)
+      @required = self.class.const_get(:REQUIRED)
 
-      # Open as JSON-LD to get context
-      jsonld = ::JSON::LD::API.new(input, context)
-      if context.empty? && jsonld.context.empty?
-        input.rewind if input.respond_to?(:rewind)
-        jsonld = ::JSON::LD::API.new(input, 'http://www.w3.org/ns/csvw')
-      end
-
-      # Get both parsed JSON and context from jsonld
-      object = jsonld.value
-
-      # If we already have a context, merge in the context from this object, otherwise, set it to this object
-      @context.merge!(jsonld.context)
-
-      if @options[:type]
-        @type = @options[:type]
-        raise "If provided, type must be one of :TableGroup, :Table, :Template, :Schema, :Column, :Dialect]" unless
-          [:TableGroup, :Table, :Template, :Schema, :Column, :Dialect].include?(@type)
-      end
+      # Input was parsed in .new
+      object = input
 
       # Parent of this Metadata, if any
       @parent = @options[:parent]
@@ -221,18 +204,16 @@ module RDF::Tabular
         case key
         when :columns
           # An array of template specifications that provide mechanisms to transform the tabular data into other formats
-          @type ||= :Schema
           self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-            value.map {|v| Metadata.new(v, @options.merge(type: :Column, parent: self, context: context))}
+            value.map {|v| Column.new(v, @options.merge(parent: self, context: context))}
           else
             # Invalid, but preserve value
             value
           end
         when :dialect
           # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
-          @type ||= :Table unless object.has_key?('resources')
           self[key] = case value
-          when Hash   then Metadata.new(value, @options.merge(type: :Dialect, parent: self, context: context))
+          when Hash   then Dialect.new(value, @options.merge(parent: self, context: context))
           else
             # Invalid, but preserve value
             value
@@ -240,54 +221,29 @@ module RDF::Tabular
           @type ||= :Tabl
         when :resources
           # An array of table descriptions for the tables in the group.
-          @type ||= :TableGroup
           self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-            value.map {|v| Metadata.new(v, @options.merge(type: :Table, parent: self, context: context))}
+            value.map {|v| Table.new(v, @options.merge(parent: self, context: context))}
           else
             # Invalid, but preserve value
             value
           end
         when :schema
           # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
-          @type ||= :Table unless object.has_key?('resources')
           self[key] = case value
-          when String then Metadata.open(value, @options.merge(type: :Schema, parent: self, context: context))
-          when Hash   then Metadata.new(value, @options.merge(type: :Schema, parent: self, context: context))
+          when String then Schema.open(value, @options.merge(parent: self, context: context))
+          when Hash   then Schema.new(value, @options.merge(parent: self, context: context))
           else
             # Invalid, but preserve value
             value
           end
         when :templates
           # An array of template specifications that provide mechanisms to transform the tabular data into other formats
-          @type ||= :Table unless object.has_key?('resources')
           self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-            value.map {|v| Metadata.new(v, @options.merge(type: :Template, parent: self, context: context))}
+            value.map {|v| Template.new(v, @options.merge(parent: self, context: context))}
           else
             # Invalid, but preserve value
             value
           end
-        when :targetFormat, :templateFormat, :source
-          @type ||= :Template
-          self.send("#{key}=".to_sym, value)
-        when :primaryKey, :foreignKeys, :urlTemplate
-          @type ||= :Schema
-          self[key] = value
-        when :predicateUrl
-          @type ||= :Column
-          self.predicateUrl = value
-        when :name, :required
-          @type ||= :Column
-          self.send("#{key}=".to_sym, value)
-        when :encoding, :lineTerminator, :quoteChar, :doubleQuote,
-             :skipRows, :commentPrefix, :header, :headerRowCount, :delimiter,
-             :skipColumns, :headerColumnCount, :skipBlankRows, :skipInitialSpace,
-             :trim, :targetFormat, :templateFormat, :title, :source, :urlTemplate,
-             :name, :title, :required, :null, :language, :separator, :default,
-             :format, :datatype,
-             :length, :maxLength, :minLength,
-             :minimum, :maximum,
-             :minInclusive, :maxInclusive,
-             :minExclusive, :maxExclusive
           self.send("#{key}=".to_sym, value)
         when :@id
           # URL of CSV relative to metadata
@@ -295,7 +251,11 @@ module RDF::Tabular
           self[:@id] = value
           @id = context.base.join(value)
         else
-          self[key] = value
+          if @properties.include?(key)
+            self.send("#{key}=".to_sym, value)
+          else
+            self[key] = value
+          end
         end
 
         # Set type from @type, if present and not otherwise defined
@@ -306,12 +266,10 @@ module RDF::Tabular
     end
 
     # Setters
-    # Create predicateUrl by merging with table ID
-    def predicateUrl=(value)
-      # SPEC CONFUSION: what's the point of having an array?
-      table = self
-      table = table.parent while table.parent && table.type != :Table
-      self[:predicateUrl] = table && table.id ? table.id.join(value) : RDF::URI(value)
+    INHERITED_PROPERTIES.map(&:to_sym).each do |a|
+      define_method("#{a}=".to_sym) do |value|
+        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
     end
 
     # When setting language, also update the default language in the context
@@ -319,20 +277,18 @@ module RDF::Tabular
       context.default_language = self[:language] = value
     end
 
-    (INHERITED_PROPERTIES + NON_INHERITED_PROPERTIES + DIALECT_DEFAULTS.keys - [:predicateUrl]).map(&:to_sym).each do |a|
-      define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
-      end
-    end
-
     # Treat `dialect` similar to an inherited property, but default
     def dialect
       self[:dialect] ||= if parent
         parent.dialect
       else
-        Metadata.new({}, @options.merge(type: :Dialect, parent: self, context: context))
+        Dialect.new({}, @options.merge(parent: self, context: context))
       end
     end
+
+    # Type of this Metadata
+    # @return [:TableGroup, :Table, :Template, :Schema, :Column]
+    def type; self.class.name.split('::').last.to_sym; end
 
     ##
     # Do we have valid metadata?
@@ -347,24 +303,15 @@ module RDF::Tabular
     # Raise error if metadata has any unexpected properties
     # @return [self]
     def validate!
-      expected_props, required_props = case type
-      when :TableGroup then [TABLE_GROUP_PROPERTIES, TABLE_GROUP_REQUIRED]
-      when :Table      then [TABLE_PROPERTIES, TABLE_REQUIRED]
-      when :Dialect    then [DIALECT_DEFAULTS.keys + [:@type], []]
-      when :Template   then [TEMPLATE_PROPERTIES, TEMPLATE_REQUIRED]
-      when :Schema     then [SCHEMA_PROPERTIES, SCHEMA_REQUIRED]
-      when :Column     then [COLUMN_PROPERTIES, COLUMN_REQUIRED]
-      else
-        raise "Unknown metadata type: #{type}"
-      end
+      expected_props, required_props = @properties, @required
 
-      unless [:Dialect, :Template].include?(type)
+      unless is_a?(Dialect) || is_a?(Template)
         expected_props = expected_props + INHERITED_PROPERTIES
       end
 
       # It has only expected properties (exclude metadata)
       keys = self.keys - [:"@context"]
-      keys = keys.reject {|k| k.to_s.include?(':')} unless type == :Dialect
+      keys = keys.reject {|k| k.to_s.include?(':')} unless is_a?(Dialect)
       raise "#{type} has unexpected keys: #{keys - expected_props}" unless keys.all? {|k| expected_props.include?(k)}
 
       # It has required properties
@@ -377,7 +324,7 @@ module RDF::Tabular
         when :columns
           column_names = value.map(&:name)
           value.is_a?(Array) &&
-          value.all? {|v| v.is_a?(Metadata) && v.type == :Column && v.validate!} &&
+          value.all? {|v| v.is_a?(Metadata) && v.is_a?(Column) && v.validate!} &&
           begin
             # The name properties of the column descriptions must be unique within a given table description.
             column_names = value.map(&:name)
@@ -388,7 +335,7 @@ module RDF::Tabular
         when :datatype then value.is_a?(String) && DATATYPES.keys.map(&:to_s).include?(value)
         when :default then value.is_a?(String)
         when :delimiter then value.is_a?(String) && value.length == 1
-        when :dialect then value.is_a?(Metadata) && v.type == :Dialect && v.validate!
+        when :dialect then value.is_a?(Metadata) && v.is_a?(Dialect) && v.validate!
         when :doubleQuote then %w(true false 1 0).include?(value.to_s.downcase)
         when :encoding then Encoding.find(value)
         when :foreignKeys
@@ -440,8 +387,8 @@ module RDF::Tabular
           end
         when :quoteChar then value.is_a?(String) && value.length == 1
         when :required then %w(true false 1 0).include?(value.to_s.downcase)
-        when :resources then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.type == :Table && v.validate!}
-        when :schema then value.is_a?(Metadata) && value.type == :Schema && value.validate!
+        when :resources then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.is_a?(Table) && v.validate!}
+        when :schema then value.is_a?(Metadata) && value.is_a?(Schema) && value.validate!
         when :separator then value.nil? || value.is_a?(String) && value.length == 1
         when :skipInitialSpace then %w(true false 1 0).include?(value.to_s.downcase)
         when :skipBlankRows then %w(true false 1 0).include?(value.to_s.downcase)
@@ -450,7 +397,7 @@ module RDF::Tabular
         when :source then %w(json rdf).include?(value)
         when :"table-direction" then %w(rtl ltr default).include?(value)
         when :targetFormat, :templateFormat then RDF::URI(value).valid?
-        when :templates then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.type == :Template && v.validate!}
+        when :templates then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.is_a?(Template) && v.validate!}
         when :"text-direction" then %w(rtl ltr).include?(value)
         when :title then valid_natural_language_property?(value)
         when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
@@ -512,7 +459,7 @@ module RDF::Tabular
       end
 
       (1..(dialect.headerRowCount || 1)).each do
-        csv.shift.each_with_index do |value, index|
+        Array(csv.shift).each_with_index do |value, index|
           # Skip columns
           next if index < (dialect.skipColumns - 1)
 
@@ -541,7 +488,7 @@ module RDF::Tabular
       end
       input.rewind if input.respond_to?(:rewind)
 
-      Metadata.new(table, options)
+      Table.new(table, options)
     end
 
     ##
@@ -577,7 +524,7 @@ module RDF::Tabular
         end
       else
         props = {}
-        common_properties.each do |p, v|
+        common_properties do |p, v|
           case props[p]
           when nil then props[p] = v
           when Array then props[p] << v
@@ -621,64 +568,7 @@ module RDF::Tabular
     end
 
     def inspect
-      "Metadata(#{type})" + super
-    end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      if DIALECT_DEFAULTS.has_key?(method.to_sym) && type == :Dialect
-        # As set, or with default
-        self.fetch(method, DIALECT_DEFAULTS[method.to_sym])
-      elsif INHERITED_PROPERTIES.include?(method.to_sym)
-        # Inherited properties
-        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
-      elsif method.to_sym == :name && type == :Column
-        # If not set, name comes from title
-        self.fetch(:name, self[:title])
-      else
-        case type
-        when :TableGroup
-          if TABLE_GROUP_PROPERTIES.include?(method.to_sym)
-            # As set, or with default
-            self[method]
-          else
-            super
-          end
-        when :Table
-          if TABLE_PROPERTIES.include?(method.to_sym)
-            self[method]
-          else
-            super
-          end
-        when :Dialect
-          if DIALECT_DEFAULTS.has_key?(method.to_sym)
-            # As set, or with default
-            self.fetch(method, DIALECT_DEFAULTS[method.to_sym])
-          else
-            super
-          end
-        when :Template
-          if TEMPLATE_PROPERTIES.include?(method.to_sym)
-            self[method]
-          else
-            super
-          end
-        when :Schema
-          if SCHEMA_PROPERTIES.include?(method.to_sym)
-            self[method]
-          else
-            super
-          end
-        when :Column
-          if COLUMN_PROPERTIES.include?(method.to_sym)
-            self[method]
-          else
-            super
-          end
-        else
-          super
-        end
-      end
+      self.class.name + super
     end
 
   private
@@ -690,73 +580,226 @@ module RDF::Tabular
         quote_char: dialect.quoteChar,
       }
     end
+  end
 
-    # Wraps each resulting row
-    class Row
-      # URI or BNode of this row, after expanding `uriTemplate`
-      # @return [RDF::Resource] resource
-      attr_reader :resource
+  class TableGroup < Metadata
+    PROPERTIES = %w(@id @type resources schema table-direction dialect templates).map(&:to_sym).freeze
+    REQUIRED = [].freeze
 
-      # Row values, hashed by `name`
-      attr_reader :values
+    # Setters
+    PROPERTIES.map(&:to_sym).each do |a|
+      define_method("#{a}=".to_sym) do |value|
+        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
+    end
 
-      # Row number of this row
-      # @return [Integer]
-      attr_reader :rownum
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      if INHERITED_PROPERTIES.include?(method.to_sym)
+        # Inherited properties
+        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
+      else
+        PROPERTIES.include?(method.to_sym) ? self[method.to_sym] : super
+      end
+    end
+  end
 
-      ##
-      # @param [Array<Array<String>>] row
-      # @param [Metadata] Table metadata
-      # @param [rownum] 1-based row number
-      # @return [Row]
-      def initialize(row, metadata, rownum)
-        @rownum = rownum
+  class Table < Metadata
+    PROPERTIES = %w(@id @type schema notes table-direction templates dialect).map(&:to_sym).freeze
+    REQUIRED = [:@id].freeze
 
-        # Create values hash
-        # SPEC CONFUSION: are values pre-or-post conversion?
-        map_values = {"_row" => rownum}
-        row.each_with_index do |value, index|
-          name = metadata.columns[index].name || "_col=#{index}"
-          map_values[name] = value
-        end
+    # Setters
+    PROPERTIES.map(&:to_sym).each do |a|
+      define_method("#{a}=".to_sym) do |value|
+        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
+    end
 
-        # Create resource using urlTemplate and values hash
-        @resource = if metadata.urlTemplate
-          t = Addressable::Template.new(meetadata.urlTemplate)
-          RDF::URI(t.expand(map_values))
-        else
-          RDF::Node.new
-        end
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      if INHERITED_PROPERTIES.include?(method.to_sym)
+        # Inherited properties
+        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
+      else
+        PROPERTIES.include?(method.to_sym) ? self[method.to_sym] : super
+      end
+    end
+  end
 
-        # Yield each value, after conversion
-        @values = []
-        row.each_with_index do |cell, index|
-          # Skip columns
-          next if index < (metadata.dialect.skipColumns - 1)
+  class Template < Metadata
+    PROPERTIES = %w(@id @type targetFormat templateFormat title source).map(&:to_sym).freeze
+    REQUIRED = %w(targetFormat templateFormat).map(&:to_sym).freeze
 
-          cv = cell
-          # Trim value
-          cv = ltrim(cv.to_s) if %w(true start).include?(metadata.dialect.trim)
-          cv = rtrim(cv.to_s) if %w(true end).include?(metadata.dialect.trim)
+    # Setters
+    PROPERTIES.map(&:to_sym).each do |a|
+      define_method("#{a}=".to_sym) do |value|
+        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
+    end
 
-          cell_values = metadata.dialect.separator ? cv.split(metadata.dialect.separator) : [cv]
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      PROPERTIES.include?(method.to_sym) ? self[method.to_sym] : super
+    end
+  end
 
-          cell_values = cell_values.map do |v|
-            case
-            when v.empty? then metadata.dialect.null
-            when v.nil? then metadata.dialect.default
-            when metadata.dialect.datatype == :anyUri
-              metadata.id.join(v)
-            when metadata.dialect.datatype
-              # FIXME: use of format in extracting information
-              RDF::Literal(v, datatype: metadata.context.expand_iri(metadata.datatype))
-            else
-              RDF::Literal(v, language: metadata.language)
-            end
-          end.compact
+  class Schema < Metadata
+    PROPERTIES = %w(@id @type columns primaryKey foreignKeys urlTemplate).map(&:to_sym).freeze
+    REQUIRED = [].freeze
 
-          @values << (metadata.dialect.separator ? cell_values : cell_values.first)
-        end
+    # Setters
+    PROPERTIES.map(&:to_sym).each do |a|
+      define_method("#{a}=".to_sym) do |value|
+        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
+    end
+
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      if INHERITED_PROPERTIES.include?(method.to_sym)
+        # Inherited properties
+        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
+      else
+        PROPERTIES.include?(method.to_sym) ? self[method.to_sym] : super
+      end
+    end
+  end
+
+  class Column < Metadata
+    PROPERTIES = %w(@id @type name title required predicateUrl).map(&:to_sym).freeze
+    REQUIRED = [:name].freeze
+
+    # Setters
+    PROPERTIES.map(&:to_sym).each do |a|
+      define_method("#{a}=".to_sym) do |value|
+        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
+    end
+
+    # Create predicateUrl by merging with table ID
+    def predicateUrl=(value)
+      # SPEC CONFUSION: what's the point of having an array?
+      table = self
+      table = table.parent while table.parent && table.type != :Table
+      self[:predicateUrl] = table && table.id ? table.id.join(value) : RDF::URI(value)
+    end
+
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      if INHERITED_PROPERTIES.include?(method.to_sym)
+        # Inherited properties
+        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
+      else
+        PROPERTIES.include?(method.to_sym) ? self[method.to_sym] : super
+      end
+    end
+  end
+
+  class Dialect < Metadata
+    # Defaults for dialects
+    DIALECT_DEFAULTS = {
+      commentPrefix:      nil,
+      delimiter:          ",".freeze,
+      doubleQuote:        true,
+      encoding:           "utf-8".freeze,
+      header:             true,
+      headerColumnnCount: 0,
+      headerRowCount:     1,
+      lineTerminator:     :auto, # SPEC says "\r\n"
+      quoteChar:          '"',
+      skipBlankRows:      false,
+      skipColumns:        0,
+      skipInitialSpace:   false,
+      skipRows:           0,
+      trim:               "false"
+    }.freeze
+
+    PROPERTIES = (%w(@id @type) + DIALECT_DEFAULTS.keys).map(&:to_sym).freeze
+    REQUIRED = [].freeze
+
+    # Setters
+    PROPERTIES.map(&:to_sym).each do |a|
+      define_method("#{a}=".to_sym) do |value|
+        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
+    end
+
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      if DIALECT_DEFAULTS.has_key?(method.to_sym)
+        # As set, or with default
+        self.fetch(method.to_sym, DIALECT_DEFAULTS[method.to_sym])
+      else
+        super
+      end
+    end
+  end
+
+  # Wraps each resulting row
+  class Row
+    # URI or BNode of this row, after expanding `uriTemplate`
+    # @return [RDF::Resource] resource
+    attr_reader :resource
+
+    # Row values, hashed by `name`
+    attr_reader :values
+
+    # Row number of this row
+    # @return [Integer]
+    attr_reader :rownum
+
+    ##
+    # @param [Array<Array<String>>] row
+    # @param [Metadata] Table metadata
+    # @param [rownum] 1-based row number
+    # @return [Row]
+    def initialize(row, metadata, rownum)
+      @rownum = rownum
+
+      # Create values hash
+      # SPEC CONFUSION: are values pre-or-post conversion?
+      map_values = {"_row" => rownum}
+      row.each_with_index do |value, index|
+        name = metadata.columns[index].name || "_col=#{index}"
+        map_values[name] = value
+      end
+
+      # Create resource using urlTemplate and values hash
+      @resource = if metadata.urlTemplate
+        t = Addressable::Template.new(meetadata.urlTemplate)
+        RDF::URI(t.expand(map_values))
+      else
+        RDF::Node.new
+      end
+
+      # Yield each value, after conversion
+      @values = []
+      row.each_with_index do |cell, index|
+        # Skip columns
+        next if index < (metadata.dialect.skipColumns - 1)
+
+        cv = cell
+        # Trim value
+        cv = ltrim(cv.to_s) if %w(true start).include?(metadata.dialect.trim)
+        cv = rtrim(cv.to_s) if %w(true end).include?(metadata.dialect.trim)
+
+        cell_values = metadata.separator ? cv.split(metadata.separator) : [cv]
+
+        cell_values = cell_values.map do |v|
+          case
+          when v.empty? then metadata.dialect.null
+          when v.nil? then metadata.dialect.default
+          when metadata.datatype == :anyUri
+            metadata.id.join(v)
+          when metadata.datatype
+            # FIXME: use of format in extracting information
+            RDF::Literal(v, datatype: metadata.context.expand_iri(metadata.datatype))
+          else
+            RDF::Literal(v, language: metadata.language)
+          end
+        end.compact
+
+        @values << (metadata.separator ? cell_values : cell_values.first)
       end
     end
   end
