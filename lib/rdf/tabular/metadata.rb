@@ -85,6 +85,10 @@ module RDF::Tabular
     # @return [JSON::LD::Context]
     attr_reader :context
 
+    # Filename (URI) of opened metadata, if any
+    # @return [RDF::URI] filename
+    attr_reader :filename
+
     ##
     # Attempt to retrieve the file at the specified path. If it is valid metadata, create a new Metadata object from it, otherwise, an empty Metadata object
     #
@@ -98,7 +102,7 @@ module RDF::Tabular
         }
       )
       path = "file:" + path unless path =~ /^\w+:/
-      RDF::Util::File.open_file(path, options) {|file| self.new(file, options.merge(base: path))}
+      RDF::Util::File.open_file(path, options) {|file| self.new(file, options.merge(base: path, filename: path))}
     end
 
 
@@ -189,6 +193,7 @@ module RDF::Tabular
       @options[:base] ||= input.filename if input.respond_to?(:filename)
       @options[:base] = RDF::URI(@options[:base])
 
+      @filename = RDF::URI(@options[:filename]) if @options[:filename]
       @properties = self.class.const_get(:PROPERTIES)
       @required = self.class.const_get(:REQUIRED)
 

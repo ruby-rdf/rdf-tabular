@@ -31,6 +31,7 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'rdf-spec',        '~> 1.1'
   gem.add_development_dependency 'rdf-turtle',      '~> 1.1'
   gem.add_development_dependency 'rdf-isomorphic',  '~> 1.1'
+  gem.add_development_dependency 'sparql',          '~> 1.1'
   gem.add_development_dependency 'rspec',           '~> 3.0'
   gem.add_development_dependency 'rspec-its',       '~> 1.0'
   gem.add_development_dependency 'webmock',     '~> 1.17'

@@ -25,13 +25,14 @@ module RDF::Tabular
     # @param  [String, #to_s] filename
     # @param  [Hash{Symbol => Object}] options
     #   @see `RDF::Reader.open` in RDF.rb and `#initialize`
+    # @option options [Boolean] :noProv Do not output provenance information
     # @yield  [reader]
     # @yieldparam  [RDF::Tabular::Reader] reader
     # @yieldreturn [void] ignored
     def self.open(filename, options = {}, &block)
       Util::File.open_file(filename, options) do |file|
         # load link metadata, if available
-        options = {base: filename}.merge(options)
+        options = {base: filename, path: filename}.merge(options)
 
         metadata = options[:metadata]
         metadata ||= if file.respond_to?(:links)
@@ -79,7 +80,7 @@ module RDF::Tabular
         end
 
         # Use either passed metadata, or create an empty one to start
-        @metadata = options.fetch(:metadata, Metadata.new({"@type" => :Table}, options))
+        @metadata = options.fetch(:metadata, Table.new({}, options))
 
         # Extract file metadata, and left-merge if appropriate
         unless @input.is_a?(Metadata)
@@ -102,6 +103,8 @@ module RDF::Tabular
     def each_statement(&block)
       if block_given?
         @callback = block
+
+        start_time = Time.now
 
         # Construct metadata from that passed from file open, along with information from the file.
         if input.is_a?(Metadata)
@@ -154,7 +157,7 @@ module RDF::Tabular
           add_statement(0, pred, RDF.type, RDF.Property)
 
           # Titles
-          column.rdf_values(:title, column.title) {|v| add_statement(0, pred, CSVW.title, v)}
+          column.rdf_values(:title, column.title) {|v| add_statement(0, pred, RDF::RDFS.label, v)}
 
           # Common Properties
           column.common_properties.each do |prop, value|
@@ -176,6 +179,36 @@ module RDF::Tabular
           end
         end
 
+        # Provenance
+        unless @options[:noProv]
+          activity = RDF::Node.new
+          add_statement(0, table_resource, RDF::PROV.Activity, activity)
+          add_statement(0, activity, RDF.type, RDF::PROV.Activity)
+          add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
+          add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
+
+          csv_path = @options[:path] ||
+                     (@input.filename if @input.respond_to?(:filename)) ||
+                     (@input.path if @input.respond_to?(:path))
+
+          if csv_path && !@input.is_a?(Metadata)
+            usage = RDF::Node.new
+            add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+            add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(csv_path))
+            # FIXME: needs to be defined in vocabulary
+            add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "csvEncodedTabularData")
+          end
+
+          if @metadata.filename && @metadata != @input
+            usage = RDF::Node.new
+            add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+            add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(@input.filename))
+            # FIXME: needs to be defined in vocabulary
+            add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "tabularMetadata")
+          end
+        end
       end
       enum_for(:each_statement)
     end

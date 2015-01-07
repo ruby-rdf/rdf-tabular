@@ -16,11 +16,17 @@ module RDF
   module Tabular
     require 'rdf/tabular/format'
     require 'rdf/tabular/utils'
-    autoload :CSVW,     'rdf/tabular/csvw'
-    autoload :JSON,     'rdf/tabular/literal'
-    autoload :Metadata, 'rdf/tabular/metadata'
-    autoload :Reader,   'rdf/tabular/reader'
-    autoload :VERSION,  'rdf/tabular/version'
+    autoload :Column,     'rdf/tabular/metadata'
+    autoload :CSVW,       'rdf/tabular/csvw'
+    autoload :Dialect,    'rdf/tabular/metadata'
+    autoload :JSON,       'rdf/tabular/literal'
+    autoload :Metadata,   'rdf/tabular/metadata'
+    autoload :Reader,     'rdf/tabular/reader'
+    autoload :Schema,     'rdf/tabular/metadata'
+    autoload :Table,      'rdf/tabular/metadata'
+    autoload :TableGroup, 'rdf/tabular/metadata'
+    autoload :Template,   'rdf/tabular/metadata'
+    autoload :VERSION,    'rdf/tabular/version'
 
     def self.debug; @debug; end
     def self.debug=(value); @debug = value.is_a?(Array) ? value : StringIO.new; end

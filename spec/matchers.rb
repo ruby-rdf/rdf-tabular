@@ -2,40 +2,6 @@ require 'rdf/isomorphic'
 require 'rspec/matchers'
 require 'rdf/rdfa'
 
-RSpec::Matchers.define :have_xpath do |xpath, value, trace|
-  match do |actual|
-    @doc = Nokogiri::HTML.parse(actual)
-    return false unless @doc.is_a?(Nokogiri::XML::Document)
-    return false unless @doc.root.is_a?(Nokogiri::XML::Element)
-    @namespaces = @doc.namespaces.merge("xhtml" => "http://www.w3.org/1999/xhtml", "xml" => "http://www.w3.org/XML/1998/namespace")
-    case value
-    when false
-      @doc.root.at_xpath(xpath, @namespaces).nil?
-    when true
-      !@doc.root.at_xpath(xpath, @namespaces).nil?
-    when Array
-      @doc.root.at_xpath(xpath, @namespaces).to_s.split(" ").include?(*value)
-    when Regexp
-      @doc.root.at_xpath(xpath, @namespaces).to_s =~ value
-    else
-      @doc.root.at_xpath(xpath, @namespaces).to_s == value
-    end
-  end
-  
-  failure_message do |actual|
-    msg = "expected that #{xpath.inspect} would be #{value.inspect} in:\n" + actual.to_s
-    msg += "was: #{@doc.root.at_xpath(xpath, @namespaces)}"
-    msg +=  "\nDebug:#{trace.join("\n")}" if trace
-    msg
-  end
-  
-  failure_message_when_negated do |actual|
-    msg = "expected that #{xpath.inspect} would not be #{value.inspect} in:\n" + actual.to_s
-    msg +=  "\nDebug:#{trace.join("\n")}" if trace
-    msg
-  end
-end
-
 def normalize(graph)
   case graph
   when RDF::Queryable then graph
@@ -70,7 +36,7 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   end
   
   failure_message do |actual|
-    info = @info.about
+    
     if @expected.is_a?(RDF::Enumerable) && @actual.size != @expected.size
       "Graph entry count differs:\nexpected: #{@expected.size}\nactual:   #{@actual.size}"
     elsif @expected.is_a?(Array) && @actual.size != @expected.length
@@ -78,12 +44,65 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     else
       "Graph differs"
     end +
-    "\n#{info + "\n" unless info.empty?}" +
+    "\n#{@info.about + "\n" if @info.about}" +
     (@info.action ? "Action: #{@info.action}\n" : "") +
     (@info.result ? "Result: #{@info.result}\n" : "") +
-    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action})}" +
-    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action})}" +
+    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true)}" +
+    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true)}" +
     (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
+  end  
+end
+
+RSpec::Matchers.define :pass_query do |expected, info|
+  match do |actual|
+    if info.respond_to?(:about)
+      @info = info
+    elsif info.is_a?(Hash)
+      about = info[:about]
+      debug = info[:debug]
+      debug = Array(debug).join("\n")
+      Info.new(about, debug, info[:action], info[:result])
+    end
+
+    @expected = expected.respond_to?(:read) ? expected.read : expected
+
+    require 'sparql'
+    query = SPARQL.parse(@expected)
+    @results = actual.query(query)
+
+    @results == @info.result
+  end
+
+  failure_message do |actual|
+    "#{@info.inspect + "\n"}" +
+    if @results.nil?
+      "Query failed to return results"
+    elsif !@results.is_a?(RDF::Literal::Boolean)
+      "Query returned non-boolean results"
+    elsif @info.result != @results
+      "Query returned false (expected #{@info.result})"
+    else
+      "Query returned true (expected #{@info.result})"
+    end +
+    "\n#{@expected}" +
+    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true)}" +
+    "\nDebug:\n#{@info.debug}"
+  end  
+
+  failure_message_when_negated do |actual|
+    "#{@info.inspect + "\n"}" +
+    if @results.nil?
+      "Query failed to return results"
+    elsif !@results.is_a?(RDF::Literal::Boolean)
+      "Query returned non-boolean results"
+    elsif @info.expectedResults != @results
+      "Query returned false (expected #{@info.result})"
+    else
+      "Query returned true (expected #{@info.result})"
+    end +
+    "\n#{@expected}" +
+    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true)}" +
+    "\nDebug:\n#{@info.debug}"
   end  
 end
 

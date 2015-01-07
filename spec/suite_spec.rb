@@ -1,7 +1,7 @@
 $:.unshift "."
 require 'spec_helper'
 
-describe RDF::Microdata::Reader do
+describe RDF::Tabular::Reader do
   # W3C CSVW Test suite from FIXME
   describe "w3c csvw RDF tests" do
     require 'suite_helper'

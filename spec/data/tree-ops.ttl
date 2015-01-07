@@ -1,23 +1,24 @@
-@prefix : <tree-ops.csv#> .
+@prefix : <http://example.org/tree-ops.csv#> .
 @prefix csvw: <http://www.w3.org/ns/csvw#> .
 @prefix dcat: <http://www.w3.org/ns/dcat#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 :GID a rdf:Property;
-   csvw:title "GID" .
+   rdfs:label "GID" .
 
 :Inventory%20Date a rdf:Property;
-   csvw:title "Inventory Date" .
+   rdfs:label "Inventory Date" .
 
 :On%20Street a rdf:Property;
-   csvw:title "On Street" .
+   rdfs:label "On Street" .
 
 :Species a rdf:Property;
-   csvw:title "Species" .
+   rdfs:label "Species" .
 
 :Trim%20Cycle a rdf:Property;
-   csvw:title "Trim Cycle" .
+   rdfs:label "Trim Cycle" .
 
 :table a csvw:Table;
    csvw:row [
@@ -41,5 +42,5 @@
    ];
    dcat:distribution [
      a dcat:Distribution;
-     dcat:downloadURL </Users/gregg/Projects/rdf-tabular/spec/data/tree-ops.csv>
+     dcat:downloadURL <http://example.org/tree-ops.csv>
    ] .
