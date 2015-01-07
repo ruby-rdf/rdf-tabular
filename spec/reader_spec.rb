@@ -42,15 +42,34 @@ describe RDF::Tabular::Reader do
 
   context "Provenance" do
     {
-      "tree-ops.csv" => "tree-ops.ttl",
-      "country-codes-and-names.csv" => "country-codes-and-names.ttl",
-    }.each do |csv, ttl|
+      "tree-ops.csv" => %(
+        PREFIX csvw: <http://www.w3.org/ns/csvw#>
+        PREFIX prov: <http://www.w3.org/ns/prov#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        ASK WHERE {
+          <http://example.org/tree-ops.csv#table> prov:activity [
+            a prov:Activity;
+            prov:startedAtTime ?start;
+            prov:endedAtTime ?end;
+            prov:qualifiedUsage [
+              a prov:Usage ;
+              prov:Entity ?csv ;
+              prov:hadRole csvw:csvEncodedTabularData
+            ];
+          ]
+          FILTER (
+            DATATYPE(?start) = xsd:dateTime &&
+            DATATYPE(?end) = xsd:dateTime
+          )
+        }
+      ),
+    }.each do |csv, query|
       it csv do
         about = RDF::URI("http://example.org").join(csv)
         input = File.expand_path("../data/#{csv}", __FILE__)
-        result = File.expand_path("../data/#{ttl}", __FILE__)
-        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, noProv: true)
-        expect(graph).to be_equivalent_graph(RDF::Graph.load(result, base_uri: about), debug: RDF::Tabular.debug, about: about)
+        graph = RDF::Graph.load(input, format: :tabular, base_uri: about)
+
+        expect(graph).to pass_query(query, debug: RDF::Tabular.debug, about: about)
       end
     end
   end

@@ -55,13 +55,13 @@ end
 
 RSpec::Matchers.define :pass_query do |expected, info|
   match do |actual|
-    if info.respond_to?(:about)
-      @info = info
+    @info = if info.respond_to?(:about)
+      info
     elsif info.is_a?(Hash)
       about = info[:about]
       debug = info[:debug]
       debug = Array(debug).join("\n")
-      Info.new(about, debug, info[:action], info[:result])
+      Info.new(about, debug, info[:action], info.fetch(:result, RDF::Literal::TRUE))
     end
 
     @expected = expected.respond_to?(:read) ? expected.read : expected

@@ -182,7 +182,7 @@ module RDF::Tabular
         # Provenance
         unless @options[:noProv]
           activity = RDF::Node.new
-          add_statement(0, table_resource, RDF::PROV.Activity, activity)
+          add_statement(0, table_resource, RDF::PROV.activity, activity)
           add_statement(0, activity, RDF.type, RDF::PROV.Activity)
           add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
           add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
