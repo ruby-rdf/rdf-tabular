@@ -8,6 +8,20 @@ describe RDF::Tabular::Reader do
 
   before(:each) do
     @reader = RDF::Tabular::Reader.new(StringIO.new(""))
+
+    WebMock.stub_request(:get, "http://example.org/tree-ops.csv").
+      to_return(body: File.read(File.expand_path("../data/tree-ops.csv", __FILE__)),
+                status: 200,
+                headers: { 'Content-Type' => 'text/csv'})
+    WebMock.stub_request(:get, "http://example.org/tree-ops.csv-metadata.json").
+      to_return(body: File.read(File.expand_path("../data/tree-ops.csv-metadata.json", __FILE__)),
+                status: 200,
+                headers: { 'Content-Type' => 'application/json'})
+    WebMock.stub_request(:get, "http://example.org/metadata.json").
+      to_return(status: 401)
+    WebMock.stub_request(:get, "http://example.org/country-codes-and-names.csv-metadata.json").
+      to_return(status: 401)
+
     RDF::Tabular.debug = []
   end
   
@@ -28,6 +42,7 @@ describe RDF::Tabular::Reader do
   context "Test Files" do
     {
       "tree-ops.csv" => "tree-ops.ttl",
+      "tree-ops.csv-metadata.json" => "tree-ops.ttl",
       "country-codes-and-names.csv" => "country-codes-and-names.ttl",
     }.each do |csv, ttl|
       it csv do
@@ -42,12 +57,12 @@ describe RDF::Tabular::Reader do
 
   context "Provenance" do
     {
-      "tree-ops.csv" => %(
+      "country-codes-and-names.csv" => %(
         PREFIX csvw: <http://www.w3.org/ns/csvw#>
         PREFIX prov: <http://www.w3.org/ns/prov#>
         PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
         ASK WHERE {
-          <http://example.org/tree-ops.csv#table> prov:activity [
+          <http://example.org/country-codes-and-names.csv#table> prov:activity [
             a prov:Activity;
             prov:startedAtTime ?start;
             prov:endedAtTime ?end;
