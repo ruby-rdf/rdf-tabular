@@ -20,38 +20,6 @@ module RDF::Tabular
     attr_reader :input
 
     ##
-    # Open a CSV file or URI. Also attempts to load relevant metadata
-    #
-    # @param  [String, #to_s] filename
-    # @param  [Hash{Symbol => Object}] options
-    #   @see `RDF::Reader.open` in RDF.rb and `#initialize`
-    # @option options [Boolean] :noProv Do not output provenance information
-    # @yield  [reader]
-    # @yieldparam  [RDF::Tabular::Reader] reader
-    # @yieldreturn [void] ignored
-    def self.open(filename, options = {}, &block)
-      Util::File.open_file(filename, options) do |file|
-        # load link metadata, if available
-        options = {base: filename, path: filename}.merge(options)
-
-        metadata = options[:metadata]
-        metadata ||= if file.respond_to?(:links)
-          link = file.links.find_link(%w(rel describedby))
-          Metadata.open(link, options)
-        end
-
-        # Otherwise, look for metadata based on filename
-        metadata ||= Metadata.open("#{File.basename(filename)}-metadata.json", options)
-
-        # Otherwise, look for metadata in directory
-        metadata ||= Metadata.open(RDF::URI(filename).join("metadata.json"), options)
-
-        # Return an open CSV with possible block
-        RDF::Tabular::Reader.new(file, options.merge(metadata: metadata), &block)
-      end
-    end
-
-    ##
     # Initializes the RDF::Tabular Reader instance.
     #
     # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>]       input
@@ -66,21 +34,47 @@ module RDF::Tabular
     # @yieldreturn [void] ignored
     # @raise [RDF::ReaderError] if the CSV document cannot be loaded
     def initialize(input = $stdin, options = {}, &block)
-      options[:base_uri] ||= options[:base]
       super do
+        # Base would be how we are to take this
         @options[:base] ||= base_uri.to_s if base_uri
         @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
+        @options[:base] ||= input.path if input.respond_to?(:path)
+        @options[:base] ||= input.filename if input.respond_to?(:filename)
+
+        # load link metadata, if available
+        metadata = @options[:metadata]
+        metadata ||= if input.respond_to?(:links)
+          link = input.links.find_link(%w(rel describedby))
+          Metadata.open(link, options)
+        end
 
         @input = input.is_a?(String) ? StringIO.new(input) : input
 
         # If input is JSON, then the input is the metadata
         if @options[:base] =~ /\.json(?:ld)?$/ ||
            @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
-          @input = Metadata.new(@input, options)
+           byebug
+          @input = Metadata.new(@input, @options)
         end
 
         # Use either passed metadata, or create an empty one to start
-        @metadata = options.fetch(:metadata, Table.new({}, options))
+        @metadata = options.fetch(:metadata, Table.new({}, @options))
+
+        if @options[:base] && !@input.is_a?(Metadata)
+          # Otherwise, look for metadata based on filename
+          metadata ||= begin
+            Metadata.open("#{@options[:base]}-metadata.json", @options)
+          rescue Errno::ENOENT
+            nil
+          end
+
+          # Otherwise, look for metadata in directory
+          metadata ||= begin
+            Metadata.open(RDF::URI(@options[:base]).join("metadata.json"), @options)
+          rescue Errno::ENOENT
+            nil
+          end
+        end
 
         # Extract file metadata, and left-merge if appropriate
         unless @input.is_a?(Metadata)
@@ -122,10 +116,10 @@ module RDF::Tabular
 
             input.resources.each do |table|
               add_statement(0, table_group, CSVW.table, table.id + "#table")
-              Reader.new(table.id, options.merge(metadata: table)).each_statemenet(&block)
+              Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id)).each_statement(&block)
             end
           when :Table
-            Reader.new(input.id, options.merge(metadata: table)).each_statemenet(&block)
+            Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id)).each_statement(&block)
           else
             raise "Opened inappropriate metadata type: #{input.type}"
           end
@@ -187,9 +181,7 @@ module RDF::Tabular
           add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
           add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
 
-          csv_path = @options[:path] ||
-                     (@input.filename if @input.respond_to?(:filename)) ||
-                     (@input.path if @input.respond_to?(:path))
+          csv_path = @options[:base]
 
           if csv_path && !@input.is_a?(Metadata)
             usage = RDF::Node.new

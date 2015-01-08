@@ -7,7 +7,7 @@ describe RDF::Tabular::Metadata do
     WebMock.stub_request(:get, "https://example.org/countries.csv").
       to_return(body: File.read(File.expand_path("../data/countries.csv", __FILE__)),
                 status: 200,
-                headers: { 'Content-Type' => 'text.csv'})
+                headers: { 'Content-Type' => 'text/csv'})
     WebMock.stub_request(:get, "http://example.org/schema/senior-roles.json").
       to_return(body: File.read(File.expand_path("../data/senior-roles.json", __FILE__)),
                 status: 200,
