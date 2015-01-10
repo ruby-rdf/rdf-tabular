@@ -53,7 +53,6 @@ module RDF::Tabular
         # If input is JSON, then the input is the metadata
         if @options[:base] =~ /\.json(?:ld)?$/ ||
            @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
-           byebug
           @input = Metadata.new(@input, @options)
         end
 
@@ -81,6 +80,9 @@ module RDF::Tabular
           embedded_metadata = @metadata.embedded_metadata(@input, @options)
           @metadata = embedded_metadata.merge(@metadata)
         end
+
+        # If metadata is a TableGroup, get metadata for this table
+        @metadata = @metadata.resources.detect {|t| t.id == @options[:base]}
 
         if block_given?
           case block.arity
@@ -127,7 +129,6 @@ module RDF::Tabular
         end
 
         # Output Table-Level RDF triples
-        # SPEC FIXME: csvw:Table, not csv:Table
         table_resource = metadata.id + "#table"
         add_statement(0, table_resource, RDF.type, CSVW.Table)
 
@@ -144,7 +145,7 @@ module RDF::Tabular
         end
 
         # Column metadata
-        metadata.schema.columns.each do |column|
+        metadata.schema.columns.compact.each do |column|
           pred = column.predicateUrl
 
           # SPEC FIXME: Output csvw:Column, if set
@@ -156,7 +157,7 @@ module RDF::Tabular
           # Common Properties
           column.common_properties.each do |prop, value|
             pred = column.context.expand_iri(prop)
-            add_statement(0, table_group, pred, value)
+            add_statement(0, table_resource, pred, value)
           end
         end
 

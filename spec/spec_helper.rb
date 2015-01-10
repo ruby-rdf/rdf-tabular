@@ -21,6 +21,12 @@ JSON_STATE = JSON::State.new(
   :array_nl     => "\n"
 )
 
+::RSpec.configure do |c|
+  c.filter_run focus:  true
+  c.run_all_when_everything_filtered = true
+  c.include(RDF::Spec::Matchers)
+end
+
 # Heuristically detect the input stream
 def detect_format(stream)
   # Got to look into the file to see

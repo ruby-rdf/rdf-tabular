@@ -129,7 +129,7 @@ module RDF::Tabular
 
       # Open as JSON-LD to get context
       jsonld = ::JSON::LD::API.new(input, context)
-      if context.empty? && jsonld.context.empty?
+      if context.empty? && jsonld.context.empty? # FIXME: need mappings
         input.rewind if input.respond_to?(:rewind)
         jsonld = ::JSON::LD::API.new(input, 'http://www.w3.org/ns/csvw')
       end
@@ -147,10 +147,10 @@ module RDF::Tabular
           self # subclasses can be directly constructed without type dispatch
         else
           type = if options[:type]
-            type = options[:type]
+            type = options[:type].to_sym
             raise "If provided, type must be one of :TableGroup, :Table, :Template, :Schema, :Column, :Dialect]" unless
-              [:TableGroup, :Table, :Template, :Schema, :Column, :Dialect].include?(@type)
-            options[:type].to_sym
+              [:TableGroup, :Table, :Template, :Schema, :Column, :Dialect].include?(type)
+            type
           end
 
           # Figure out type by @type
@@ -465,7 +465,7 @@ module RDF::Tabular
         "@type" => "Table",
         "schema" => {
           "@type" => "Schema",
-          "columns" => []
+          "columns" => nil
         }
       }
 
@@ -491,22 +491,16 @@ module RDF::Tabular
           value = ltrim(value) if %w(true start).include?(dialect.trim)
           value = rtrim(value) if %w(true end).include?(dialect.trim)
 
-          # Initialize name, title, and predicateUrl
-          # SPEC CONFUSION: do name and title get an array, or concatenated values?
-          column = table["schema"]["columns"][index] ||= {
-            "name" => "",
+          # Initialize title
+          # SPEC CONFUSION: does title get an array, or concatenated values?
+          columns = table["schema"]["columns"] ||= []
+          column = columns[index] ||= {
             "title" => [],
-            "predicateUrl" => "#_col=#{index}"
           }
           column["title"] << value
         end
 
-        # Create name by concatenating title
-        # Create predicateUrl as a fragment using URI encoded name
-        table["schema"]["columns"].each do |c|
-          next unless c # Skipped columns
-          c["name"] = c["title"].join("\n") if c["title"]
-          c["predicateUrl"] = "##{URI.encode(c["name"])}" if c["name"]
+        Array(table["schema"]["columns"]).each do |c|
           c["title"] = c["title"].first if c["title"].length == 1
         end
       end
@@ -522,12 +516,12 @@ module RDF::Tabular
     # @yield [Row]
     def each_row(input)
       csv = ::CSV.new(input, csv_options)
-      # Skip skip rows and header rows
+      # Skip skipRows and headerRows
       rownum = dialect.skipRows.to_i + (dialect.headerRowCount || 1)
       (1..rownum).each {csv.shift}
       csv.each do |row|
         rownum += 1
-        yield(Row.new(row, self.schema, rownum))
+        yield(Row.new(row, self, rownum))
       end
     end
 
@@ -584,9 +578,10 @@ module RDF::Tabular
     def merge(metadata)
       # If the top-level object of any of the metadata files are table descriptions, these are treated as if they were table group descriptions containing a single table description (ie having a single resource property whose value is the same as the original table description).
       this = self.is_a?(Table) ? TableGroup.new({"resources" => self}, context: context) : self.dup
+      raise "Can't merge #{self.class}" unless this.is_a?(TableGroup)
       metadata = case metadata
       when TableGroup then metadata
-      when Table then TableGroup.new({"resources" => metadata}, context: context)
+      when Table then TableGroup.new({"@type" => "TableGroup", "resources" => metadata}, context: context)
       else
         raise "Can't merge #{other.class}"
       end
@@ -598,26 +593,39 @@ module RDF::Tabular
     def merge!(metadata)
       other = Metadata.new(metadata, context: context)
 
-      raise "Merging non-equivalent metadata types: #{self.class} vs #{other.class}"
+      raise "Merging non-equivalent metadata types: #{self.class} vs #{other.class}" unless self.class == other.class
 
       # Save original context
-      ctx = this.context.dup
+      ctx = self.context.dup
 
-      # Merge each property from metadata into this
+      # Merge each property from metadata into self
       other.each do |key, value|
-        # SPEC CONFUSION: what about @context?
         case key
-        when :"@context" then this.context.merge!(value)
-        when :@id, :@type then this[key] ||= value
+        when :"@context"
+          # Merge contexts
+          @context = other.context.merge(self.context)
+
+          # Use defined representation
+          this_ctx = self[key].is_a?(Array) ? self[key] : [self[key]].compact
+          other_ctx = other[key].is_a?(Array) ? other[key] : [other[key]].compact
+          this_object = this_ctx.detect {|v| v.is_a?(Hash)} || {}
+          this_uri = this_ctx.select {|v| v.is_a?(String)}
+          other_object = other_ctx.detect {|v| v.is_a?(Hash)} || {}
+          other_uri = other_ctx.select {|v| v.is_a?(String)}
+          merged_object = other_object.merge(this_object)
+          merged_object = nil if merged_object.empty?
+          self[key] = this_uri + (other_uri - this_uri) + ([merged_object].compact)
+          self[key] = self[key].first if self[key].length == 1
+        when :@id, :@type then self[key] ||= value
         else
           begin
             case @properties[key]
             when :array
               # If the property is an array property, the way in which values are merged depends on the property; see the relevant property for this definition.
-              this[key] = case this[key]
+              self[key] = case self[key]
               when nil then []
-              when Hash then [this[key]]  # Shouldn't happen if well formed
-              else this[key]
+              when Hash then [self[key]]  # Shouldn't happen if well formed
+              else self[key]
               end
 
               value = [value] if value.is_a?(Hash)
@@ -626,30 +634,34 @@ module RDF::Tabular
                 # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
 
                 value.each do |t|
-                  if ta = this[key].detect {|e| e.id == t.id}
+                  if ta = self[key].detect {|e| e.id == t.id}
                     # if there is a table description with the same @id in A, the table description from B is imported into the matching table description in A
                     ta.merge!(t)
                   else
                     # otherwise, the table description from B is appended to the array of table descriptions A
-                    this[key] << t
+                    self[key] << t
                   end
                 end
               when :templates
                 # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
                 value.each do |t|
-                  if ta = this[key].detect {|e| e.targetFormat == t.targetFormat && e.templateFormat == t.templateFormat}
+                  if ta = self[key].detect {|e| e.targetFormat == t.targetFormat && e.templateFormat == t.templateFormat}
                     # if there is a template specification with the same targetFormat and templateFormat in A, the template specification from B is imported into the matching template specification in A
                     ta.merge!(t)
                   else
                     # otherwise, the template specification from B is appended to the array of template specifications A
-                    this[key] << t
+                    self[key] << t
                   end
                 end
               when :columns
                 # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
                 value.each_with_index do |t, index|
-                  if this[key][index] && this[key][index].name == t.name
+                  if self[key][index] && self[key][index][:name] == t[:name]
                     # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
+                    ta.merge!(t)
+                  elsif self[key][index] && !(Array(self[key][index][:title]) & Array(t[:title])).empty?
+                    # SPEC SUGGESTION:
+                    # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
                     ta.merge!(t)
                   else
                     # otherwise, the column description is ignored
@@ -661,39 +673,39 @@ module RDF::Tabular
             when :link
               # If the property is a link property, then if the property only accepts single values, the value from A overrides that from B, otherwise the result is an array of links: those from A followed by those from B that were not already a value in A.
               # SPEC CONFUSION: What is an example of such a property?
-              this[key] ||= value
-            when :uri_template, :column_reference then this[key] ||= value
+              self[key] ||= value
+            when :uri_template, :column_reference then self[key] ||= value
             when :object
               case key
               when :notes
                 # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
-                a = case this[key]
-                when Array then this[key]
-                when Hash then [this[key]]
-                else Array(this[key])
+                a = case self[key]
+                when Array then self[key]
+                when Hash then [self[key]]
+                else Array(self[key])
                 end
                 b = case value
                 when Array then value
                 when Hash then [value]
                 else Array(value)
                 end
-                this[key] = a + b
+                self[key] = a + b
               else
                 # if the property only accepts single objects
-                if this[key].is_a?*(String) || value.is_a?(String)
+                if self[key].is_a?*(String) || value.is_a?(String)
                   # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
-                  this[key] ||= value
+                  self[key] ||= value
                 else
                   # otherwise (if both values as objects) the objects are merged as described here
-                  this[key].merge!(value)
+                  self[key].merge!(value)
                 end
               end
             when :natural_language
               # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
-              a = case this[key]
-              when Hash then this[key]
-              when Array then {(ctx.language || "und") => this[key]}
-              when String then {(ctx.language || "und") => [this[key]]}
+              a = case self[key]
+              when Hash then self[key]
+              when Array then {(ctx.language || "und") => self[key]}
+              when String then {(ctx.language || "und") => [self[key]]}
               end
               b = case value
               when Hash then value
@@ -701,23 +713,23 @@ module RDF::Tabular
               when String then {(other.context.language || "und") => [value]}
               end
               b.each {|k, v| a[k] = a[k] + b[k]}
-              this[key] = a
+              self[key] = a
             else
               # If the property is an atomic property, then
               case key
               when :predicateUrl, :null
                 # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
-                this[key] = Array(this[key]) + (Array[value] - Array[this[key]])
+                self[key] = Array(self[key]) + (Array[value] - Array[self[key]])
               else
                 # if the property only accepts single values, the value from A overrides that from B;
-                this[key] ||= value
+                self[key] ||= value
               end
             end
           end
         end
       end
 
-      this
+      self
     end
 
     def inspect
@@ -874,6 +886,19 @@ module RDF::Tabular
       self[:predicateUrl] = table && table.id ? table.id.join(value) : RDF::URI(value)
     end
 
+    # Return or create a predicateUrl for the column
+    def predicateUrl
+      self.fetch(:predicateUrl) do
+        self.predicateUrl = "##{URI.encode(name)}"
+        self[:predicateUrl]
+      end
+    end
+
+    # Return or create a name for the column from title, if it exists
+    def name
+      self[:name] ||= title ? Array(title).join("\n") : "_col=#{index}"
+    end
+
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
@@ -967,14 +992,23 @@ module RDF::Tabular
       # Create values hash
       # SPEC CONFUSION: are values pre-or-post conversion?
       map_values = {"_row" => rownum}
+
+      # SPEC SUGGESTION:
+      # Create columns if no columns were ever set; this would be the case when headerRowCount is zero, and nothing was set from explicit metadata
+      create_columns = metadata.schema.columns.nil?
+      columns = metadata.schema.columns ||= []
       row.each_with_index do |value, index|
-        name = metadata.columns[index].name || "_col=#{index}"
-        map_values[name] = value
+        # create column if necessary
+        if create_columns && !columns[index]
+          columns[index] = Column.new({}, parent: metadata.schema, context: metadata.schema.context)
+        end
+
+        map_values[columns[index].name] = value
       end
 
       # Create resource using urlTemplate and values hash
-      @resource = if metadata.urlTemplate
-        t = Addressable::Template.new(meetadata.urlTemplate)
+      @resource = if metadata.schema.urlTemplate
+        t = Addressable::Template.new(metadata.urlTemplate)
         RDF::URI(t.expand(map_values))
       else
         RDF::Node.new
@@ -983,31 +1017,34 @@ module RDF::Tabular
       # Yield each value, after conversion
       @values = []
       row.each_with_index do |cell, index|
-        # Skip columns
-        next if index < (metadata.dialect.skipColumns - 1)
+        @values << if columns[index]
 
-        cv = cell
-        # Trim value
-        cv = ltrim(cv.to_s) if %w(true start).include?(metadata.dialect.trim)
-        cv = rtrim(cv.to_s) if %w(true end).include?(metadata.dialect.trim)
+          cv = cell
+          # Trim value
+          cv = ltrim(cv.to_s) if %w(true start).include?(metadata.dialect.trim)
+          cv = rtrim(cv.to_s) if %w(true end).include?(metadata.dialect.trim)
 
-        cell_values = metadata.separator ? cv.split(metadata.separator) : [cv]
+          cell_values = metadata.separator ? cv.split(metadata.separator) : [cv]
 
-        cell_values = cell_values.map do |v|
-          case
-          when v.empty? then metadata.dialect.null
-          when v.nil? then metadata.dialect.default
-          when metadata.datatype == :anyUri
-            metadata.id.join(v)
-          when metadata.datatype
-            # FIXME: use of format in extracting information
-            RDF::Literal(v, datatype: metadata.context.expand_iri(metadata.datatype))
-          else
-            RDF::Literal(v, language: metadata.language)
-          end
-        end.compact
+          cell_values = cell_values.map do |v|
+            case
+            when v.empty? then metadata.dialect.null
+            when v.nil? then metadata.dialect.default
+            when metadata.datatype == :anyUri
+              metadata.id.join(v)
+            when metadata.datatype
+              # FIXME: use of format in extracting information
+              RDF::Literal(v, datatype: metadata.context.expand_iri(metadata.datatype))
+            else
+              RDF::Literal(v, language: metadata.language)
+            end
+          end.compact
 
-        @values << (metadata.separator ? cell_values : cell_values.first)
+          (metadata.separator ? cell_values : cell_values.first)
+        else
+          # Non-mapped columns
+          nil
+        end
       end
     end
   end

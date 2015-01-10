@@ -383,21 +383,13 @@ describe RDF::Tabular::Metadata do
           "schema": {
             "@type": "Schema",
             "columns": [{
-              "name": "countryCode",
-              "title": "countryCode",
-              "predicateUrl": "https://example.org/countries.csv#countryCode"
+              "title": "countryCode"
             }, {
-              "name": "latitude",
-              "title": "latitude",
-              "predicateUrl": "https://example.org/countries.csv#latitude"
+              "title": "latitude"
             }, {
-              "name": "longitude",
-              "title": "longitude",
-              "predicateUrl": "https://example.org/countries.csv#longitude"
+              "title": "longitude"
             }, {
-              "name": "name",
-              "title": "name",
-              "predicateUrl": "https://example.org/countries.csv#name"
+              "title": "name"
             }]
           }
         })
@@ -504,6 +496,188 @@ describe RDF::Tabular::Metadata do
   end
 
   describe "#merge" do
-    it "FIXME"
+    {
+      "two tables with same id" => {
+        A: %({
+          "@type": "Table",
+          "@id": "http://example.org/table"
+        }),
+        B: %({
+          "@type": "Table",
+          "@id": "http://example.org/table"
+        }),
+        R: %({
+          "@type": "TableGroup",
+          "resources": [{
+            "@type": "Table",
+            "@id": "http://example.org/table"
+          }]
+        })
+      },
+      "two tables with different id" => {
+        A: %({
+          "@type": "Table",
+          "@id": "http://example.org/table1"
+        }),
+        B: %({
+          "@type": "Table",
+          "@id": "http://example.org/table2"
+        }),
+        R: %({
+          "@type": "TableGroup",
+          "resources": [{
+            "@type": "Table",
+            "@id": "http://example.org/table1"
+          }, {
+            "@type": "Table",
+            "@id": "http://example.org/table2"
+          }]
+        })
+      },
+      "table and table-group" => {
+        A: %({
+          "@type": "Table",
+          "@id": "http://example.org/table1"
+        }),
+        B: %({
+          "@type": "TableGroup",
+          "resources": [{
+            "@type": "Table",
+            "@id": "http://example.org/table2"
+          }]
+        }),
+        R: %({
+          "@type": "TableGroup",
+          "resources": [{
+            "@type": "Table",
+            "@id": "http://example.org/table1"
+          }, {
+            "@type": "Table",
+            "@id": "http://example.org/table2"
+          }]
+        })
+      },
+      "table-group and table" => {
+        A: %({
+          "@type": "TableGroup",
+          "resources": [{
+            "@type": "Table",
+            "@id": "http://example.org/table1"
+          }]
+        }),
+        B: %({
+          "@type": "Table",
+          "@id": "http://example.org/table2"
+        }),
+        R: %({
+          "@type": "TableGroup",
+          "resources": [{
+            "@type": "Table",
+            "@id": "http://example.org/table1"
+          }, {
+            "@type": "Table",
+            "@id": "http://example.org/table2"
+          }]
+        })
+      },
+    }.each do |name, props|
+      it name do
+        a = described_class.new(::JSON.parse(props[:A]))
+        b = described_class.new(::JSON.parse(props[:B]))
+        r = described_class.new(::JSON.parse(props[:R]))
+        expect(a.merge(b)).to produce(r, RDF::Tabular.debug)
+      end
+    end
+
+    %w(Template Schema Template Column Dialect).each do |t|
+      it "does not merge into a #{t}" do
+        a = described_class.new({}, type: t.to_sym)
+        b = described_class.new({}, type: :TableGroup)
+        expect {a.merge(b)}.to raise_error
+      end
+
+      it "does not merge from a #{t}" do
+        a = described_class.new({}, type: :TableGroup)
+        b = described_class.new({}, type: t.to_sym)
+        expect {a.merge(b)}.to raise_error
+      end
+    end
+  end
+
+  describe "#merge!" do
+    {
+      "@context different language" => {
+        A: %({"@context": {"@language": "en"}, "@type": "Table"}),
+        B: %({"@context": {"@language": "de"}, "@type": "Table"}),
+        R: %({"@context": {"@language": "en"}, "@type": "Table"})
+      },
+      "@context different base" => {
+        A: %({"@context": {"@base": "http://example.org/foo"}, "@type": "Table"}),
+        B: %({"@context": {"@base": "http://example.org/bar"}, "@type": "Table"}),
+        R: %({"@context": {"@base": "http://example.org/foo"}, "@type": "Table"})
+      },
+      "@context mixed language and base" => {
+        A: %({"@context": {"@language": "en"}, "@type": "Table"}),
+        B: %({"@context": {"@base": "http://example.org/bar"}, "@type": "Table"}),
+        R: %({"@context": {"@language": "en", "@base": "http://example.org/bar"}, "@type": "Table"})
+      },
+      "@context with different URI and objects" => {
+        A: %({"@context": ["http:http://www.w3.org/ns/csvw", {"@language": "en"}], "@type": "Table"}),
+        B: %({"@context": ["http:http://www.w3.org/ns/csvw/", {"@base": "http://example.org/foo"}], "@type": "Table"}),
+        R: %({"@context": [
+            "http:http://www.w3.org/ns/csvw",
+            "http:http://www.w3.org/ns/csvw/",
+            {"@language": "en", "@base": "http://example.org/foo"}
+          ], "@type": "Table"})
+      },
+      "TableGroup with and without @id" => {
+        A: %({"@id": "http://example.org/foo", "resources": [], "@type": "TableGroup"}),
+        B: %({"resources": [], "@type": "TableGroup"}),
+        R: %({"@id": "http://example.org/foo", "resources": [], "@type": "TableGroup"})
+      },
+      "TableGroup with and without @type" => {
+        A: %({"resources": []}),
+        B: %({"resources": [], "@type": "TableGroup"}),
+        R: %({"resources": [], "@type": "TableGroup"})
+      },
+      "TableGroup with matching resources" => {
+        A: %({"resources": [{"@id": "http://example.org/foo", "dc:title": "foo"}]}),
+        B: %({"resources": [{"@id": "http://example.org/foo", "dc:description": "bar"}]}),
+        R: %({"resources": [{"@id": "http://example.org/foo", "dc:title": "foo", "dc:description": "bar"}]})
+      },
+      "TableGroup with differing resources" => {
+        A: %({"resources": [{"@id": "http://example.org/foo", "dc:title": "foo"}]}),
+        B: %({"resources": [{"@id": "http://example.org/bar", "dc:description": "bar"}]}),
+        R: %({
+          "resources": [
+            {"@id": "http://example.org/foo", "dc:title": "foo"},
+            {"@id": "http://example.org/bar", "dc:description": "bar"}
+          ]})
+      },
+    }.each do |name, props|
+      it name, focus: true do
+        WebMock.stub_request(:get, "http://www.w3.org/ns/csvw/").
+          to_return(body: File.read(File.expand_path("../w3c-csvw/ns/csvw.jsonld", __FILE__)),
+                    status: 200,
+                    headers: { 'Content-Type' => 'application/ld+json'})
+        a = described_class.new(::JSON.parse(props[:A]))
+        b = described_class.new(::JSON.parse(props[:B]))
+        r = described_class.new(::JSON.parse(props[:R]))
+        m = a.merge!(b)
+        expect(m).to produce(r, RDF::Tabular.debug)
+        expect(a).to equal m
+      end
+    end
+
+    %w(TableGroup Table Template Schema Template Column Dialect).each do |ta|
+      %w(TableGroup Table Template Schema Template Column Dialect).each do |tb|
+        next if ta == tb
+        it "does not merge #{tb} into #{ta}" do
+          a = described_class.new({}, type: ta.to_sym)
+          b = described_class.new({}, type: tb.to_sym)
+          expect {a.merge!(b)}.to raise_error
+        end
+      end
+    end
   end
 end
