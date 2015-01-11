@@ -372,6 +372,56 @@ describe RDF::Tabular::Metadata do
     end
   end
 
+  describe ".new" do
+    context "intuits subclass" do
+      {
+        ":type TableGroup" => [{}, {type: :TableGroup}, RDF::Tabular::TableGroup],
+        ":type Table" => [{}, {type: :Table}, RDF::Tabular::Table],
+        ":type Template" => [{}, {type: :Template}, RDF::Tabular::Template],
+        ":type Schema" => [{}, {type: :Schema}, RDF::Tabular::Schema],
+        ":type Column" => [{}, {type: :Column}, RDF::Tabular::Column],
+        ":type Dialect" => [{}, {type: :Dialect}, RDF::Tabular::Dialect],
+        "@type TableGroup" => [{"@type" => "TableGroup"}, RDF::Tabular::TableGroup],
+        "@type Table" => [{"@type" => "Table"}, RDF::Tabular::Table],
+        "@type Template" => [{"@type" => "Template"}, RDF::Tabular::Template],
+        "@type Schema" => [{"@type" => "Schema"}, RDF::Tabular::Schema],
+        "@type Column" => [{"@type" => "Column"}, RDF::Tabular::Column],
+        "@type Dialect" => [{"@type" => "Dialect"}, RDF::Tabular::Dialect],
+        "resources TableGroup" => [{"resources" => []}, RDF::Tabular::TableGroup],
+        "dialect Table" => [{"dialect" => {}}, RDF::Tabular::Table],
+        "schema Table" => [{"schema" => {}}, RDF::Tabular::Table],
+        "templates Table" => [{"templates" => []}, RDF::Tabular::Table],
+        "targetFormat Template" => [{"targetFormat" => "foo"}, RDF::Tabular::Template],
+        "templateFormat Template" => [{"templateFormat" => "foo"}, RDF::Tabular::Template],
+        "source Template" => [{"source" => "foo"}, RDF::Tabular::Template],
+        "columns Schema" => [{"columns" => []}, RDF::Tabular::Schema],
+        "primaryKey Schema" => [{"primaryKey" => "foo"}, RDF::Tabular::Schema],
+        "foreignKeys Schema" => [{"foreignKeys" => []}, RDF::Tabular::Schema],
+        "urlTemplate Schema" => [{"urlTemplate" => "foo"}, RDF::Tabular::Schema],
+        "predicateUrl Column" => [{"predicateUrl" => "foo"}, RDF::Tabular::Column],
+        "commentPrefix Dialect" => [{"commentPrefix" => "#"}, RDF::Tabular::Dialect],
+        "delimiter Dialect" => [{"delimiter" => ","}, RDF::Tabular::Dialect],
+        "doubleQuote Dialect" => [{"doubleQuote" => true}, RDF::Tabular::Dialect],
+        "encoding Dialect" => [{"encoding" => "utf-8"}, RDF::Tabular::Dialect],
+        "header Dialect" => [{"header" => true}, RDF::Tabular::Dialect],
+        "headerColumnCount Dialect" => [{"headerColumnCount" => 0}, RDF::Tabular::Dialect],
+        "headerRowCount Dialect" => [{"headerRowCount" => 1}, RDF::Tabular::Dialect],
+        "lineTerminator Dialect" => [{"lineTerminator" => "\r\n"}, RDF::Tabular::Dialect],
+        "quoteChar Dialect" => [{"quoteChar" => "\""}, RDF::Tabular::Dialect],
+        "skipBlankRows Dialect" => [{"skipBlankRows" => true}, RDF::Tabular::Dialect],
+        "skipColumns Dialect" => [{"skipColumns" => 0}, RDF::Tabular::Dialect],
+        "skipInitialSpace Dialect" => [{"skipInitialSpace" => "start"}, RDF::Tabular::Dialect],
+        "skipRows Dialect" => [{"skipRows" => 1}, RDF::Tabular::Dialect],
+        "trim Dialect" => [{"trim" => true}, RDF::Tabular::Dialect],
+      }.each do |name, args|
+        it name do
+          klass = args.pop
+          expect(described_class.new(*args)).to be_a(klass)
+        end
+      end
+    end
+  end
+
   describe "#embedded_metadata" do
     subject {described_class.new({"@type" => "Table"}, base: RDF::URI("http://example.org/base"))}
     {
@@ -654,8 +704,140 @@ describe RDF::Tabular::Metadata do
             {"@id": "http://example.org/bar", "dc:description": "bar"}
           ]})
       },
+      "Table with schemas always takes A" => {
+        A: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "schema": {"columns": [{"name": "foo"}]}
+        }),
+        B: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "schema": {"columns": [{"name": "bar"}]}
+        }),
+        R: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "schema": {"columns": [{"name": "foo"}]}
+        }),
+      },
+      "Table with table-direction always takes A" => {
+        A: %({"@type": "Table", "@id": "http://example.com/foo", "table-direction": "ltr"}),
+        B: %({"@type": "Table", "@id": "http://example.com/foo", "table-direction": "rtl"}),
+        R: %({"@type": "Table", "@id": "http://example.com/foo", "table-direction": "ltr"}),
+      },
+      "Table with dialect merges A and B" => {
+        A: %({"@type": "Table", "@id": "http://example.com/foo", "dialect": {"encoding": "utf-8"}}),
+        B: %({"@type": "Table", "@id": "http://example.com/foo", "dialect": {"skipRows": 0}}),
+        R: %({"@type": "Table", "@id": "http://example.com/foo", "dialect": {"encoding": "utf-8", "skipRows": 0}}),
+      },
+      "Table with equivalent templates uses A" => {
+        A: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "templates": [{
+            "@id": "http://example.com/foo",
+            "targetFormat": "http://example.com/target",
+            "templateFormat": "http://example.com/template",
+            "source": "json"
+          }]
+        }),
+        B: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "templates": [{
+            "@id": "http://example.com/foo",
+            "targetFormat": "http://example.com/target",
+            "templateFormat": "http://example.com/template",
+            "source": "html"
+          }]
+        }),
+        R: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "templates": [{
+            "@id": "http://example.com/foo",
+            "targetFormat": "http://example.com/target",
+            "templateFormat": "http://example.com/template",
+            "source": "json"
+          }]
+        }),
+      },
+      "Table with differing templates appends B to A" => {
+        A: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "templates": [{
+            "@id": "http://example.com/foo",
+            "targetFormat": "http://example.com/target",
+            "templateFormat": "http://example.com/template"
+          }]
+        }),
+        B: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "templates": [{
+            "@id": "http://example.com/bar",
+            "targetFormat": "http://example.com/targetb",
+            "templateFormat": "http://example.com/templateb"
+          }]
+        }),
+        R: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "templates": [{
+            "@id": "http://example.com/foo",
+            "targetFormat": "http://example.com/target",
+            "templateFormat": "http://example.com/template"
+          }, {
+            "@id": "http://example.com/bar",
+            "targetFormat": "http://example.com/targetb",
+            "templateFormat": "http://example.com/templateb"
+          }]
+        }),
+      },
+      "Table with common properties merges A and B" => {
+        A: %({"@type": "Table", "@id": "http://example.com/foo", "rdfs:label": "foo"}),
+        B: %({"@type": "Table", "@id": "http://example.com/foo", "rdfs:label": "bar"}),
+        R: %({"@type": "Table", "@id": "http://example.com/foo", "rdfs:label": ["foo", "bar"]}),
+      },
+      "Schema with matching columns merges A and B" => {
+        A: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
+        B: %({"@type": "Schema", "columns": [{"name": "foo", "required": false}]}),
+        R: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
+      },
+      "Schema with differing columns takes A" => {
+        A: %({"@type": "Schema", "columns": [{"name": "foo"}]}),
+        B: %({"@type": "Schema", "columns": [{"name": "bar"}]}),
+        R: %({"@type": "Schema", "columns": [{"name": "foo"}]}),
+      },
+      "Schema with matching column titles" => {
+        A: %({"@type": "Schema", "columns": [{"title": "Foo"}]}),
+        B: %({"@type": "Schema", "columns": [{"name": "foo", "title": "Foo"}]}),
+        R: %({"@type": "Schema", "columns": [{"name": "foo", "title": {"und": "Foo"}}]}),
+      },
+      "Schema with primaryKey always takes A" => {
+        A: %({"@type": "Schema", "primaryKey": "foo"}),
+        B: %({"@type": "Schema", "primaryKey": "bar"}),
+        R: %({"@type": "Schema", "primaryKey": "foo"}),
+      },
+      "Schema with matching foreignKey uses A" => {
+        A: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}]}),
+        B: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}]}),
+        R: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}]}),
+      },
+      "Schema with differing foreignKey uses A and B" => {
+        A: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}]}),
+        B: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columns": "bar", "reference": {"columns": "bar"}}]}),
+        R: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}, {"columns": "bar", "reference": {"columns": "bar"}}]}),
+      },
+      "Schema with urlTemplate always takes A" => {
+        A: %({"@type": "Schema", "urlTemplate": "foo"}),
+        B: %({"@type": "Schema", "urlTemplate": "bar"}),
+        R: %({"@type": "Schema", "urlTemplate": "foo"}),
+      },
     }.each do |name, props|
-      it name, focus: true do
+      it name do
         WebMock.stub_request(:get, "http://www.w3.org/ns/csvw/").
           to_return(body: File.read(File.expand_path("../w3c-csvw/ns/csvw.jsonld", __FILE__)),
                     status: 200,

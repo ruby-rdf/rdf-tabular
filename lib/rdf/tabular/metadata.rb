@@ -161,9 +161,11 @@ module RDF::Tabular
           type ||= case
           when %w(resources).any? {|k| object_keys.include?(k)} then :TableGroup
           when %w(dialect schema templates).any? {|k| object_keys.include?(k)} then :Table
-          when %w(targetFormat templateFormat :source).any? {|k| object_keys.include?(k)} then :Template
+          when %w(targetFormat templateFormat source).any? {|k| object_keys.include?(k)} then :Template
           when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
           when %w(predicateUrl name required).any? {|k| object_keys.include?(k)} then :Column
+          when %w(commentPrefix delimiter doubleQuote encoding header headerColumnCount headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
+          when %w(lineTerminator quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
           end
 
           case type.to_sym
@@ -216,10 +218,8 @@ module RDF::Tabular
       # Parent of this Metadata, if any
       @parent = @options[:parent]
 
-      debug("md.new") {inspect}
       # Metadata is object with symbolic keys
       object.each do |key, value|
-        debug("md.new") {"key: #{key.inspect}, value: #{value.inspect}"}
         key = key.to_sym
         case key
         when :columns
@@ -264,7 +264,6 @@ module RDF::Tabular
             # Invalid, but preserve value
             value
           end
-          self.send("#{key}=".to_sym, value)
         when :@id
           # URL of CSV relative to metadata
           # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
@@ -280,6 +279,7 @@ module RDF::Tabular
 
         # Set type from @type, if present and not otherwise defined
         @type ||= self[:@type].to_sym if self[:@type]
+        debug("md.new") {inspect}
 
         validate! if options[:validate]
       end
@@ -643,6 +643,7 @@ module RDF::Tabular
                   end
                 end
               when :templates
+                # SPEC CONFUSION: differing templates with same @id?
                 # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
                 value.each do |t|
                   if ta = self[key].detect {|e| e.targetFormat == t.targetFormat && e.templateFormat == t.templateFormat}
@@ -656,10 +657,11 @@ module RDF::Tabular
               when :columns
                 # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
                 value.each_with_index do |t, index|
-                  if self[key][index] && self[key][index][:name] == t[:name]
+                  ta = self[key][index]
+                  if ta && ta[:name] == t[:name]
                     # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
                     ta.merge!(t)
-                  elsif self[key][index] && !(Array(self[key][index][:title]) & Array(t[:title])).empty?
+                  elsif ta && !(Array(ta[:title]) & Array(t[:title])).empty?
                     # SPEC SUGGESTION:
                     # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
                     ta.merge!(t)
@@ -668,7 +670,9 @@ module RDF::Tabular
                   end
                 end
               when :foreignKeys
-                # SPEC CONFUSION: merge not defined
+                # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
+                # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
+                self[key] = self[key] + (other[key] - self[key])
               end
             when :link
               # If the property is a link property, then if the property only accepts single values, the value from A overrides that from B, otherwise the result is an array of links: those from A followed by those from B that were not already a value in A.
@@ -692,7 +696,7 @@ module RDF::Tabular
                 self[key] = a + b
               else
                 # if the property only accepts single objects
-                if self[key].is_a?*(String) || value.is_a?(String)
+                if self[key].is_a?(String) || value.is_a?(String)
                   # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
                   self[key] ||= value
                 else
@@ -704,22 +708,41 @@ module RDF::Tabular
               # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
               a = case self[key]
               when Hash then self[key]
-              when Array then {(ctx.language || "und") => self[key]}
-              when String then {(ctx.language || "und") => [self[key]]}
+              when Array then {(ctx.default_language || "und") => self[key]}
+              when String then {(ctx.default_language || "und") => [self[key]]}
               end
               b = case value
               when Hash then value
-              when Array then {(other.context.language || "und") => value}
-              when String then {(other.context.language || "und") => [value]}
+              when Array then {(other.context.default_language || "und") => value}
+              when String then {(other.context.default_language || "und") => [value]}
               end
-              b.each {|k, v| a[k] = a[k] + b[k]}
+              b.each do |k, v|
+                vv = a[k] + (b[k] - a[k])
+                a[k] = vv.length == 1 ? vv.first : vv
+              end
               self[key] = a
             else
               # If the property is an atomic property, then
-              case key
-              when :predicateUrl, :null
+              case key.to_s
+              when "predicateUrl", "null"
                 # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
                 self[key] = Array(self[key]) + (Array[value] - Array[self[key]])
+              when /:/
+                # SPEC SUGGESTION: common property
+                a = case self[key]
+                when nil then []
+                when Array then self[key]
+                else [self[key]]
+                end
+
+                b = case other[key]
+                when nil then []
+                when Array then other[key]
+                else [other[key]]
+                end
+
+                self[key] = a + (b - a)
+                self[key] = self[key].first if self[key].length == 1
               else
                 # if the property only accepts single values, the value from A overrides that from B;
                 self[key] ||= value
