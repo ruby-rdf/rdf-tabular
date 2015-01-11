@@ -40,54 +40,60 @@ module RDF::Tabular
         @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
         @options[:base] ||= input.path if input.respond_to?(:path)
         @options[:base] ||= input.filename if input.respond_to?(:filename)
+        @options[:depth] ||= 0
 
-        # load link metadata, if available
-        metadata = @options[:metadata]
-        metadata ||= if input.respond_to?(:links)
-          link = input.links.find_link(%w(rel describedby))
-          Metadata.open(link, options)
-        end
-
-        @input = input.is_a?(String) ? StringIO.new(input) : input
-
-        # If input is JSON, then the input is the metadata
-        if @options[:base] =~ /\.json(?:ld)?$/ ||
-           @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
-          @input = Metadata.new(@input, @options)
-        end
-
-        # Use either passed metadata, or create an empty one to start
-        @metadata = options.fetch(:metadata, Table.new({}, @options))
-
-        if @options[:base] && !@input.is_a?(Metadata)
-          # Otherwise, look for metadata based on filename
-          metadata ||= begin
-            Metadata.open("#{@options[:base]}-metadata.json", @options)
-          rescue Errno::ENOENT
-            nil
+        debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
+        depth do
+          # load link metadata, if available
+          metadata = @options[:metadata]
+          metadata ||= if input.respond_to?(:links)
+            link = input.links.find_link(%w(rel describedby))
+            Metadata.open(link, options)
           end
 
-          # Otherwise, look for metadata in directory
-          metadata ||= begin
-            Metadata.open(RDF::URI(@options[:base]).join("metadata.json"), @options)
-          rescue Errno::ENOENT
-            nil
+          @input = input.is_a?(String) ? StringIO.new(input) : input
+
+          # If input is JSON, then the input is the metadata
+          if @options[:base] =~ /\.json(?:ld)?$/ ||
+             @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
+            @input = Metadata.new(@input, @options)
           end
-        end
 
-        # Extract file metadata, and left-merge if appropriate
-        unless @input.is_a?(Metadata)
-          embedded_metadata = @metadata.embedded_metadata(@input, @options)
-          @metadata = embedded_metadata.merge(@metadata)
-        end
+          # Use either passed metadata, or create an empty one to start
+          @metadata = options.fetch(:metadata, Table.new({}, @options))
 
-        # If metadata is a TableGroup, get metadata for this table
-        @metadata = @metadata.resources.detect {|t| t.id == @options[:base]}
+          if @options[:base] && !@input.is_a?(Metadata)
+            # Otherwise, look for metadata based on filename
+            metadata ||= begin
+              Metadata.open("#{@options[:base]}-metadata.json", @options)
+            rescue Errno::ENOENT
+              nil
+            end
 
-        if block_given?
-          case block.arity
-            when 0 then instance_eval(&block)
-            else block.call(self)
+            # Otherwise, look for metadata in directory
+            metadata ||= begin
+              Metadata.open(RDF::URI(@options[:base]).join("metadata.json"), @options)
+            rescue Errno::ENOENT
+              nil
+            end
+          end
+
+          # Extract file metadata, and left-merge if appropriate
+          unless @input.is_a?(Metadata)
+            embedded_metadata = @metadata.embedded_metadata(@input, @options)
+            @metadata = metadata ? embedded_metadata.merge(metadata) : embedded_metadata
+          end
+
+          # If metadata is a TableGroup, get metadata for this table
+          @metadata = @metadata.resources.detect {|t| t.id == @options[:base]} if @metadata.is_a?(TableGroup)
+
+          debug("Reader#initialize") {"input: #{input}, metadata: #{metadata}"}
+
+          if block_given?
+            case block.arity
+              when 0 then instance_eval(&block)
+              else block.call(self)
+            end
           end
         end
       end
@@ -104,26 +110,29 @@ module RDF::Tabular
 
         # Construct metadata from that passed from file open, along with information from the file.
         if input.is_a?(Metadata)
-          # Get Metadata to invoke and open referenced files
-          case input.type
-          when :TableGroup
-            table_group = Node.new
-            add_statement(0, table_group, RDF.type, CSVW.TableGroup)
+          debug("each_statement: metadata") {input.inspect}
+          depth do
+            # Get Metadata to invoke and open referenced files
+            case input.type
+            when :TableGroup
+              table_group = Node.new
+              add_statement(0, table_group, RDF.type, CSVW.TableGroup)
 
-            # Common Properties
-            input.common_properties.each do |prop, value|
-              pred = input.context.expand_iri(prop)
-              add_statement(0, table_group, pred, value)
-            end
+              # Common Properties
+              input.common_properties.each do |prop, value|
+                pred = input.context.expand_iri(prop)
+                add_statement(0, table_group, pred, value)
+              end
 
-            input.resources.each do |table|
-              add_statement(0, table_group, CSVW.table, table.id + "#table")
-              Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id)).each_statement(&block)
+              input.resources.each do |table|
+                add_statement(0, table_group, CSVW.table, table.id + "#table")
+                Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id)).each_statement(&block)
+              end
+            when :Table
+              Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id)).each_statement(&block)
+            else
+              raise "Opened inappropriate metadata type: #{input.type}"
             end
-          when :Table
-            Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id)).each_statement(&block)
-          else
-            raise "Opened inappropriate metadata type: #{input.type}"
           end
           return
         end
