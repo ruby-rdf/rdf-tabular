@@ -208,6 +208,7 @@ module RDF::Tabular
       @options[:base] ||= input.filename if input.respond_to?(:filename)
       @options[:base] = RDF::URI(@options[:base])
 
+      @options[:depth] ||= 0
       @filename = RDF::URI(@options[:filename]) if @options[:filename]
       @properties = self.class.const_get(:PROPERTIES)
       @required = self.class.const_get(:REQUIRED)
@@ -218,71 +219,73 @@ module RDF::Tabular
       # Parent of this Metadata, if any
       @parent = @options[:parent]
 
-      # Metadata is object with symbolic keys
-      object.each do |key, value|
-        key = key.to_sym
-        case key
-        when :columns
-          # An array of template specifications that provide mechanisms to transform the tabular data into other formats
-          self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-            value.map {|v| Column.new(v, @options.merge(parent: self, context: context))}
+      depth do
+        # Metadata is object with symbolic keys
+        object.each do |key, value|
+          key = key.to_sym
+          case key
+          when :columns
+            # An array of template specifications that provide mechanisms to transform the tabular data into other formats
+            self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
+              value.map {|v| Column.new(v, @options.merge(parent: self, context: context))}
+            else
+              # Invalid, but preserve value
+              value
+            end
+          when :dialect
+            # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
+            self[key] = case value
+            when Hash   then Dialect.new(value, @options.merge(parent: self, context: context))
+            else
+              # Invalid, but preserve value
+              value
+            end
+            @type ||= :Tabl
+          when :resources
+            # An array of table descriptions for the tables in the group.
+            self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
+              value.map {|v| Table.new(v, @options.merge(parent: self, context: context))}
+            else
+              # Invalid, but preserve value
+              value
+            end
+          when :schema
+            # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
+            self[key] = case value
+            when String then Schema.open(value, @options.merge(parent: self, context: context))
+            when Hash   then Schema.new(value, @options.merge(parent: self, context: context))
+            else
+              # Invalid, but preserve value
+              value
+            end
+          when :templates
+            # An array of template specifications that provide mechanisms to transform the tabular data into other formats
+            self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
+              value.map {|v| Template.new(v, @options.merge(parent: self, context: context))}
+            else
+              # Invalid, but preserve value
+              value
+            end
+          when :@id
+            # URL of CSV relative to metadata
+            # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
+            self[:@id] = value
+            @id = base.join(value)
           else
-            # Invalid, but preserve value
-            value
-          end
-        when :dialect
-          # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
-          self[key] = case value
-          when Hash   then Dialect.new(value, @options.merge(parent: self, context: context))
-          else
-            # Invalid, but preserve value
-            value
-          end
-          @type ||= :Tabl
-        when :resources
-          # An array of table descriptions for the tables in the group.
-          self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-            value.map {|v| Table.new(v, @options.merge(parent: self, context: context))}
-          else
-            # Invalid, but preserve value
-            value
-          end
-        when :schema
-          # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
-          self[key] = case value
-          when String then Schema.open(value, @options.merge(parent: self, context: context))
-          when Hash   then Schema.new(value, @options.merge(parent: self, context: context))
-          else
-            # Invalid, but preserve value
-            value
-          end
-        when :templates
-          # An array of template specifications that provide mechanisms to transform the tabular data into other formats
-          self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-            value.map {|v| Template.new(v, @options.merge(parent: self, context: context))}
-          else
-            # Invalid, but preserve value
-            value
-          end
-        when :@id
-          # URL of CSV relative to metadata
-          # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
-          self[:@id] = value
-          @id = base.join(value)
-        else
-          if @properties.has_key?(key)
-            self.send("#{key}=".to_sym, value)
-          else
-            self[key] = value
+            if @properties.has_key?(key)
+              self.send("#{key}=".to_sym, value)
+            else
+              self[key] = value
+            end
           end
         end
-
-        # Set type from @type, if present and not otherwise defined
-        @type ||= self[:@type].to_sym if self[:@type]
-        debug("md.new") {inspect}
-
-        validate! if options[:validate]
       end
+
+      # Set type from @type, if present and not otherwise defined
+      @type ||= self[:@type].to_sym if self[:@type]
+      debug("md.new") {inspect}
+
+      validate! if options[:validate]
     end
 
     # Setters
@@ -598,160 +601,163 @@ module RDF::Tabular
       # Save original context
       ctx = self.context.dup
 
-      # Merge each property from metadata into self
-      other.each do |key, value|
-        case key
-        when :"@context"
-          # Merge contexts
-          @context = other.context.merge(self.context)
+      depth do
+        # Merge each property from metadata into self
+        other.each do |key, value|
+          case key
+          when :"@context"
+            # Merge contexts
+            @context = other.context.merge(self.context)
 
-          # Use defined representation
-          this_ctx = self[key].is_a?(Array) ? self[key] : [self[key]].compact
-          other_ctx = other[key].is_a?(Array) ? other[key] : [other[key]].compact
-          this_object = this_ctx.detect {|v| v.is_a?(Hash)} || {}
-          this_uri = this_ctx.select {|v| v.is_a?(String)}
-          other_object = other_ctx.detect {|v| v.is_a?(Hash)} || {}
-          other_uri = other_ctx.select {|v| v.is_a?(String)}
-          merged_object = other_object.merge(this_object)
-          merged_object = nil if merged_object.empty?
-          self[key] = this_uri + (other_uri - this_uri) + ([merged_object].compact)
-          self[key] = self[key].first if self[key].length == 1
-        when :@id, :@type then self[key] ||= value
-        else
-          begin
-            case @properties[key]
-            when :array
-              # If the property is an array property, the way in which values are merged depends on the property; see the relevant property for this definition.
-              self[key] = case self[key]
-              when nil then []
-              when Hash then [self[key]]  # Shouldn't happen if well formed
-              else self[key]
-              end
+            # Use defined representation
+            this_ctx = self[key].is_a?(Array) ? self[key] : [self[key]].compact
+            other_ctx = other[key].is_a?(Array) ? other[key] : [other[key]].compact
+            this_object = this_ctx.detect {|v| v.is_a?(Hash)} || {}
+            this_uri = this_ctx.select {|v| v.is_a?(String)}
+            other_object = other_ctx.detect {|v| v.is_a?(Hash)} || {}
+            other_uri = other_ctx.select {|v| v.is_a?(String)}
+            merged_object = other_object.merge(this_object)
+            merged_object = nil if merged_object.empty?
+            self[key] = this_uri + (other_uri - this_uri) + ([merged_object].compact)
+            self[key] = self[key].first if self[key].length == 1
+          when :@id, :@type then self[key] ||= value
+          else
+            begin
+              case @properties[key]
+              when :array
+                # If the property is an array property, the way in which values are merged depends on the property; see the relevant property for this definition.
+                self[key] = case self[key]
+                when nil then []
+                when Hash then [self[key]]  # Shouldn't happen if well formed
+                else self[key]
+                end
 
-              value = [value] if value.is_a?(Hash)
-              case key
-              when :resources
-                # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
+                value = [value] if value.is_a?(Hash)
+                case key
+                when :resources
+                  # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
 
-                value.each do |t|
-                  if ta = self[key].detect {|e| e.id == t.id}
-                    # if there is a table description with the same @id in A, the table description from B is imported into the matching table description in A
-                    ta.merge!(t)
+                  value.each do |t|
+                    if ta = self[key].detect {|e| e.id == t.id}
+                      # if there is a table description with the same @id in A, the table description from B is imported into the matching table description in A
+                      ta.merge!(t)
+                    else
+                      # otherwise, the table description from B is appended to the array of table descriptions A
+                      self[key] << t
+                    end
+                  end
+                when :templates
+                  # SPEC CONFUSION: differing templates with same @id?
+                  # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
+                  value.each do |t|
+                    if ta = self[key].detect {|e| e.targetFormat == t.targetFormat && e.templateFormat == t.templateFormat}
+                      # if there is a template specification with the same targetFormat and templateFormat in A, the template specification from B is imported into the matching template specification in A
+                      ta.merge!(t)
+                    else
+                      # otherwise, the template specification from B is appended to the array of template specifications A
+                      self[key] << t
+                    end
+                  end
+                when :columns
+                  # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
+                  value.each_with_index do |t, index|
+                    ta = self[key][index]
+                    if ta && ta[:name] == t[:name]
+                      # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
+                      ta.merge!(t)
+                    elsif ta && !(Array(ta[:title]) & Array(t[:title])).empty?
+                      # SPEC SUGGESTION:
+                      # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
+                      ta.merge!(t)
+                    else
+                      # otherwise, the column description is ignored
+                    end
+                  end
+                when :foreignKeys
+                  # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
+                  # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
+                  self[key] = self[key] + (other[key] - self[key])
+                end
+              when :link
+                # If the property is a link property, then if the property only accepts single values, the value from A overrides that from B, otherwise the result is an array of links: those from A followed by those from B that were not already a value in A.
+                # SPEC CONFUSION: What is an example of such a property?
+                self[key] ||= value
+              when :uri_template, :column_reference then self[key] ||= value
+              when :object
+                case key
+                when :notes
+                  # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
+                  a = case self[key]
+                  when Array then self[key]
+                  when Hash then [self[key]]
+                  else Array(self[key])
+                  end
+                  b = case value
+                  when Array then value
+                  when Hash then [value]
+                  else Array(value)
+                  end
+                  self[key] = a + b
+                else
+                  # if the property only accepts single objects
+                  if self[key].is_a?(String) || value.is_a?(String)
+                    # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
+                    self[key] ||= value
                   else
-                    # otherwise, the table description from B is appended to the array of table descriptions A
-                    self[key] << t
+                    # otherwise (if both values as objects) the objects are merged as described here
+                    self[key].merge!(value)
                   end
                 end
-              when :templates
-                # SPEC CONFUSION: differing templates with same @id?
-                # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
-                value.each do |t|
-                  if ta = self[key].detect {|e| e.targetFormat == t.targetFormat && e.templateFormat == t.templateFormat}
-                    # if there is a template specification with the same targetFormat and templateFormat in A, the template specification from B is imported into the matching template specification in A
-                    ta.merge!(t)
-                  else
-                    # otherwise, the template specification from B is appended to the array of template specifications A
-                    self[key] << t
-                  end
-                end
-              when :columns
-                # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
-                value.each_with_index do |t, index|
-                  ta = self[key][index]
-                  if ta && ta[:name] == t[:name]
-                    # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
-                    ta.merge!(t)
-                  elsif ta && !(Array(ta[:title]) & Array(t[:title])).empty?
-                    # SPEC SUGGESTION:
-                    # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
-                    ta.merge!(t)
-                  else
-                    # otherwise, the column description is ignored
-                  end
-                end
-              when :foreignKeys
-                # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
-                # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
-                self[key] = self[key] + (other[key] - self[key])
-              end
-            when :link
-              # If the property is a link property, then if the property only accepts single values, the value from A overrides that from B, otherwise the result is an array of links: those from A followed by those from B that were not already a value in A.
-              # SPEC CONFUSION: What is an example of such a property?
-              self[key] ||= value
-            when :uri_template, :column_reference then self[key] ||= value
-            when :object
-              case key
-              when :notes
-                # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
+              when :natural_language
+                # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
                 a = case self[key]
-                when Array then self[key]
-                when Hash then [self[key]]
-                else Array(self[key])
+                when Hash then self[key]
+                when Array then {(ctx.default_language || "und") => self[key]}
+                when String then {(ctx.default_language || "und") => [self[key]]}
                 end
                 b = case value
-                when Array then value
-                when Hash then [value]
-                else Array(value)
+                when Hash then value
+                when Array then {(other.context.default_language || "und") => value}
+                when String then {(other.context.default_language || "und") => [value]}
                 end
-                self[key] = a + b
+                b.each do |k, v|
+                  vv = a[k] + (b[k] - a[k])
+                  a[k] = vv.length == 1 ? vv.first : vv
+                end
+                self[key] = a
               else
-                # if the property only accepts single objects
-                if self[key].is_a?(String) || value.is_a?(String)
-                  # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
-                  self[key] ||= value
+                # If the property is an atomic property, then
+                case key.to_s
+                when "predicateUrl", "null"
+                  # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
+                  self[key] = Array(self[key]) + (Array[value] - Array[self[key]])
+                when /:/
+                  # SPEC SUGGESTION: common property
+                  a = case self[key]
+                  when nil then []
+                  when Array then self[key]
+                  else [self[key]]
+                  end
+
+                  b = case other[key]
+                  when nil then []
+                  when Array then other[key]
+                  else [other[key]]
+                  end
+
+                  self[key] = a + (b - a)
+                  self[key] = self[key].first if self[key].length == 1
                 else
-                  # otherwise (if both values as objects) the objects are merged as described here
-                  self[key].merge!(value)
+                  # if the property only accepts single values, the value from A overrides that from B;
+                  self[key] ||= value
                 end
-              end
-            when :natural_language
-              # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
-              a = case self[key]
-              when Hash then self[key]
-              when Array then {(ctx.default_language || "und") => self[key]}
-              when String then {(ctx.default_language || "und") => [self[key]]}
-              end
-              b = case value
-              when Hash then value
-              when Array then {(other.context.default_language || "und") => value}
-              when String then {(other.context.default_language || "und") => [value]}
-              end
-              b.each do |k, v|
-                vv = a[k] + (b[k] - a[k])
-                a[k] = vv.length == 1 ? vv.first : vv
-              end
-              self[key] = a
-            else
-              # If the property is an atomic property, then
-              case key.to_s
-              when "predicateUrl", "null"
-                # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
-                self[key] = Array(self[key]) + (Array[value] - Array[self[key]])
-              when /:/
-                # SPEC SUGGESTION: common property
-                a = case self[key]
-                when nil then []
-                when Array then self[key]
-                else [self[key]]
-                end
-
-                b = case other[key]
-                when nil then []
-                when Array then other[key]
-                else [other[key]]
-                end
-
-                self[key] = a + (b - a)
-                self[key] = self[key].first if self[key].length == 1
-              else
-                # if the property only accepts single values, the value from A overrides that from B;
-                self[key] ||= value
               end
             end
           end
         end
       end
 
+      debug("merge!") {self.inspect}
       self
     end
 

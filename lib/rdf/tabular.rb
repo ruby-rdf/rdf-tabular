@@ -28,7 +28,7 @@ module RDF
     autoload :Template,   'rdf/tabular/metadata'
     autoload :VERSION,    'rdf/tabular/version'
 
-    def self.debug; @debug; end
-    def self.debug=(value); @debug = value.is_a?(Array) ? value : StringIO.new; end
+    def self.debug?; @debug; end
+    def self.debug=(value); @debug = value; end
   end
 end

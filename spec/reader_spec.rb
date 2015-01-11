@@ -22,7 +22,7 @@ describe RDF::Tabular::Reader do
     WebMock.stub_request(:get, "http://example.org/country-codes-and-names.csv-metadata.json").
       to_return(status: 401)
 
-    RDF::Tabular.debug = []
+    @debug = []
   end
   
   # @see lib/rdf/spec/reader.rb in rdf-spec
@@ -49,8 +49,8 @@ describe RDF::Tabular::Reader do
         about = RDF::URI("http://example.org").join(csv)
         input = File.expand_path("../data/#{csv}", __FILE__)
         result = File.expand_path("../data/#{ttl}", __FILE__)
-        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, noProv: true)
-        expect(graph).to be_equivalent_graph(RDF::Graph.load(result, base_uri: about), debug: RDF::Tabular.debug, about: about)
+        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, noProv: true, debug: @debug)
+        expect(graph).to be_equivalent_graph(RDF::Graph.load(result, base_uri: about), debug: @debug, about: about)
       end
     end
   end
@@ -82,9 +82,9 @@ describe RDF::Tabular::Reader do
       it csv do
         about = RDF::URI("http://example.org").join(csv)
         input = File.expand_path("../data/#{csv}", __FILE__)
-        graph = RDF::Graph.load(input, format: :tabular, base_uri: about)
+        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, debug: @debug)
 
-        expect(graph).to pass_query(query, debug: RDF::Tabular.debug, about: about)
+        expect(graph).to pass_query(query, debug: @debug, about: about)
       end
     end
   end
