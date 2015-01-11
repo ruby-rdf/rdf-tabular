@@ -119,9 +119,8 @@ module RDF::Tabular
               add_statement(0, table_group, RDF.type, CSVW.TableGroup)
 
               # Common Properties
-              input.common_properties.each do |prop, value|
-                pred = input.context.expand_iri(prop)
-                add_statement(0, table_group, pred, value)
+              input.common_properties(table_group) do |statement|
+                add_statement(0, statement)
               end
 
               input.resources.each do |table|
@@ -148,9 +147,8 @@ module RDF::Tabular
         add_statement(0, distribution, RDF::DCAT.downloadURL, metadata.id)
 
         # Output table common properties
-        metadata.common_properties.each do |prop, value|
-          pred = metadata.context.expand_iri(prop)
-          add_statement(0, table_resource, pred, value)
+        metadata.common_properties(table_resource) do |statement|
+          add_statement(0, statement)
         end
 
         # Column metadata
@@ -161,11 +159,14 @@ module RDF::Tabular
           add_statement(0, pred, RDF.type, RDF.Property)
 
           # Titles
-          column.rdf_values(:title, column.title) {|v| add_statement(0, pred, RDF::RDFS.label, v)}
+          column.rdf_values(pred, "title", column.title) do |statement|
+            statement.predicate = RDF::RDFS.label if statement.predicate == CSVW.title
+            add_statement(0, statement)
+          end
 
           # Common Properties
-          column.common_properties.each do |prop, value|
-            add_statement(0, pred, column.context.expand_iri(prop), value)
+          column.common_properties(pred) do |statement|
+            add_statement(0, statement)
           end
         end
 
@@ -228,17 +229,21 @@ module RDF::Tabular
 
     private
     ##
-    # add a statement, object can be literal or URI or bnode
+    # @overload add_statement(lineno, statement)
+    #   Add a statement, object can be literal or URI or bnode
+    #   @param [String] lineno
+    #   @param [RDF::Statement] statement
+    #   @yield [RDF::Statement]
+    #   @raise [ReaderError] Checks parameter types and raises if they are incorrect if parsing mode is _validate_.
     #
-    # @param [Nokogiri::XML::Node, any] node XML Node or string for showing context
-    #
-    # @param [URI, BNode] subject the subject of the statement
-    # @param [URI] predicate the predicate of the statement
-    # @param [URI, BNode, Literal] object the object of the statement
-    # @return [Statement] Added statement
-    # @raise [ReaderError] Checks parameter types and raises if they are incorrect if parsing mode is _validate_.
-    def add_statement(node, subject, predicate, object)
-      statement = RDF::Statement.new(subject, predicate, object)
+    # @overload add_statement(lineno, subject, predicate, object)
+    #   Add a triple
+    #   @param [URI, BNode] subject the subject of the statement
+    #   @param [URI] predicate the predicate of the statement
+    #   @param [URI, BNode, Literal] object the object of the statement
+    #   @raise [ReaderError] Checks parameter types and raises if they are incorrect if parsing mode is _validate_.
+    def add_statement(node, *args)
+      statement = args[0].is_a?(RDF::Statement) ? args[0] : RDF::Statement.new(*args)
       raise RDF::ReaderError, "#{statement.inspect} is invalid" if validate? && statement.invalid?
       debug(node) {"statement: #{RDF::NTriples.serialize(statement)}"}
       @callback.call(statement)

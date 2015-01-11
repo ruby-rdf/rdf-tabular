@@ -531,19 +531,19 @@ module RDF::Tabular
     ##
     # Return or yield common properties (those which are CURIEs or URLS)
     #
+    # @param [RDF::Resource] subject
     # @yield property, value
     # @yieldparam [String] property as a PName or URL
-    # @yieldparam [RDF::Value] value
+    # @yieldparam [RDF::Statement] statement
     # @return [Hash{String => RDF::Value, Array<RDF::Value>}]
-    def common_properties
+    def common_properties(subject, &block)
       if block_given?
         each do |key, value|
           next unless key.to_s.include?(':')  # Only common properties
-          rdf_values(key, value) do |v|
-            yield(key.to_s, v)
-          end
+          rdf_values(subject, key.to_s, value, &block)
         end
       else
+        # FIXME, probably doesn't work for JSON, maybe just use values directly
         props = {}
         common_properties do |p, v|
           case props[p]
@@ -558,32 +558,15 @@ module RDF::Tabular
 
     # Yield RDF statements after expanding property values
     #
-    # @param [#to_s] property
+    # @param [RDF::Resource] subject
+    # @param [String] property
     # @param [Object] value
-    # @yield new_value
-    # @yieldparam [RDF::Value] new_value
-    def rdf_values(property, value)
-      @jld_api ||= ::JSON::LD::API.new({}, context)
-
-      expanded_values = case value
-      when Array
-        value.map do |v|
-          context.expand_value(property.to_s, v)
-        end
-      when Hash
-        if context.container(property.to_s) == '@language'
-          value.map do |l, v|
-            v = [v] unless v.is_a?(Array)
-            v.map {|vv| l == 'und' ? {'@value' => vv} : {'@value' => vv, '@language' => l}}
-          end.flatten
-        else
-          [context.expand_value(property.to_s, value)]
-        end
-      else
-        [context.expand_value(property.to_s, value)]
-      end
-      expanded_values.each do |ev|
-        yield(@jld_api.parse_object(ev))
+    # @yield s, p, o
+    # @yieldparam [RDF::Statement] statement
+    def rdf_values(subject, property, value)
+      ::JSON::LD::API.toRdf({'@id' => subject.to_s, property => value}, expandContext: context) do |statement|
+        statement.object = RDF::Literal(statement.object.value) if statement.object.literal? && statement.object.language == :und
+        yield statement
       end
     end
 
