@@ -227,7 +227,11 @@ module RDF::Tabular
           when :columns
             # An array of template specifications that provide mechanisms to transform the tabular data into other formats
             self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              value.map {|v| Column.new(v, @options.merge(parent: self, context: context))}
+              colno = parent ? dialect.skipColumns : 0  # Get dialect from Table, not Schema
+              value.map do |v|
+                colno += 1
+                Column.new(v, @options.merge(parent: self, context: context, colno: colno))
+              end
             else
               # Invalid, but preserve value
               value
@@ -302,10 +306,13 @@ module RDF::Tabular
 
     # Treat `dialect` similar to an inherited property, but default
     def dialect
-      self[:dialect] ||= if parent
-        parent.dialect
-      else
+      case
+      when self[:dialect] then self[:dialect]
+      when parent then parent.dialect
+      when is_a?(Table) || is_a?(TableGroup)
         Dialect.new({}, @options.merge(parent: self, context: context))
+      else
+        raise "Can't access dialect from #{self.class} without a parent"
       end
     end
 
@@ -351,7 +358,7 @@ module RDF::Tabular
         when :columns
           column_names = value.map(&:name)
           value.is_a?(Array) &&
-          value.all? {|v| v.is_a?(Metadata) && v.is_a?(Column) && v.validate!} &&
+          value.all? {|v| v.is_a?(Column) && v.validate!} &&
           begin
             # The name properties of the column descriptions must be unique within a given table description.
             column_names = value.map(&:name)
@@ -362,7 +369,7 @@ module RDF::Tabular
         when :datatype then value.is_a?(String) && DATATYPES.keys.map(&:to_s).include?(value)
         when :default then value.is_a?(String)
         when :delimiter then value.is_a?(String) && value.length == 1
-        when :dialect then value.is_a?(Metadata) && v.is_a?(Dialect) && v.validate!
+        when :dialect then value.is_a?(Dialect) && value.validate!
         when :doubleQuote then %w(true false 1 0).include?(value.to_s.downcase)
         when :encoding then Encoding.find(value)
         when :foreignKeys
@@ -414,8 +421,8 @@ module RDF::Tabular
           end
         when :quoteChar then value.is_a?(String) && value.length == 1
         when :required then %w(true false 1 0).include?(value.to_s.downcase)
-        when :resources then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.is_a?(Table) && v.validate!}
-        when :schema then value.is_a?(Metadata) && value.is_a?(Schema) && value.validate!
+        when :resources then value.is_a?(Array) && value.all? {|v| v.is_a?(Table) && v.validate!}
+        when :schema then value.is_a?(Schema) && value.validate!
         when :separator then value.nil? || value.is_a?(String) && value.length == 1
         when :skipInitialSpace then %w(true false 1 0).include?(value.to_s.downcase)
         when :skipBlankRows then %w(true false 1 0).include?(value.to_s.downcase)
@@ -424,7 +431,7 @@ module RDF::Tabular
         when :source then %w(json rdf).include?(value)
         when :"table-direction" then %w(rtl ltr default).include?(value)
         when :targetFormat, :templateFormat then RDF::URI(value).valid?
-        when :templates then value.is_a?(Array) && value.all? {|v| v.is_a?(Metadata) && v.is_a?(Template) && v.validate!}
+        when :templates then value.is_a?(Array) && value.all? {|v| v.is_a?(Template) && v.validate!}
         when :"text-direction" then %w(rtl ltr).include?(value)
         when :title then valid_natural_language_property?(value)
         when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
@@ -488,7 +495,7 @@ module RDF::Tabular
       (1..(dialect.headerRowCount || 1)).each do
         Array(csv.shift).each_with_index do |value, index|
           # Skip columns
-          next if index < (dialect.skipColumns - 1)
+          next if index < dialect.skipColumns
 
           # Trim value
           value = ltrim(value) if %w(true start).include?(dialect.trim)
@@ -497,7 +504,7 @@ module RDF::Tabular
           # Initialize title
           # SPEC CONFUSION: does title get an array, or concatenated values?
           columns = table["schema"]["columns"] ||= []
-          column = columns[index] ||= {
+          column = columns[index - dialect.skipColumns] ||= {
             "title" => [],
           }
           column["title"] << value
@@ -893,6 +900,10 @@ module RDF::Tabular
     }.freeze
     REQUIRED = [:name].freeze
 
+    # Column number set on initialization
+    # @return [Integer] 1-based colnum number
+    def colnum; @options.fetch(:colnum, 0); end
+
     # Setters
     PROPERTIES.keys.each do |a|
       define_method("#{a}=".to_sym) do |value|
@@ -918,7 +929,7 @@ module RDF::Tabular
 
     # Return or create a name for the column from title, if it exists
     def name
-      self[:name] ||= title ? Array(title).join("\n") : "_col=#{index}"
+      self[:name] ||= title ? Array(title).join("\n") : "_col=#{colnum}"
     end
 
     # Logic for accessing elements as accessors
@@ -1010,6 +1021,7 @@ module RDF::Tabular
     # @return [Row]
     def initialize(row, metadata, rownum)
       @rownum = rownum
+      skipColumns = metadata.dialect.skipColumns
 
       # Create values hash
       # SPEC CONFUSION: are values pre-or-post conversion?
@@ -1020,9 +1032,11 @@ module RDF::Tabular
       create_columns = metadata.schema.columns.nil?
       columns = metadata.schema.columns ||= []
       row.each_with_index do |value, index|
+        next if index < skipColumns
+
         # create column if necessary
         if create_columns && !columns[index]
-          columns[index] = Column.new({}, parent: metadata.schema, context: metadata.schema.context)
+          columns[index] = Column.new({}, parent: metadata.schema, context: metadata.schema.context, colnum: index + 1)
         end
 
         map_values[columns[index].name] = value
@@ -1039,30 +1053,30 @@ module RDF::Tabular
       # Yield each value, after conversion
       @values = []
       row.each_with_index do |cell, index|
-        @values << if columns[index]
-
+        next if index < skipColumns
+        @values << if column = columns[index - skipColumns]
           cv = cell
           # Trim value
           cv = ltrim(cv.to_s) if %w(true start).include?(metadata.dialect.trim)
           cv = rtrim(cv.to_s) if %w(true end).include?(metadata.dialect.trim)
 
-          cell_values = metadata.separator ? cv.split(metadata.separator) : [cv]
+          cell_values = column.separator ? cv.split(column.separator) : [cv]
 
           cell_values = cell_values.map do |v|
             case
             when v.empty? then metadata.dialect.null
             when v.nil? then metadata.dialect.default
-            when metadata.datatype == :anyUri
+            when column.datatype == :anyUri
               metadata.id.join(v)
-            when metadata.datatype
+            when column.datatype
               # FIXME: use of format in extracting information
-              RDF::Literal(v, datatype: metadata.context.expand_iri(metadata.datatype))
+              RDF::Literal(v, datatype: metadata.context.expand_iri(column.datatype, vocab: true))
             else
-              RDF::Literal(v, language: metadata.language)
+              RDF::Literal(v, language: column.language)
             end
           end.compact
 
-          (metadata.separator ? cell_values : cell_values.first)
+          (column.separator ? cell_values : cell_values.first)
         else
           # Non-mapped columns
           nil
