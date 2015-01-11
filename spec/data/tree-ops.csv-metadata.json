@@ -4,8 +4,8 @@
   "dc:title": "Tree Operations",
   "dc:keywords": ["tree", "street", "maintenance"],
   "dc:publisher": [{
-    "sch:name": "Example Municipality",
-    "sch:web": "http://example.org"
+    "http://schema.org/name": "Example Municipality",
+    "http://schema.org/web": "http://example.org"
   }],
   "dc:license": "http://opendefinition.org/licenses/cc-by/",
   "dc:modified": "2010-12-31",

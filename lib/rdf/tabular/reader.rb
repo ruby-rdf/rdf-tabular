@@ -165,8 +165,7 @@ module RDF::Tabular
 
           # Common Properties
           column.common_properties.each do |prop, value|
-            pred = column.context.expand_iri(prop)
-            add_statement(0, table_resource, pred, value)
+            add_statement(0, pred, column.context.expand_iri(prop), value)
           end
         end
 

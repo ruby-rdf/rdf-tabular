@@ -565,9 +565,19 @@ module RDF::Tabular
     def rdf_values(property, value)
       @jld_api ||= ::JSON::LD::API.new({}, context)
 
-      expanded_values = if value.is_a?(Array)
+      expanded_values = case value
+      when Array
         value.map do |v|
           context.expand_value(property.to_s, v)
+        end
+      when Hash
+        if context.container(property.to_s) == '@language'
+          value.map do |l, v|
+            v = [v] unless v.is_a?(Array)
+            v.map {|vv| l == 'und' ? {'@value' => vv} : {'@value' => vv, '@language' => l}}
+          end.flatten
+        else
+          [context.expand_value(property.to_s, value)]
         end
       else
         [context.expand_value(property.to_s, value)]
