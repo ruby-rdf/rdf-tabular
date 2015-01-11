@@ -64,18 +64,10 @@ module RDF::Tabular
 
           if @options[:base] && !@input.is_a?(Metadata)
             # Otherwise, look for metadata based on filename
-            metadata ||= begin
-              Metadata.open("#{@options[:base]}-metadata.json", @options)
-            rescue Errno::ENOENT
-              nil
-            end
+            metadata ||= Metadata.open("#{@options[:base]}-metadata.json", @options) rescue nil
 
             # Otherwise, look for metadata in directory
-            metadata ||= begin
-              Metadata.open(RDF::URI(@options[:base]).join("metadata.json"), @options)
-            rescue Errno::ENOENT
-              nil
-            end
+            metadata ||= Metadata.open(RDF::URI(@options[:base]).join("metadata.json"), @options) rescue nil
           end
 
           # Extract file metadata, and left-merge if appropriate
@@ -125,10 +117,14 @@ module RDF::Tabular
 
               input.resources.each do |table|
                 add_statement(0, table_group, CSVW.table, table.id + "#table")
-                Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id)).each_statement(&block)
+                Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id)) do |r|
+                  r.each_statement(&block)
+                end
               end
             when :Table
-              Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id)).each_statement(&block)
+              Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id)) do |r|
+                r.each_statement(&block)
+              end
             else
               raise "Opened inappropriate metadata type: #{input.type}"
             end
