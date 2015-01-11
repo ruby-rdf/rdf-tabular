@@ -12,6 +12,8 @@ require 'json'
 require 'webmock/rspec'
 require 'matchers'
 require 'suite_helper'
+require 'simplecov'
+SimpleCov.start
 
 JSON_STATE = JSON::State.new(
   :indent       => "  ",

@@ -12,7 +12,11 @@ end
 
 group :debug do
   gem "wirble"
-  gem "byebug", platforms: [:mri_20, :mri_21]
+  gem "byebug", platform: :mri
+end
+
+group :development, :test do
+  gem 'simplecov', require: false
 end
 
 platforms :rbx do
