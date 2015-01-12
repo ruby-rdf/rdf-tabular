@@ -287,7 +287,7 @@ module RDF::Tabular
 
       # Set type from @type, if present and not otherwise defined
       @type ||= self[:@type].to_sym if self[:@type]
-      debug("md.new") {inspect}
+      debug("md.new") {inspect} unless is_a?(Dialect)
 
       validate! if options[:validate]
     end
@@ -1055,17 +1055,18 @@ module RDF::Tabular
       row.each_with_index do |cell, index|
         next if index < skipColumns
         @values << if column = columns[index - skipColumns]
-          cv = cell
+          cv = cell.to_s
           # Trim value
-          cv = ltrim(cv.to_s) if %w(true start).include?(metadata.dialect.trim)
-          cv = rtrim(cv.to_s) if %w(true end).include?(metadata.dialect.trim)
+          cv.lstrip! if %w(true start).include?(metadata.dialect.trim)
+          cv.rstrip! if %w(true end).include?(metadata.dialect.trim)
+          cv.strip! if %w(string anySimpleType any).include?(column.datatype.to_s)
 
           cell_values = column.separator ? cv.split(column.separator) : [cv]
 
           cell_values = cell_values.map do |v|
             case
-            when v.empty? then metadata.dialect.null
-            when v.nil? then metadata.dialect.default
+            when v == column.null then nil
+            when v.to_s.empty? then metadata.dialect.default
             when column.datatype == :anyUri
               metadata.id.join(v)
             when column.datatype

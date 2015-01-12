@@ -6,29 +6,29 @@ def normalize(graph)
   case graph
   when RDF::Queryable then graph
   when IO, StringIO
-    RDF::Graph.new.load(graph, base_uri: @info.about)
+    RDF::Graph.new.load(graph, base_uri: @info.action)
   else
     # Figure out which parser to use
     g = RDF::Repository.new
     reader_class = detect_format(graph)
-    reader_class.new(graph, base_uri: @info.about).each {|s| g << s}
+    reader_class.new(graph, base_uri: @info.action).each {|s| g << s}
     g
   end
 end
 
-Info = Struct.new(:about, :debug, :action, :result)
+Info = Struct.new(:id, :debug, :action, :result)
 
 RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   match do |actual|
-    @info = if info.respond_to?(:action)
+    @info = if (info.id rescue false)
       info
     elsif info.is_a?(Hash)
-      about = info[:about]
+      id = info[:id]
       debug = info[:debug]
       debug = Array(debug).join("\n")
-      Info.new(about, debug, info[:action], info[:result])
+      Info.new(id, debug, info[:action], info[:result])
     else
-      Info.new(expected.is_a?(RDF::Enumerable) ? expected.context : info, info.to_s)
+      Info.new(info, info.to_s)
     end
     @expected = normalize(expected)
     @actual = normalize(actual)
@@ -36,32 +36,29 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   end
   
   failure_message do |actual|
-    
+    "#{@info.inspect + "\n"}" +
     if @expected.is_a?(RDF::Enumerable) && @actual.size != @expected.size
-      "Graph entry count differs:\nexpected: #{@expected.size}\nactual:   #{@actual.size}"
+      "Graph entry count differs:\nexpected: #{@expected.size}\nactual:   #{@actual.size}\n"
     elsif @expected.is_a?(Array) && @actual.size != @expected.length
-      "Graph entry count differs:\nexpected: #{@expected.length}\nactual:   #{@actual.size}"
+      "Graph entry count differs:\nexpected: #{@expected.length}\nactual:   #{@actual.size}\n"
     else
-      "Graph differs"
+      "Graph differs\n"
     end +
-    "\n#{@info.about + "\n" if @info.about}" +
-    (@info.action ? "Action: #{@info.action}\n" : "") +
-    (@info.result ? "Result: #{@info.result}\n" : "") +
-    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true)}" +
-    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true)}" +
+    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
+    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
   end  
 end
 
 RSpec::Matchers.define :pass_query do |expected, info|
   match do |actual|
-    @info = if info.respond_to?(:about)
+    @info = if (info.id rescue false)
       info
     elsif info.is_a?(Hash)
-      about = info[:about]
+      id = info[:id]
       debug = info[:debug]
       debug = Array(debug).join("\n")
-      Info.new(about, debug, info[:action], info.fetch(:result, RDF::Literal::TRUE))
+      Info.new(id, debug, info[:action], info.fetch(:result, RDF::Literal::TRUE))
     end
 
     @expected = expected.respond_to?(:read) ? expected.read : expected
@@ -85,7 +82,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
       "Query returned true (expected #{@info.result})"
     end +
     "\n#{@expected}" +
-    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true)}" +
+    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     "\nDebug:\n#{@info.debug}"
   end  
 
@@ -101,7 +98,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
       "Query returned true (expected #{@info.result})"
     end +
     "\n#{@expected}" +
-    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true)}" +
+    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     "\nDebug:\n#{@info.debug}"
   end  
 end

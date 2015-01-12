@@ -56,9 +56,6 @@ module RDF::Util
           else
             Kernel.open(filename_or_url.to_s, &block)
           end
-        rescue Errno::ENOENT
-          # Not there, don't run tests
-          StringIO.new("")
         end
       else
         Kernel.open(filename_or_url.to_s, &block)
@@ -80,12 +77,14 @@ module Fixtures
 
         "id": "@id",
         "type": "@type",
-        "name": "mf:name",
-        "comment": "rdfs:comment",
-        "entries": {"@id": "mf:entries", "@type": "@id", "@container": "@list"},
         "action":  {"@id": "mf:action", "@type": "@id"},
         "approval":  {"@id": "csvt:approval", "@type": "@id"},
+        "comment": "rdfs:comment",
         "data": {"@id": "mq:data", "@type": "@id"},
+        "entries": {"@id": "mf:entries", "@type": "@id", "@container": "@list"},
+        "name": "mf:name",
+        "noProv": {"@id": "csvt:noProv", "@type": "xsd:boolean"},
+        "option": "csvt:option",
         "result": {"@id": "mf:result", "@type": "@id"}
       },
       "@type": "mf:Manifest",
@@ -119,6 +118,10 @@ module Fixtures
     class Entry < JSON::LD::Resource
       attr_accessor :debug
 
+      def id
+        attributes['id']
+      end
+
       def base
         BASE + action.split('/').last
       end
@@ -133,23 +136,23 @@ module Fixtures
       end
       
       def evaluate?
-        attributes['@type'].include?("To")
+        type.include?("To")
       end
       
       def sparql?
-        attributes['@type'].include?("Sparql")
+        type.include?("Sparql")
       end
 
       def rdf?
-        attributes['@type'].include?("Rdf")
+        type.include?("Rdf")
       end
 
       def json?
-        attributes['@type'].include?("Json")
+        type.include?("Json")
       end
 
       def syntax?
-        attributes['@type'].include?("Syntax")
+        type.include?("Syntax")
       end
 
       def positive_test?
@@ -157,7 +160,13 @@ module Fixtures
       end
       
       def negative_test?
-        attributes['@type'].include?("Negative")
+        type.include?("Negative")
+      end
+
+      def reader_options
+        res = {}
+        res[:noProv] = option['noProv'] == 'true' if option.has_key?('noProv')
+        res
       end
     end
   end
