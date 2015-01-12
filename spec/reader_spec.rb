@@ -50,7 +50,7 @@ describe RDF::Tabular::Reader do
         input = File.expand_path("../data/#{csv}", __FILE__)
         result = File.expand_path("../data/#{ttl}", __FILE__)
         graph = RDF::Graph.load(input, format: :tabular, base_uri: about, noProv: true, debug: @debug)
-        expect(graph).to be_equivalent_graph(RDF::Graph.load(result, base_uri: about), debug: @debug, id: about)
+        expect(graph).to be_equivalent_graph(RDF::Graph.load(result, base_uri: about), debug: @debug, id: about, action: about, result: result)
       end
     end
   end

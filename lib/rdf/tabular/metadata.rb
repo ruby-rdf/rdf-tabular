@@ -299,11 +299,6 @@ module RDF::Tabular
       end
     end
 
-    # When setting language, also update the default language in the context
-    def language=(value)
-      context.default_language = self[:language] = value
-    end
-
     # Treat `dialect` similar to an inherited property, but default
     def dialect
       case
@@ -930,6 +925,17 @@ module RDF::Tabular
     # Return or create a name for the column from title, if it exists
     def name
       self[:name] ||= title ? Array(title).join("\n") : "_col=#{colnum}"
+    end
+
+    # If the property value is an object, then use the column language to determine the one
+    def title
+      value = case self[:title]
+      when Hash
+        Array(self[:title][language || 'und'])
+      else
+        self[:title]
+      end
+      value.length <= 1 ? value.first : value
     end
 
     # Logic for accessing elements as accessors
