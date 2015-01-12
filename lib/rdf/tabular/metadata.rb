@@ -482,10 +482,11 @@ module RDF::Tabular
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)
       (1..dialect.skipRows.to_i).each do
-        row = csv.shift.join("")  # Skip initial lines, these form comment annotations
+        row = csv.shift.join(dialect.delimiter)  # Skip initial lines, these form comment annotations
         row = row[1..-1] if dialect.commentPrefix && row.start_with?(dialect.commentPrefix)
         table["notes"] ||= [] << row unless row.empty?
       end
+      debug("embedded_metadata") {"notes: #{notes.inspect}"}
 
       (1..(dialect.headerRowCount || 1)).each do
         Array(csv.shift).each_with_index do |value, index|
@@ -509,6 +510,7 @@ module RDF::Tabular
           c["title"] = c["title"].first if c["title"].length == 1
         end
       end
+      debug("embedded_metadata") {"table: #{table.inspect}"}
       input.rewind if input.respond_to?(:rewind)
 
       Table.new(table, options)
@@ -577,43 +579,42 @@ module RDF::Tabular
       # If the top-level object of any of the metadata files are table descriptions, these are treated as if they were table group descriptions containing a single table description (ie having a single resource property whose value is the same as the original table description).
       this = self.is_a?(Table) ? TableGroup.new({"resources" => self}, context: context) : self.dup
       raise "Can't merge #{self.class}" unless this.is_a?(TableGroup)
+
       metadata = case metadata
       when TableGroup then metadata
       when Table then TableGroup.new({"@type" => "TableGroup", "resources" => metadata}, context: context)
       else
-        raise "Can't merge #{other.class}"
+        raise "Can't merge #{metadata.class}"
       end
 
-      this.merge!(Metadata.new(metadata, context: context))
+      this.merge!(metadata)
     end
 
     # Merge metadata into self
     def merge!(metadata)
-      other = Metadata.new(metadata, context: context)
-
-      raise "Merging non-equivalent metadata types: #{self.class} vs #{other.class}" unless self.class == other.class
+      raise "Merging non-equivalent metadata types: #{self.class} vs #{metadata.class}" unless self.class == metadata.class
 
       # Save original context
       ctx = self.context.dup
 
       depth do
         # Merge each property from metadata into self
-        other.each do |key, value|
+        metadata.each do |key, value|
           case key
           when :"@context"
             # Merge contexts
-            @context = other.context.merge(self.context)
+            @context = metadata.context.merge(self.context)
 
             # Use defined representation
             this_ctx = self[key].is_a?(Array) ? self[key] : [self[key]].compact
-            other_ctx = other[key].is_a?(Array) ? other[key] : [other[key]].compact
+            metadata_ctx = metadata[key].is_a?(Array) ? metadata[key] : [metadata[key]].compact
             this_object = this_ctx.detect {|v| v.is_a?(Hash)} || {}
             this_uri = this_ctx.select {|v| v.is_a?(String)}
-            other_object = other_ctx.detect {|v| v.is_a?(Hash)} || {}
-            other_uri = other_ctx.select {|v| v.is_a?(String)}
-            merged_object = other_object.merge(this_object)
+            metadata_object = metadata_ctx.detect {|v| v.is_a?(Hash)} || {}
+            metadata_uri = metadata_ctx.select {|v| v.is_a?(String)}
+            merged_object = metadata_object.merge(this_object)
             merged_object = nil if merged_object.empty?
-            self[key] = this_uri + (other_uri - this_uri) + ([merged_object].compact)
+            self[key] = this_uri + (metadata_uri - this_uri) + ([merged_object].compact)
             self[key] = self[key].first if self[key].length == 1
           when :@id, :@type then self[key] ||= value
           else
@@ -631,7 +632,6 @@ module RDF::Tabular
                 case key
                 when :resources
                   # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
-
                   value.each do |t|
                     if ta = self[key].detect {|e| e.id == t.id}
                       # if there is a table description with the same @id in A, the table description from B is imported into the matching table description in A
@@ -671,7 +671,7 @@ module RDF::Tabular
                 when :foreignKeys
                   # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
                   # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
-                  self[key] = self[key] + (other[key] - self[key])
+                  self[key] = self[key] + (metadata[key] - self[key])
                 end
               when :link
                 # If the property is a link property, then if the property only accepts single values, the value from A overrides that from B, otherwise the result is an array of links: those from A followed by those from B that were not already a value in A.
@@ -698,9 +698,11 @@ module RDF::Tabular
                   if self[key].is_a?(String) || value.is_a?(String)
                     # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
                     self[key] ||= value
-                  else
+                  elsif self[key].is_a?(Hash)
                     # otherwise (if both values as objects) the objects are merged as described here
                     self[key].merge!(value)
+                  else
+                    self[key] = value
                   end
                 end
               when :natural_language
@@ -712,8 +714,8 @@ module RDF::Tabular
                 end
                 b = case value
                 when Hash then value
-                when Array then {(other.context.default_language || "und") => value}
-                when String then {(other.context.default_language || "und") => [value]}
+                when Array then {(metadata.context.default_language || "und") => value}
+                when String then {(metadata.context.default_language || "und") => [value]}
                 end
                 b.each do |k, v|
                   vv = a[k] + (b[k] - a[k])
@@ -734,10 +736,10 @@ module RDF::Tabular
                   else [self[key]]
                   end
 
-                  b = case other[key]
+                  b = case metadata[key]
                   when nil then []
-                  when Array then other[key]
-                  else [other[key]]
+                  when Array then metadata[key]
+                  else [metadata[key]]
                   end
 
                   self[key] = a + (b - a)
@@ -902,7 +904,7 @@ module RDF::Tabular
     # Setters
     PROPERTIES.keys.each do |a|
       define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        self[a] = value.to_s =~ /^\d+$/ ? value.to_i : value
       end
     end
 

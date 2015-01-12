@@ -434,54 +434,43 @@ describe RDF::Tabular::Metadata do
           "@type": "Table",
           "schema": {
             "@type": "Schema",
-            "columns": [{
-              "title": "countryCode"
-            }, {
-              "title": "latitude"
-            }, {
-              "title": "longitude"
-            }, {
-              "title": "name"
-            }]
+            "columns": [
+              {"title": "countryCode"},
+              {"title": "latitude"},
+              {"title": "longitude"},
+              {"title": "name"}
+            ]
           }
         })
       },
-      #"with skipRows" => {
-      #  input: "https://example.org/countries.csv",
-      #  metadata: %({
-      #    "@type": "Table",
-      #    "dialect": {
-      #      "skipRows": 1
-      #    }
-      #  }),
-      #  result: %({
-      #    "@id": "https://example.org/countries.csv",
-      #    "@type": "Table",
-      #    "schema": {
-      #      "@type": "Schema",
-      #      "columns": [{
-      #        "name": "AD",
-      #        "title": "AD",
-      #        "predicateUrl": "https://example.org/countries.csv#AD"
-      #      }, {
-      #        "name": "42.546245",
-      #        "title": "42.546245",
-      #        "predicateUrl": "https://example.org/countries.csv#42.546245"
-      #      }, {
-      #        "name": "1.601554",
-      #        "title": "1.601554",
-      #        "predicateUrl": "https://example.org/countries.csv#1.601554"
-      #      }, {
-      #        "name": "Andorra",
-      #        "title": "Andorra",
-      #        "predicateUrl": "https://example.org/countries.csv#Andorra"
-      #      }]
-      #    }
-      #  })
-      #},
+      "with skipRows" => {
+        input: "https://example.org/countries.csv",
+        metadata: %({
+          "@type": "Table",
+          "dialect": {"skipRows": 1}
+        }),
+        result: %({
+          "@id": "https://example.org/countries.csv",
+          "@type": "Table",
+          "schema": {
+            "@type": "Schema",
+            "columns": [
+              {"title": "AD"},
+              {"title": "42.546245"},
+              {"title": "1.601554"},
+              {"title": "Andorra"}
+            ]
+          },
+          "notes": ["countryCode,latitude,longitude,name"]
+        })
+      },
     }.each do |name, props|
       it name do
-        metadata = props[:metadata] ? subject.merge(JSON.parse(props[:metadata])) : subject
+        metadata = if props[:metadata]
+          described_class.new(JSON.parse(props[:metadata]), base: RDF::URI("http://example.org/base"), debug: @debug)
+        end
+
+        metadata = metadata ? subject.merge(metadata).resources.first : subject
         result = metadata.embedded_metadata(props[:input])
         expect(result.to_json(JSON_STATE)).to produce(::JSON.parse(props[:result]).to_json(JSON_STATE), @debug)
       end
