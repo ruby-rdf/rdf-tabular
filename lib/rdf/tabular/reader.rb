@@ -42,74 +42,21 @@ module RDF::Tabular
         @options[:depth] ||= 0
 
         debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
+
+        @input = input.is_a?(String) ? StringIO.new(input) : input
+
         depth do
-          # load link metadata, if available
-          metadata = nil
-          metadata ||= if input.respond_to?(:links) && !@options[:no_found_metadata]
-            link = input.links.find_link(%w(rel describedby))
-            debug("Reader#initialize") {"load linked metadata: #{link}"}
-            Metadata.open(link, options)
-          end
-
-          # For testing purposes, act as if a link header was provided with option
-          metadata ||= if md = @options[:httpLink].to_s.match(/^.*<[^>]+>/) && !@options[:no_found_metadata]
-            link = md[1]
-            debug("Reader#initialize") {"load linked metadata: #{link}"}
-            Metadata.open(link, options)
-          end
-
-          @input = input.is_a?(String) ? StringIO.new(input) : input
-
           # If input is JSON, then the input is the metadata
           if @options[:base] =~ /\.json(?:ld)?$/ ||
              @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
             @input = Metadata.new(@input, @options)
+          else
+            # Otherwise, it's tabluar data
+            @metadata = Metadata.for_input(@input, @options)
+
+            # If metadata is a TableGroup, get metadata for this table
+            @metadata = @metadata.for_table(@options[:base]) if @metadata.is_a?(TableGroup)
           end
-
-          # Use user metadata
-          user_metadata = case options[:metadata]
-          when Metadata then options[:metadata]
-          when Hash
-            debug("Reader#initialize") {"load user metadata: #{options[:metadata].inspect}"}
-            Metadata.new(options[:metadata], @options)
-          when String, RDF::URI
-            debug("Reader#initialize") {"load user metadata: #{options[:metadata].inspect}"}
-            Metadata.open(options[:metadata], @options)
-          end
-
-          if @options[:base] && !@input.is_a?(Metadata) && !@options[:no_found_metadata]
-            # Otherwise, look for metadata based on filename
-            metadata ||= begin
-              loc = "#{@options[:base]}-metadata.json"
-              debug("Reader#initialize") {"load found metadata: #{loc}"}
-              Metadata.open(loc, @options)
-            rescue
-            end
-
-            # Otherwise, look for metadata in directory
-            metadata ||= begin
-              loc = RDF::URI(@options[:base]).join("metadata.json")
-              debug("Reader#initialize") {"load found metadata: #{loc}"}
-              Metadata.open(loc, @options)
-            rescue
-            end
-          end
-
-          # Extract file metadata, and left-merge if appropriate
-          unless @input.is_a?(Metadata)
-            # Use found metadata when parsing embedded data, but don't merge in until complete
-            parse_md = user_metadata && metadata ?
-                       user_metadata.merge(metadata) :
-                       (user_metadata || metadata || Table.new({}))
-            debug("Reader#initialize") {"load embedded metadata"}
-            embedded_metadata = parse_md.embedded_metadata(@input, @options)
-
-            @metadata = user_metadata ? user_metadata.merge(embedded_metadata) : embedded_metadata
-            @metadata = @metadata.merge(metadata) if metadata
-          end
-
-          # If metadata is a TableGroup, get metadata for this table
-          @metadata = @metadata.for_table(@options[:base]) if @metadata.is_a?(TableGroup)
 
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata}"}
 

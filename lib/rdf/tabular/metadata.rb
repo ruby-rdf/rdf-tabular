@@ -116,6 +116,70 @@ module RDF::Tabular
       end
     end
 
+    ##
+    # Return metadata for a file, based on user-specified, embedded and path-relative locations from an input file
+    # @param [IO, StringIO] input
+    # @param [Hash{Symbol => Object}] options
+    # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
+    # @option options [RDF::URI] :base
+    #   The Base URL to use when expanding the document. This overrides the value of `input` if it is a URL. If not specified and `input` is not an URL, the base URL defaults to the current document URL if in a browser context, or the empty string if there is no document context.
+    # @return [Metadata]
+    def self.for_input(input, options = {})
+      base = options[:base]
+
+      # Use user metadata
+      user_metadata = case options[:metadata]
+      when Metadata then options[:metadata]
+      when Hash
+        Metadata.new(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
+      when String, RDF::URI
+        Metadata.open(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
+      end
+
+      found_metadata = nil
+      if !options[:no_found_metadata]
+        # load link metadata, if available
+        found_metadata ||= if input.respond_to?(:links) && 
+          link = input.links.find_link(%w(rel describedby))
+          Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
+        end ||
+
+        # For testing purposes, act as if a link header was provided with option
+        found_metadata ||= if md = options[:httpLink].to_s.match(/^.*<[^>]+>/) && !options[:no_found_metadata]
+          link = md[1]
+          Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
+        end
+
+        if base
+          # Otherwise, look for metadata based on filename
+          found_metadata ||= begin
+            loc = "#{base}-metadata.json"
+            Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
+          rescue
+          end
+
+          # Otherwise, look for metadata in directory
+          found_metadata ||= begin
+            loc = RDF::URI(base).join("metadata.json")
+            Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
+          rescue
+          end
+        end
+      end
+
+      # Extract file metadata, and left-merge if appropriate
+      # Use found metadata when parsing embedded data, but don't merge in until complete
+      parse_md = user_metadata && found_metadata ?
+                 user_metadata.merge(found_metadata) :
+                 (user_metadata || found_metadata || Table.new({}))
+      embedded_metadata = parse_md.embedded_metadata(input, options)
+
+      # Merge user metadata with embedded metadata 
+      embedded_metadata = user_metadata.merge(embedded_metadata) if user_metadata
+
+      # Merge embedded metadata with found
+      found_metadata ? embedded_metadata.merge(found_metadata) : embedded_metadata
+    end
 
     ##
     # @private
@@ -224,6 +288,7 @@ module RDF::Tabular
       # Parent of this Metadata, if any
       @parent = @options[:parent]
 
+      debug("md.new") {@options.delete(:reason)} if @options[:reason]
       debug("md.new") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
       depth do
         # Metadata is object with symbolic keys
