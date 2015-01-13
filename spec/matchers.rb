@@ -23,13 +23,11 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     @info = if (info.id rescue false)
       info
     elsif info.is_a?(Hash)
-      id = info[:id]
-      debug = info[:debug]
-      debug = Array(debug).join("\n")
-      Info.new(id, debug, info[:action], info[:result])
+      Info.new(info[:id], info[:debug], info[:action], info[:result])
     else
       Info.new(info, info.to_s)
     end
+    @info.debug = Array(@info.debug).join("\n")
     @expected = normalize(expected)
     @actual = normalize(actual)
     @actual.isomorphic_with?(@expected) rescue false
@@ -55,11 +53,9 @@ RSpec::Matchers.define :pass_query do |expected, info|
     @info = if (info.id rescue false)
       info
     elsif info.is_a?(Hash)
-      id = info[:id]
-      debug = info[:debug]
-      debug = Array(debug).join("\n")
-      Info.new(id, debug, info[:action], info.fetch(:result, RDF::Literal::TRUE))
+      Info.new(info[:id], info[:debug], info[:action], info.fetch(:result, RDF::Literal::TRUE))
     end
+    @info.debug = Array(@info.debug).join("\n")
 
     @expected = expected.respond_to?(:read) ? expected.read : expected
 

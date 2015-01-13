@@ -27,8 +27,7 @@ module RDF::Tabular
     #   or an Array used as an internalized array of arrays
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Reader#initialize`)
-    # @option options [Metadata, Hash] :metadata extracted when file opened
-    # @option options [Metadata, Hash] :user_metadata user supplied metadata, merged on top of extracted metadata
+    # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored
@@ -48,12 +47,14 @@ module RDF::Tabular
           metadata = nil
           metadata ||= if input.respond_to?(:links) && !@options[:no_found_metadata]
             link = input.links.find_link(%w(rel describedby))
+            debug("Reader#initialize") {"load linked metadata: #{link}"}
             Metadata.open(link, options)
           end
 
           # For testing purposes, act as if a link header was provided with option
           metadata ||= if md = @options[:httpLink].to_s.match(/^.*<[^>]+>/) && !@options[:no_found_metadata]
             link = md[1]
+            debug("Reader#initialize") {"load linked metadata: #{link}"}
             Metadata.open(link, options)
           end
 
@@ -66,14 +67,32 @@ module RDF::Tabular
           end
 
           # Use user metadata
-          user_metadata = options[:metadata]
+          user_metadata = case options[:metadata]
+          when Metadata then options[:metadata]
+          when Hash
+            debug("Reader#initialize") {"load user metadata: #{options[:metadata].inspect}"}
+            Metadata.new(options[:metadata], @options)
+          when String, RDF::URI
+            debug("Reader#initialize") {"load user metadata: #{options[:metadata].inspect}"}
+            Metadata.open(options[:metadata], @options)
+          end
 
           if @options[:base] && !@input.is_a?(Metadata) && !@options[:no_found_metadata]
             # Otherwise, look for metadata based on filename
-            metadata ||= Metadata.open("#{@options[:base]}-metadata.json", @options) rescue nil
+            metadata ||= begin
+              loc = "#{@options[:base]}-metadata.json"
+              debug("Reader#initialize") {"load found metadata: #{loc}"}
+              Metadata.open(loc, @options)
+            rescue
+            end
 
             # Otherwise, look for metadata in directory
-            metadata ||= Metadata.open(RDF::URI(@options[:base]).join("metadata.json"), @options) rescue nil
+            metadata ||= begin
+              loc = RDF::URI(@options[:base]).join("metadata.json")
+              debug("Reader#initialize") {"load found metadata: #{loc}"}
+              Metadata.open(loc, @options)
+            rescue
+            end
           end
 
           # Extract file metadata, and left-merge if appropriate
@@ -82,6 +101,7 @@ module RDF::Tabular
             parse_md = user_metadata && metadata ?
                        user_metadata.merge(metadata) :
                        (user_metadata || metadata || Table.new({}))
+            debug("Reader#initialize") {"load embedded metadata"}
             embedded_metadata = parse_md.embedded_metadata(@input, @options)
 
             @metadata = user_metadata ? user_metadata.merge(embedded_metadata) : embedded_metadata

@@ -82,6 +82,7 @@ module Fixtures
         "comment": "rdfs:comment",
         "data": {"@id": "mq:data", "@type": "@id"},
         "entries": {"@id": "mf:entries", "@type": "@id", "@container": "@list"},
+        "metadata": {"@id": "csvt:metadata", "@type": "@id"},
         "name": "mf:name",
         "noProv": {"@id": "csvt:noProv", "@type": "xsd:boolean"},
         "option": "csvt:option",
@@ -123,7 +124,7 @@ module Fixtures
       end
 
       def base
-        BASE + action.split('/').last
+        action
       end
 
       # Alias data and query
@@ -166,6 +167,7 @@ module Fixtures
       def reader_options
         res = {}
         res[:noProv] = option['noProv'] == 'true' if option.has_key?('noProv')
+        res[:metadata] = option['metadata'] if option.has_key?('metadata')
         res[:httpLink] = httpLink if attributes['httpLink']
         res
       end
