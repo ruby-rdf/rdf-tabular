@@ -15,32 +15,32 @@
 
 :GID a rdf:Property;
    rdfs:label "GID", "Generic Identifier";
-   dc:description "An identifier for the operation on a tree." .
+   dc:description "An identifier for the operation on a tree."@en .
 
 :on-street a rdf:Property;
    rdfs:label "On Street";
-   dc:description "The street that the tree is on." .
+   dc:description "The street that the tree is on."@en .
 
 :species a rdf:Property;
    rdfs:label "Species";
-   dc:description "The species of the tree." .
+   dc:description "The species of the tree."@en .
 
 :trim-cycle a rdf:Property;
    rdfs:label "Trim Cycle";
-   dc:description "The operation performed on the tree." .
+   dc:description "The operation performed on the tree."@en .
 
 :inventory-date a rdf:Property;
    rdfs:label "Inventory Date";
-   dc:description "The date of the operation that was performed." .
+   dc:description "The date of the operation that was performed."@en .
 
 :table a csvw:Table;
-   dc:title "Tree Operations";
-   dc:keywords "tree", "street", "maintenance";
-   dc:license "http://opendefinition.org/licenses/cc-by/";
-   dc:modified "2010-12-31";
+   dc:title "Tree Operations"@en;
+   dc:keywords "tree"@en, "street"@en, "maintenance"@en;
+   dc:license <http://opendefinition.org/licenses/cc-by/>;
+   dc:modified "2010-12-31"^^xsd:date;
    dc:publisher [
-     schema:name "Example Municipality";
-     schema:web "http://example.org"
+     schema:name "Example Municipality"@en;
+     schema:url <http://example.org>
    ];
    csvw:row [
      :GID "1";

@@ -45,9 +45,15 @@ module RDF::Tabular
         debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
         depth do
           # load link metadata, if available
-          metadata = @options[:metadata]
-          metadata ||= if input.respond_to?(:links)
+          metadata = nil
+          metadata ||= if input.respond_to?(:links) && !@options[:no_found_metadata]
             link = input.links.find_link(%w(rel describedby))
+            Metadata.open(link, options)
+          end
+
+          # For testing purposes, act as if a link header was provided with option
+          metadata ||= if md = @options[:httpLink].to_s.match(/^.*<[^>]+>/) && !@options[:no_found_metadata]
+            link = md[1]
             Metadata.open(link, options)
           end
 
@@ -59,10 +65,10 @@ module RDF::Tabular
             @input = Metadata.new(@input, @options)
           end
 
-          # Use either passed metadata, or create an empty one to start
-          @metadata = options.fetch(:metadata, Table.new({}, @options))
+          # Use user metadata
+          user_metadata = options[:metadata]
 
-          if @options[:base] && !@input.is_a?(Metadata)
+          if @options[:base] && !@input.is_a?(Metadata) && !@options[:no_found_metadata]
             # Otherwise, look for metadata based on filename
             metadata ||= Metadata.open("#{@options[:base]}-metadata.json", @options) rescue nil
 
@@ -72,12 +78,18 @@ module RDF::Tabular
 
           # Extract file metadata, and left-merge if appropriate
           unless @input.is_a?(Metadata)
-            embedded_metadata = @metadata.embedded_metadata(@input, @options)
-            @metadata = metadata ? embedded_metadata.merge(metadata) : embedded_metadata
+            # Use found metadata when parsing embedded data, but don't merge in until complete
+            parse_md = user_metadata && metadata ?
+                       user_metadata.merge(metadata) :
+                       (user_metadata || metadata || Table.new({}))
+            embedded_metadata = parse_md.embedded_metadata(@input, @options)
+
+            @metadata = user_metadata ? user_metadata.merge(embedded_metadata) : embedded_metadata
+            @metadata = @metadata.merge(metadata) if metadata
           end
 
           # If metadata is a TableGroup, get metadata for this table
-          @metadata = @metadata.resources.detect {|t| t.id == @options[:base]} if @metadata.is_a?(TableGroup)
+          @metadata = @metadata.for_table(@options[:base]) if @metadata.is_a?(TableGroup)
 
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata}"}
 
@@ -117,12 +129,12 @@ module RDF::Tabular
 
               input.resources.each do |table|
                 add_statement(0, table_group, CSVW.table, table.id + "#table")
-                Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id)) do |r|
+                Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id, no_found_metadata: true)) do |r|
                   r.each_statement(&block)
                 end
               end
             when :Table
-              Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id)) do |r|
+              Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id, no_found_metadata: true)) do |r|
                 r.each_statement(&block)
               end
             else
@@ -156,6 +168,8 @@ module RDF::Tabular
 
           # Titles
           column.rdf_values(pred, "title", column.title) do |statement|
+            # Make sure to use column language, not that from the context
+            statement.object = RDF::Literal(statement.object.value, language: column.language) if statement.object.literal?
             statement.predicate = RDF::RDFS.label if statement.predicate == CSVW.title
             add_statement(0, statement)
           end
@@ -241,7 +255,7 @@ module RDF::Tabular
     def add_statement(node, *args)
       statement = args[0].is_a?(RDF::Statement) ? args[0] : RDF::Statement.new(*args)
       raise RDF::ReaderError, "#{statement.inspect} is invalid" if validate? && statement.invalid?
-      debug(node) {"statement: #{RDF::NTriples.serialize(statement)}"}
+      debug(node) {"statement: #{RDF::NTriples.serialize(statement)}".chomp}
       @callback.call(statement)
     end
 

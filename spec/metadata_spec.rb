@@ -367,7 +367,9 @@ describe RDF::Tabular::Metadata do
       Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
         context filename do
           specify do
-            expect{RDF::Tabular::Metadata.open(filename).validate!}.not_to raise_error
+            md = RDF::Tabular::Metadata.open(filename, debug: @debug)
+            expect(md.valid?).to produce(true, @debug)
+            expect(md).to be_valid
           end
         end
       end
@@ -532,10 +534,6 @@ describe RDF::Tabular::Metadata do
     it "FIXME"
   end
 
-  describe "#rdf_values" do
-    it "FIXME"
-  end
-
   describe "#merge" do
     {
       "two tables with same id" => {
@@ -663,11 +661,11 @@ describe RDF::Tabular::Metadata do
         R: %({"@context": {"@language": "en", "@base": "http://example.org/bar"}, "@type": "Table"})
       },
       "@context with different URI and objects" => {
-        A: %({"@context": ["http:http://www.w3.org/ns/csvw", {"@language": "en"}], "@type": "Table"}),
-        B: %({"@context": ["http:http://www.w3.org/ns/csvw/", {"@base": "http://example.org/foo"}], "@type": "Table"}),
+        A: %({"@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}], "@type": "Table"}),
+        B: %({"@context": ["http://www.w3.org/ns/csvw/", {"@base": "http://example.org/foo"}], "@type": "Table"}),
         R: %({"@context": [
-            "http:http://www.w3.org/ns/csvw",
-            "http:http://www.w3.org/ns/csvw/",
+            "http://www.w3.org/ns/csvw",
+            "http://www.w3.org/ns/csvw/",
             {"@language": "en", "@base": "http://example.org/foo"}
           ], "@type": "Table"})
       },
@@ -833,7 +831,7 @@ describe RDF::Tabular::Metadata do
           to_return(body: File.read(File.expand_path("../w3c-csvw/ns/csvw.jsonld", __FILE__)),
                     status: 200,
                     headers: { 'Content-Type' => 'application/ld+json'})
-        a = described_class.new(::JSON.parse(props[:A]))
+        a = described_class.new(::JSON.parse(props[:A]), debug: @debug)
         b = described_class.new(::JSON.parse(props[:B]))
         r = described_class.new(::JSON.parse(props[:R]))
         m = a.merge!(b)

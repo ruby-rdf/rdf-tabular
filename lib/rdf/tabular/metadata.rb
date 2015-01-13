@@ -94,10 +94,6 @@ module RDF::Tabular
     # @return [Metadata]
     attr_reader :parent
 
-    # Context used for this metadata
-    # @return [JSON::LD::Context]
-    attr_reader :context
-
     # Filename (URI) of opened metadata, if any
     # @return [RDF::URI] filename
     attr_reader :filename
@@ -115,7 +111,9 @@ module RDF::Tabular
         }
       )
       path = "file:" + path unless path =~ /^\w+:/
-      RDF::Util::File.open_file(path, options) {|file| self.new(file, options.merge(base: path, filename: path))}
+      RDF::Util::File.open_file(path, options) do |file|
+        self.new(file, options.merge(base: path, filename: path))
+      end
     end
 
 
@@ -125,22 +123,29 @@ module RDF::Tabular
       # Triveal case
       return input if input.is_a?(Metadata)
 
-      context = options.fetch(:context, ::JSON::LD::Context.new(options))
+      context = options[:context]
+      object = input
 
-      # Open as JSON-LD to get context
-      jsonld = ::JSON::LD::API.new(input, context)
-      if context.empty? && jsonld.context.empty? # FIXME: need mappings
-        input.rewind if input.respond_to?(:rewind)
-        jsonld = ::JSON::LD::API.new(input, 'http://www.w3.org/ns/csvw')
+      # Only define context if input is readable, or there's no parent
+      context = if !options[:parent] || !input.is_a?(Hash) || input.has_key?('@context')
+        # Open as JSON-LD to get context
+        jsonld = ::JSON::LD::API.new(input, context)
+
+        context ||= ::JSON::LD::Context.new
+        # If we still haven't found 'csvw', load the default context
+        if !context.term_definitions.has_key?('csvw') &&
+           !jsonld.context.term_definitions.has_key?('csvw')
+          input.rewind if input.respond_to?(:rewind)
+          jsonld = ::JSON::LD::API.new(input, 'http://www.w3.org/ns/csvw')
+        end
+
+        # If we already have a context, merge in the context from this object, otherwise, set it to this object
+        context.merge!(jsonld.context)
+        options = options.merge(context: context)
+
+        # Get both parsed JSON and context from jsonld
+        object = jsonld.value
       end
-
-      # If we already have a context, merge in the context from this object, otherwise, set it to this object
-      context.merge!(jsonld.context)
-
-      options = options.merge(context: context)
-
-      # Get both parsed JSON and context from jsonld
-      object = jsonld.value
 
       klass = case
         when !self.equal?(RDF::Tabular::Metadata)
@@ -201,9 +206,9 @@ module RDF::Tabular
     # @return [Metadata]
     def initialize(input, options = {})
       @options = options.dup
-      @context = options.fetch(:context)
+      @context = options[:context] if options[:context]
 
-      @options[:base] ||= context.base
+      @options[:base] ||= context.base if context
       @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
       @options[:base] ||= input.filename if input.respond_to?(:filename)
       @options[:base] = RDF::URI(@options[:base])
@@ -219,6 +224,7 @@ module RDF::Tabular
       # Parent of this Metadata, if any
       @parent = @options[:parent]
 
+      debug("md.new") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
       depth do
         # Metadata is object with symbolic keys
         object.each do |key, value|
@@ -230,7 +236,7 @@ module RDF::Tabular
               colno = parent ? dialect.skipColumns : 0  # Get dialect from Table, not Schema
               value.map do |v|
                 colno += 1
-                Column.new(v, @options.merge(parent: self, context: context, colno: colno))
+                Column.new(v, @options.merge(parent: self, context: nil, colno: colno))
               end
             else
               # Invalid, but preserve value
@@ -239,7 +245,7 @@ module RDF::Tabular
           when :dialect
             # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
             self[key] = case value
-            when Hash   then Dialect.new(value, @options.merge(parent: self, context: context))
+            when Hash   then Dialect.new(value, @options.merge(parent: self, context: nil))
             else
               # Invalid, but preserve value
               value
@@ -248,7 +254,7 @@ module RDF::Tabular
           when :resources
             # An array of table descriptions for the tables in the group.
             self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              value.map {|v| Table.new(v, @options.merge(parent: self, context: context))}
+              value.map {|v| Table.new(v, @options.merge(parent: self, context: nil))}
             else
               # Invalid, but preserve value
               value
@@ -256,8 +262,8 @@ module RDF::Tabular
           when :schema
             # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
             self[key] = case value
-            when String then Schema.open(value, @options.merge(parent: self, context: context))
-            when Hash   then Schema.new(value, @options.merge(parent: self, context: context))
+            when String then Schema.open(value, @options.merge(parent: self, context: nil))
+            when Hash   then Schema.new(value, @options.merge(parent: self, context: nil))
             else
               # Invalid, but preserve value
               value
@@ -265,7 +271,7 @@ module RDF::Tabular
           when :templates
             # An array of template specifications that provide mechanisms to transform the tabular data into other formats
             self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              value.map {|v| Template.new(v, @options.merge(parent: self, context: context))}
+              value.map {|v| Template.new(v, @options.merge(parent: self, context: nil))}
             else
               # Invalid, but preserve value
               value
@@ -299,13 +305,20 @@ module RDF::Tabular
       end
     end
 
+    # Context used for this metadata. Use parent's if not defined on self.
+    # @return [JSON::LD::Context]
+    def context
+      @context || (parent.context if parent)
+    end
+
     # Treat `dialect` similar to an inherited property, but default
+    # @return [Dialect]
     def dialect
       case
       when self[:dialect] then self[:dialect]
       when parent then parent.dialect
       when is_a?(Table) || is_a?(TableGroup)
-        Dialect.new({}, @options.merge(parent: self, context: context))
+        Dialect.new({}, @options.merge(parent: self, context: nil))
       else
         raise "Can't access dialect from #{self.class} without a parent"
       end
@@ -465,6 +478,13 @@ module RDF::Tabular
     # @return [Metadata] Tabular metadata
     # @see http://w3c.github.io/csvw/syntax/#parsing
     def embedded_metadata(input, options = {})
+      options = options.dup
+      options.delete(:context) # Don't accidentally use a passed context
+      # Normalize input to an IO object
+      if !input.respond_to?(:read)
+        return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
+      end
+
       table = {
         "@id" => (options.fetch(:base, "")),
         "@type" => "Table",
@@ -473,11 +493,6 @@ module RDF::Tabular
           "columns" => nil
         }
       }
-
-      # Normalize input to an IO object
-      if !input.respond_to?(:read)
-        return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
-      end
 
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)
@@ -542,9 +557,13 @@ module RDF::Tabular
     # @return [Hash{String => RDF::Value, Array<RDF::Value>}]
     def common_properties(subject, &block)
       if block_given?
+        common = {'@id' => subject.to_s}
         each do |key, value|
-          next unless key.to_s.include?(':')  # Only common properties
-          rdf_values(subject, key.to_s, value, &block)
+          common[key.to_s] = value if key.to_s.include?(':')
+        end
+        ::JSON::LD::API.toRdf(common, expandContext: context) do |statement|
+          statement.object = RDF::Literal(statement.object.value) if statement.object.literal? && statement.object.language == :und
+          yield statement
         end
       else
         # FIXME, probably doesn't work for JSON, maybe just use values directly
@@ -577,12 +596,29 @@ module RDF::Tabular
     # Merge metadata into this a copy of this metadata
     def merge(metadata)
       # If the top-level object of any of the metadata files are table descriptions, these are treated as if they were table group descriptions containing a single table description (ie having a single resource property whose value is the same as the original table description).
-      this = self.is_a?(Table) ? TableGroup.new({"resources" => self}, context: context) : self.dup
+      this = if self.is_a?(Table)
+        content = {"@type" => "TableGroup", "resources" => [self]}
+        content['@context'] = self.delete(:@context) if self[:@context]
+        ctx = @context
+        self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context) 
+        tg = TableGroup.new(content, context: ctx)
+        @parent = tg  # Link from parent
+        tg
+      else
+        self.dup
+      end
       raise "Can't merge #{self.class}" unless this.is_a?(TableGroup)
 
       metadata = case metadata
       when TableGroup then metadata
-      when Table then TableGroup.new({"@type" => "TableGroup", "resources" => metadata}, context: context)
+      when Table then
+        content = {"@type" => "TableGroup", "resources" => [metadata]}
+        ctx = metadata.context
+        content['@context'] = metadata.delete(:@context) if metadata[:@context]
+        metadata.remove_instance_variable(:@context) if metadata.instance_variables.include?(:@context) 
+        tg = TableGroup.new(content, context: ctx)
+        metadata.instance_variable_set(:@parent, tg)  # Link from parent
+        tg
       else
         raise "Can't merge #{metadata.class}"
       end
@@ -594,16 +630,13 @@ module RDF::Tabular
     def merge!(metadata)
       raise "Merging non-equivalent metadata types: #{self.class} vs #{metadata.class}" unless self.class == metadata.class
 
-      # Save original context
-      ctx = self.context.dup
-
       depth do
         # Merge each property from metadata into self
         metadata.each do |key, value|
           case key
           when :"@context"
             # Merge contexts
-            @context = metadata.context.merge(self.context)
+            @context = @context ? metadata.context.merge(@context) : metadata.context
 
             # Use defined representation
             this_ctx = self[key].is_a?(Array) ? self[key] : [self[key]].compact
@@ -660,7 +693,9 @@ module RDF::Tabular
                     if ta && ta[:name] == t[:name]
                       # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
-                    elsif ta && !(Array(ta[:title]) & Array(t[:title])).empty?
+                    elsif ta &&
+                          !(Array(ta.title) & Array(t.title)).empty? &&
+                          t.language == ta.language
                       # SPEC SUGGESTION:
                       # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
@@ -707,18 +742,23 @@ module RDF::Tabular
                 end
               when :natural_language
                 # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
+                # SPEC CONFUSION using default language is at odds with the use of column language for title.
                 a = case self[key]
                 when Hash then self[key]
-                when Array then {(ctx.default_language || "und") => self[key]}
-                when String then {(ctx.default_language || "und") => [self[key]]}
+                #when Array then {(ctx.default_language || "und") => self[key]}
+                #when String then {(ctx.default_language || "und") => [self[key]]}
+                when Array then {(language || "und") => self[key]}
+                when String then {(language || "und") => [self[key]]}
                 end
                 b = case value
                 when Hash then value
-                when Array then {(metadata.context.default_language || "und") => value}
-                when String then {(metadata.context.default_language || "und") => [value]}
+                #when Array then {(metadata.context.default_language || "und") => value}
+                #when String then {(metadata.context.default_language || "und") => [value]}
+                when Array then {(metadata.language || "und") => value}
+                when String then {(metadata.language || "und") => [value]}
                 end
                 b.each do |k, v|
-                  vv = a[k] + (b[k] - a[k])
+                  vv = Array(a[k]) + (Array(b[k]) - Array(a[k]))
                   a[k] = vv.length == 1 ? vv.first : vv
                 end
                 self[key] = a
@@ -800,6 +840,23 @@ module RDF::Tabular
       else
         PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
       end
+    end
+
+    ##
+    # Return the metadata for a specific table, re-basing context as necessary
+    #
+    # @param [String] url of the table
+    # @return [Table]
+    def for_table(url)
+      if table = resources.detect {|t| t.id == url}
+        table = table.dup
+        table.remove_instance_variable(:@parent)
+        unless table.context
+          table.instance_variable_set(:@context, context)
+          table[:@context] = self[:@context]
+        end
+      end
+      table
     end
   end
 
@@ -935,7 +992,7 @@ module RDF::Tabular
       when Hash
         Array(self[:title][language || 'und'])
       else
-        self[:title]
+        Array(self[:title])
       end
       value.length <= 1 ? value.first : value
     end
@@ -1044,7 +1101,7 @@ module RDF::Tabular
 
         # create column if necessary
         if create_columns && !columns[index]
-          columns[index] = Column.new({}, parent: metadata.schema, context: metadata.schema.context, colnum: index + 1)
+          columns[index] = Column.new({}, parent: metadata.schema, context: nil, colnum: index + 1)
         end
 
         map_values[columns[index].name] = value
