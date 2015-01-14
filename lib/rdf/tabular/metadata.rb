@@ -615,13 +615,17 @@ module RDF::Tabular
     ##
     # Return or yield common properties (those which are CURIEs or URLS)
     #
-    # @param [RDF::Resource] subject
-    # @yield property, value
-    # @yieldparam [String] property as a PName or URL
-    # @yieldparam [RDF::Statement] statement
-    # @return [Hash{String => RDF::Value, Array<RDF::Value>}]
-    def common_properties(subject, &block)
+    # @overload common_properties(subject, &block)
+    #   @param [RDF::Resource] subject
+    #   @yield property, value
+    #   @yieldparam [String] property as a PName or URL
+    #   @yieldparam [RDF::Statement] statement
+    #
+    # @overload common_properties()
+    # @return [Hash{String => Object}] simply extracted from metadata
+    def common_properties(subject = nil, &block)
       if block_given?
+        raise "common_properties needs a subject when given a block" unless subject
         common = {'@id' => subject.to_s}
         each do |key, value|
           common[key.to_s] = value if key.to_s.include?(':')
@@ -631,16 +635,7 @@ module RDF::Tabular
           yield statement
         end
       else
-        # FIXME, probably doesn't work for JSON, maybe just use values directly
-        props = {}
-        common_properties do |p, v|
-          case props[p]
-          when nil then props[p] = v
-          when Array then props[p] << v
-          else props[p] = [props[p], v]
-          end
-        end
-        props
+        self.dup.keep_if {|key, value| key.to_s.include?(':')}
       end
     end
 
@@ -1174,8 +1169,8 @@ module RDF::Tabular
 
       # Create resource using urlTemplate and values hash
       @resource = if metadata.schema.urlTemplate
-        t = Addressable::Template.new(metadata.urlTemplate)
-        RDF::URI(t.expand(map_values))
+        t = Addressable::Template.new(metadata.schema.urlTemplate)
+        metadata.id.join(t.expand(map_values))
       else
         RDF::Node.new
       end

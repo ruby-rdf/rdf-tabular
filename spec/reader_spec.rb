@@ -40,17 +40,36 @@ describe RDF::Tabular::Reader do
   end
 
   context "Test Files" do
-    {
+    test_files = {
       "tree-ops.csv" => "tree-ops.ttl",
       "tree-ops.csv-metadata.json" => "tree-ops.ttl",
       "country-codes-and-names.csv" => "country-codes-and-names.ttl",
-    }.each do |csv, ttl|
-      it csv do
-        about = RDF::URI("http://example.org").join(csv)
-        input = File.expand_path("../data/#{csv}", __FILE__)
-        result = File.expand_path("../data/#{ttl}", __FILE__)
-        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, noProv: true, debug: @debug)
-        expect(graph).to be_equivalent_graph(RDF::Graph.load(result, base_uri: about), debug: @debug, id: about, action: about, result: result)
+    }
+    describe "#each_statement" do
+      test_files.each do |csv, ttl|
+        it csv do
+          about = RDF::URI("http://example.org").join(csv)
+          input = File.expand_path("../data/#{csv}", __FILE__)
+          expected = File.expand_path("../data/#{ttl}", __FILE__)
+          graph = RDF::Graph.load(input, format: :tabular, base_uri: about, noProv: true, debug: @debug)
+          expect(graph).to be_equivalent_graph(RDF::Graph.load(expected, base_uri: about), debug: @debug, id: about, action: about, result: expected)
+        end
+      end
+    end
+
+    describe "#to_json" do
+      test_files.each do |csv, ttl|
+        it csv do
+          json = ttl.sub(".ttl", ".json")
+          about = RDF::URI("http://example.org").join(csv)
+          input = File.expand_path("../data/#{csv}", __FILE__)
+          expected = File.expand_path("../data/#{json}", __FILE__)
+
+          RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+            expect(JSON.parse(reader.to_json)).to produce(JSON.parse(File.read(expected)), @debug)
+            reader.to_json
+          end
+        end
       end
     end
   end

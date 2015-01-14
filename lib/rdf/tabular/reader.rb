@@ -170,7 +170,7 @@ module RDF::Tabular
 
           csv_path = @options[:base]
 
-          if csv_path && !@input.is_a?(Metadata)
+          if csv_path
             usage = RDF::Node.new
             add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
             add_statement(0, usage, RDF.type, RDF::PROV.Usage)
@@ -179,11 +179,12 @@ module RDF::Tabular
             add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "csvEncodedTabularData")
           end
 
-          if @metadata.filename && @metadata != @input
+          # FIXME: multiple metadata files?
+          if @metadata.filename
             usage = RDF::Node.new
             add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
             add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(@input.filename))
+            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(@metadata.filename))
             # FIXME: needs to be defined in vocabulary
             add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "tabularMetadata")
           end
@@ -202,6 +203,109 @@ module RDF::Tabular
         end
       end
       enum_for(:each_triple)
+    end
+
+    ##
+    # Transform to JSON. Note that this must be run from within the reader context if the input is an open IO stream.
+    #
+    # @example outputing annotated CSV as JSON
+    #     result = nil
+    #     RDF::Tabular::Reader.open("etc/doap.csv") do |reader|
+    #       result = reader.to_json
+    #     end
+    #     result #=> {...}
+    #
+    # @example outputing annotated CSV as JSON from an in-memory structure
+    #     csv = %(
+    #       GID,On Street,Species,Trim Cycle,Inventory Date
+    #       1,ADDISON AV,Celtis australis,Large Tree Routine Prune,10/18/2010
+    #       2,EMERSON ST,Liquidambar styraciflua,Large Tree Routine Prune,6/2/2010
+    #       3,EMERSON ST,Liquidambar styraciflua,Large Tree Routine Prune,6/2/2010
+    #     ).gsub(/^\s+/, '')
+    #     r = RDF::Tabular::Reader.new(csv)
+    #     r.to_json #=> {...}
+    #
+    # @param [Hash{Symbol => Object}] options may also be a JSON state
+    # @option options [IO, StringIO] io to output to file
+    # @option options [::JSON::State] :state used when dumping
+    # @return [String]
+    def to_json(options = {})
+      if options[:io]
+        ::JSON::dump_default_options = options.fetch(:state, ::JSON::LD::JSON_STATE)
+        ::JSON.dump(self.to_hash(options), options[:io])
+      else
+        hash = self.to_hash(options.is_a?(Hash) ? options : {})
+        state = (options[:state] if options.is_a?(Hash)) || options
+        ::JSON.generate(hash, options)
+      end
+    end
+
+    ##
+    # Return a hash representation of the data for JSON serialization
+    # @param [Hash{Symbol => Object}] options
+    # @return [Hash]
+    def to_hash(options = {})
+      # Construct metadata from that passed from file open, along with information from the file.
+      if input.is_a?(Metadata)
+        debug("each_statement: metadata") {input.inspect}
+        depth do
+          # Get Metadata to invoke and open referenced files
+          case input.type
+          when :TableGroup
+            tables = []
+            table_group = {"tables" => tables}
+
+            # Common Properties
+            table_group.merge!(input.common_properties)
+
+            input.resources.each do |table|
+              Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id, no_found_metadata: true)) do |r|
+                tables << r.to_hash(options)
+              end
+            end
+
+            # Result is table_group
+            table_group
+          when :Table
+            table = nil
+            Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id, no_found_metadata: true)) do |r|
+              table = r.to_hash(options)
+            end
+            table
+          else
+            raise "Opened inappropriate metadata type: #{input.type}"
+          end
+        end
+      else
+        rows = []
+        table = {
+          # SPEC CONFUSION: aren't these URIs the same?
+          "@id" => metadata.id.to_s,
+          "distribution" => { "downloadURL" => metadata.id},
+        }.merge(metadata.common_properties).
+        merge("row" => rows)
+
+        # Input is file containing CSV data.
+        # Output ROW-Level statements
+        metadata.each_row(input) do |row|
+          # Output row-level metadata
+          r = {}
+          r["url"] = row.resource.to_s if row.resource.is_a?(RDF::URI)
+
+          row.values.each_with_index do |value, index|
+            column = metadata.schema.columns[index]
+            # SPEC CONFUSION: predicateUrl or simply name?
+            r[column.name] = value
+          end
+          rows << r
+        end
+
+        # Optional describedBy
+        # Provenance
+        # Fixme multiple metadata files?
+        table["describedBy"] = @metadata.filename if @metadata.filename && !@options[:noProv]
+        table
+      end
     end
 
     private

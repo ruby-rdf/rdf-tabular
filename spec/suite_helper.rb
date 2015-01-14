@@ -166,8 +166,8 @@ module Fixtures
 
       def reader_options
         res = {}
-        res[:noProv] = option['noProv'] == 'true' if option.has_key?('noProv')
-        res[:metadata] = option['metadata'] if option.has_key?('metadata')
+        res[:noProv] = option['noProv'] == 'true' if option && option.has_key?('noProv')
+        res[:metadata] = option['metadata'] if option && option.has_key?('metadata')
         res[:httpLink] = httpLink if attributes['httpLink']
         res
       end

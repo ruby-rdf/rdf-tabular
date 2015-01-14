@@ -42,26 +42,32 @@
      schema:name "Example Municipality"@en;
      schema:url <http://example.org>
    ];
-   csvw:row [
-     :GID "1";
-     :on-street "ADDISON AV";
-     :species "Celtis australis";
-     :trim-cycle "Large Tree Routine Prune";
-     :inventory-date "10/18/2010"^^xsd:date;
-   ],  [
-     :GID "2";
-     :on-street "EMERSON ST";
-     :species "Liquidambar styraciflua";
-     :trim-cycle "Large Tree Routine Prune";
-     :inventory-date "6/2/2010"^^xsd:date;
-   ],  [
-     :GID "3";
-     :on-street "EMERSON ST";
-     :species "Liquidambar styraciflua";
-     :trim-cycle "Large Tree Routine Prune";
-     :inventory-date "6/2/2010"^^xsd:date;
-   ];
+   csvw:row :gid-1, :gid-2, :gid-3;
    dcat:distribution [
      a dcat:Distribution;
      dcat:downloadURL <http://example.org/tree-ops.csv>
    ] .
+
+:gid-1
+  :GID "1";
+  :on-street "ADDISON AV";
+  :species "Celtis australis";
+  :trim-cycle "Large Tree Routine Prune";
+  :inventory-date "10/18/2010"^^xsd:date;
+  .
+
+:gid-2
+  :GID "2";
+  :on-street "EMERSON ST";
+  :species "Liquidambar styraciflua";
+  :trim-cycle "Large Tree Routine Prune";
+  :inventory-date "6/2/2010"^^xsd:date;
+  .
+
+:gid-3
+  :GID "3";
+  :on-street "EMERSON ST";
+  :species "Liquidambar styraciflua";
+  :trim-cycle "Large Tree Routine Prune";
+  :inventory-date "6/2/2010"^^xsd:date;
+  .

@@ -101,13 +101,21 @@ end
 
 RSpec::Matchers.define :produce do |expected, info = []|
   match do |actual|
+    @info = if (info.id rescue false)
+      info
+    elsif info.is_a?(Hash)
+      Info.new(info[:id], info[:debug], info[:action], info[:result])
+    elsif info.is_a?(Array)
+      Info.new("", info)
+    end
+    @info.debug = Array(@info.debug).join("\n")
     expect(actual).to eq expected
   end
   
   failure_message do |actual|
+    "#{@info.inspect + "\n"}" +
     "Expected: #{expected.is_a?(String) ? expected : expected.to_json(JSON_STATE)}\n" +
     "Actual  : #{actual.is_a?(String) ? actual : actual.to_json(JSON_STATE)}\n" +
-    #(expected.is_a?(Hash) && actual.is_a?(Hash) ? "Diff: #{expected.diff(actual).to_json(JSON_STATE)}\n" : "") +
-    "Processing results:\n#{info.join("\n")}"
+    "Debug:\n#{@info.debug}"
   end
 end

@@ -10,7 +10,6 @@ describe RDF::Tabular::Reader do
     Fixtures::SuiteTest::Manifest.open(MANIFEST) do |m|
       describe m.comment do
         m.entries.each do |t|
-          next if t.json?
           specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
             t.debug = []
             RDF::Tabular::Reader.open(t.action,
@@ -24,21 +23,32 @@ describe RDF::Tabular::Reader do
               graph = RDF::Repository.new
 
               if t.positive_test?
-                begin
-                  graph << reader
-                rescue Exception => e
-                  expect(e.message).to produce("Not exception #{e.inspect}\n#{e.backtrace.join("\n")}", t.debug)
-                end
-
-                if t.sparql?
-                  RDF::Util::File.open_file(t.results) do |query|
-                    expect(graph).to pass_query(query, t)
+                if t.json?
+                  result = reader.to_json
+                  if t.evaluate?
+                    RDF::Util::File.open_file(t.result) do |res|
+                      expect(::JSON.parse(result)).to produce(::JSON.parse(res.read), t)
+                    end
+                  else
+                    expect(::JSON.parse(result)).to be_a(Hash)
                   end
-                elsif t.evaluate?
-                  output_graph = RDF::Repository.load(t.result, format: :ttl, base_uri:  t.base)
-                  expect(graph).to be_equivalent_graph(output_graph, t)
                 else
-                  expect(graph).to be_a(RDF::Enumerable)
+                  begin
+                    graph << reader
+                  rescue Exception => e
+                    expect(e.message).to produce("Not exception #{e.inspect}\n#{e.backtrace.join("\n")}", t.debug)
+                  end
+
+                  if t.sparql?
+                    RDF::Util::File.open_file(t.result) do |query|
+                      expect(graph).to pass_query(query, t)
+                    end
+                  elsif t.evaluate?
+                    output_graph = RDF::Repository.load(t.result, format: :ttl, base_uri:  t.base)
+                    expect(graph).to be_equivalent_graph(output_graph, t)
+                  else
+                    expect(graph).to be_a(RDF::Enumerable)
+                  end
                 end
               else
                 expect {

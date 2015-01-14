@@ -376,6 +376,10 @@ describe RDF::Tabular::Metadata do
     end
   end
 
+  describe ".from_input" do
+    it "FIXME"
+  end
+
   describe ".new" do
     context "intuits subclass" do
       {
