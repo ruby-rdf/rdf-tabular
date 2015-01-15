@@ -1,7 +1,7 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
   "resources": [{
-    "@id": "https://example.org/countries.csv",
+    "@id": "http://example.org/countries.csv",
     "schema": {
       "columns": [{
         "name": "countryCode",
@@ -20,7 +20,7 @@
       "primaryKey": "countryCode"
     }
   }, {
-    "@id": "http://example.com/country_slice.csv",
+    "@id": "http://example.org/country_slice.csv",
     "schema": {
       "columns": [{
         "name": "countryRef",

@@ -142,7 +142,7 @@ module RDF::Tabular
         found_metadata ||= if input.respond_to?(:links) && 
           link = input.links.find_link(%w(rel describedby))
           Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
-        end ||
+        end
 
         # For testing purposes, act as if a link header was provided with option
         found_metadata ||= if md = options[:httpLink].to_s.match(/^.*<[^>]+>/) && !options[:no_found_metadata]
@@ -237,7 +237,7 @@ module RDF::Tabular
           when %w(lineTerminator quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
           end
 
-          case type.to_sym
+          case type.to_s.to_sym
           when :TableGroup then RDF::Tabular::TableGroup
           when :Table then RDF::Tabular::Table
           when :Template then RDF::Tabular::Template
@@ -545,6 +545,7 @@ module RDF::Tabular
     def embedded_metadata(input, options = {})
       options = options.dup
       options.delete(:context) # Don't accidentally use a passed context
+      dialect = self.dialect
       # Normalize input to an IO object
       if !input.respond_to?(:read)
         return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
@@ -562,9 +563,13 @@ module RDF::Tabular
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)
       (1..dialect.skipRows.to_i).each do
-        row = csv.shift.join(dialect.delimiter)  # Skip initial lines, these form comment annotations
-        row = row[1..-1] if dialect.commentPrefix && row.start_with?(dialect.commentPrefix)
-        table["notes"] ||= [] << row unless row.empty?
+        value = csv.shift.join(dialect.delimiter)  # Skip initial lines, these form comment annotations
+        # Trim value
+        value.lstrip! if %w(true start).include?(dialect.trim.to_s)
+        value.rstrip! if %w(true end).include?(dialect.trim.to_s)
+
+        value = value[1..-1] if dialect.commentPrefix && value.start_with?(dialect.commentPrefix)
+        table["notes"] ||= [] << value unless value.empty?
       end
       debug("embedded_metadata") {"notes: #{notes.inspect}"}
 
@@ -574,8 +579,8 @@ module RDF::Tabular
           next if index < dialect.skipColumns
 
           # Trim value
-          value = ltrim(value) if %w(true start).include?(dialect.trim)
-          value = rtrim(value) if %w(true end).include?(dialect.trim)
+          value.lstrip! if %w(true start).include?(dialect.trim.to_s)
+          value.rstrip! if %w(true end).include?(dialect.trim.to_s)
 
           # Initialize title
           # SPEC CONFUSION: does title get an array, or concatenated values?
@@ -656,29 +661,37 @@ module RDF::Tabular
     # Merge metadata into this a copy of this metadata
     def merge(metadata)
       # If the top-level object of any of the metadata files are table descriptions, these are treated as if they were table group descriptions containing a single table description (ie having a single resource property whose value is the same as the original table description).
-      this = if self.is_a?(Table)
-        content = {"@type" => "TableGroup", "resources" => [self]}
-        content['@context'] = self.delete(:@context) if self[:@context]
-        ctx = @context
-        self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context) 
-        tg = TableGroup.new(content, context: ctx)
-        @parent = tg  # Link from parent
-        tg
-      else
-        self.dup
+      this = case self
+      when TableGroup then self.dup
+      when Table
+        if self.is_a?(Table) && self.parent
+          self.parent
+        else
+          content = {"@type" => "TableGroup", "resources" => [self]}
+          content['@context'] = self.delete(:@context) if self[:@context]
+          ctx = @context
+          self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context) 
+          tg = TableGroup.new(content, context: ctx)
+          @parent = tg  # Link from parent
+          tg
+        end
       end
-      raise "Can't merge #{self.class}" unless this.is_a?(TableGroup)
+        raise "Can't merge #{self.class}" unless this.is_a?(TableGroup)
 
       metadata = case metadata
       when TableGroup then metadata
-      when Table then
-        content = {"@type" => "TableGroup", "resources" => [metadata]}
-        ctx = metadata.context
-        content['@context'] = metadata.delete(:@context) if metadata[:@context]
-        metadata.remove_instance_variable(:@context) if metadata.instance_variables.include?(:@context) 
-        tg = TableGroup.new(content, context: ctx)
-        metadata.instance_variable_set(:@parent, tg)  # Link from parent
-        tg
+      when Table
+        if metadata.parent
+          metadata.parent
+        else
+          content = {"@type" => "TableGroup", "resources" => [metadata]}
+          ctx = metadata.context
+          content['@context'] = metadata.delete(:@context) if metadata[:@context]
+          metadata.remove_instance_variable(:@context) if metadata.instance_variables.include?(:@context) 
+          tg = TableGroup.new(content, context: ctx)
+          metadata.instance_variable_set(:@parent, tg)  # Link from parent
+          tg
+        end
       else
         raise "Can't merge #{metadata.class}"
       end
@@ -750,7 +763,7 @@ module RDF::Tabular
                   # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
                   value.each_with_index do |t, index|
                     ta = self[key][index]
-                    if ta && ta[:name] == t[:name]
+                    if ta && ta.name == t.name
                       # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
                     elsif ta &&
@@ -759,6 +772,10 @@ module RDF::Tabular
                       # SPEC SUGGESTION:
                       # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
+                    elsif ta.nil?
+                      # SPEC SUGGESTION:
+                      # If there is no column description at the same index within A, then the column description is taken from that index of B.
+                      self[key][index] = t
                     else
                       # otherwise, the column description is ignored
                     end
@@ -809,6 +826,7 @@ module RDF::Tabular
                 #when String then {(ctx.default_language || "und") => [self[key]]}
                 when Array then {(language || "und") => self[key]}
                 when String then {(language || "und") => [self[key]]}
+                else {}
                 end
                 b = case value
                 when Hash then value
@@ -816,6 +834,7 @@ module RDF::Tabular
                 #when String then {(metadata.context.default_language || "und") => [value]}
                 when Array then {(metadata.language || "und") => value}
                 when String then {(metadata.language || "und") => [value]}
+                else {}
                 end
                 b.each do |k, v|
                   vv = Array(a[k]) + (Array(b[k]) - Array(a[k]))
@@ -869,6 +888,7 @@ module RDF::Tabular
         col_sep: dialect.delimiter,
         row_sep: dialect.lineTerminator,
         quote_char: dialect.quoteChar,
+        encoding: dialect.encoding
       }
     end
   end
@@ -914,6 +934,11 @@ module RDF::Tabular
         unless table.context
           table.instance_variable_set(:@context, context)
           table[:@context] = self[:@context]
+        end
+
+        # Copy specific properties
+        %w(table-direction dialect templates).map(&:to_sym).each do |p|
+          table[p] ||= self[p] if self.has_key?(p)
         end
       end
       table
@@ -1043,7 +1068,7 @@ module RDF::Tabular
 
     # Return or create a name for the column from title, if it exists
     def name
-      self[:name] ||= title ? Array(title).join("\n") : "_col=#{colnum}"
+      self[:name] || (title ? Array(title).join("\n") : "_col=#{colnum}")
     end
 
     # If the property value is an object, then use the column language to determine the one
@@ -1160,9 +1185,15 @@ module RDF::Tabular
         next if index < skipColumns
 
         # create column if necessary
-        if create_columns && !columns[index]
-          columns[index] = Column.new({}, parent: metadata.schema, context: nil, colnum: index + 1)
+        if create_columns && !columns[index - skipColumns]
+          columns[index - skipColumns] = Column.new({}, parent: metadata.schema, context: nil, colnum: index + 1)
         end
+
+        column = columns[index - skipColumns]
+        # Trim value
+        value.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
+        value.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
+        value.strip! if %w(string anySimpleType any).include?(column.datatype.to_s)
 
         map_values[columns[index].name] = value
       end
@@ -1182,8 +1213,8 @@ module RDF::Tabular
         @values << if column = columns[index - skipColumns]
           cv = cell.to_s
           # Trim value
-          cv.lstrip! if %w(true start).include?(metadata.dialect.trim)
-          cv.rstrip! if %w(true end).include?(metadata.dialect.trim)
+          cv.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
+          cv.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
           cv.strip! if %w(string anySimpleType any).include?(column.datatype.to_s)
 
           cell_values = column.separator ? cv.split(column.separator) : [cv]

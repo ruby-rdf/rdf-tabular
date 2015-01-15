@@ -1,10 +1,11 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
+  "dialect": {"trim": true},
   "resources": [{
-    "@id": "HEFCE_organogram_senior_data_31032011.csv",
-    "schema": "http://example.org/schema/senior-roles.json"
+    "@id": "senior-roles.csv",
+    "schema": "http://example.org/senior-roles.json"
   }, {
-    "@id": "HEFCE_organogram_junior_data_31032011.csv",
-    "schema": "http://example.org/schema/junior-roles.json"
+    "@id": "junior-roles.csv",
+    "schema": "http://example.org/junior-roles.json"
   }]
 }

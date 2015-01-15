@@ -16,14 +16,14 @@ def normalize(graph)
   end
 end
 
-Info = Struct.new(:id, :debug, :action, :result)
+Info = Struct.new(:id, :debug, :action, :result, :metadata)
 
 RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   match do |actual|
     @info = if (info.id rescue false)
       info
     elsif info.is_a?(Hash)
-      Info.new(info[:id], info[:debug], info[:action], info[:result])
+      Info.new(info[:id], info[:debug], info[:action], info[:result], info[:metadata])
     else
       Info.new(info, info.to_s)
     end
@@ -44,6 +44,7 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     end +
     "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
+    (@info.metadata ? "\nMetadata:\n#{@info.metadata}" : "") +
     (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
   end  
 end
@@ -53,7 +54,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
     @info = if (info.id rescue false)
       info
     elsif info.is_a?(Hash)
-      Info.new(info[:id], info[:debug], info[:action], info.fetch(:result, RDF::Literal::TRUE))
+      Info.new(info[:id], info[:debug], info[:action], info.fetch(:result, RDF::Literal::TRUE), info[:metadata])
     end
     @info.debug = Array(@info.debug).join("\n")
 
@@ -79,6 +80,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
     end +
     "\n#{@expected}" +
     "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
+    (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}" : "") +
     "\nDebug:\n#{@info.debug}"
   end  
 
@@ -95,6 +97,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
     end +
     "\n#{@expected}" +
     "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
+    (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}" : "") +
     "\nDebug:\n#{@info.debug}"
   end  
 end
@@ -104,7 +107,7 @@ RSpec::Matchers.define :produce do |expected, info = []|
     @info = if (info.id rescue false)
       info
     elsif info.is_a?(Hash)
-      Info.new(info[:id], info[:debug], info[:action], info[:result])
+      Info.new(info[:id], info[:debug], info[:action], info[:result], info[:metadata])
     elsif info.is_a?(Array)
       Info.new("", info)
     end
@@ -116,6 +119,7 @@ RSpec::Matchers.define :produce do |expected, info = []|
     "#{@info.inspect + "\n"}" +
     "Expected: #{expected.is_a?(String) ? expected : expected.to_json(JSON_STATE)}\n" +
     "Actual  : #{actual.is_a?(String) ? actual : actual.to_json(JSON_STATE)}\n" +
+    (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}" : "") +
     "Debug:\n#{@info.debug}"
   end
 end

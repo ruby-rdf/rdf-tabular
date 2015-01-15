@@ -1,0 +1,122 @@
+@prefix j: <http://example.org/junior-roles.csv#> .
+@prefix s: <http://example.org/senior-roles.csv#> .
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+j:Generic%20Job%20Title a rdf:Property;
+   rdfs:label "Generic Job Title" .
+
+j:Grade a rdf:Property;
+   rdfs:label "Grade" .
+
+j:Number%20of%20Posts%20in%20FTE a rdf:Property;
+   rdfs:label "Number of Posts in FTE" .
+
+<http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> a rdf:Property;
+   rdfs:label "Payscale Maximum (£)" .
+
+<http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> a rdf:Property;
+   rdfs:label "Payscale Minimum (£)" .
+
+j:Profession a rdf:Property;
+   rdfs:label "Profession" .
+
+j:reportsTo a rdf:Property;
+   rdfs:label "Reporting Senior Post" .
+
+s:grade a rdf:Property;
+   rdfs:label "Grade" .
+
+s:job a rdf:Property;
+   rdfs:label "Job Title" .
+
+s:name a rdf:Property;
+   rdfs:label "Name" .
+
+s:ref a rdf:Property;
+   rdfs:label "Post Unique Reference" .
+
+s:reportsTo a rdf:Property;
+   rdfs:label "Reports to Senior Post" .
+
+[
+   a csvw:TableGroup;
+   csvw:table s:table,
+     j:table
+] .
+
+j:table a csvw:Table;
+   csvw:row [
+     j:Generic%20Job%20Title "Administrator";
+     j:Grade "4";
+     j:Number%20of%20Posts%20in%20FTE "2";
+     <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "20002";
+     <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "17426";
+     j:Profession "Operational Delivery";
+     j:reportsTo "90284"
+   ],  [
+     j:Generic%20Job%20Title "Administrator";
+     j:Grade "5";
+     j:Number%20of%20Posts%20in%20FTE "1";
+     <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "22478";
+     <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "19546";
+     j:Profession "Operational Delivery";
+     j:reportsTo "90284"
+   ],  [
+     j:Generic%20Job%20Title "Administrator";
+     j:Grade "4";
+     j:Number%20of%20Posts%20in%20FTE "8.67";
+     <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "20002";
+     <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "17426";
+     j:Profession "Operational Delivery";
+     j:reportsTo "90115"
+   ],  [
+     j:Generic%20Job%20Title "Administrator";
+     j:Grade "5";
+     j:Number%20of%20Posts%20in%20FTE "0.5";
+     <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "22478";
+     <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "19546";
+     j:Profession "Operational Delivery";
+     j:reportsTo "90115"
+   ];
+   dcat:distribution [
+     a dcat:Distribution;
+     dcat:downloadURL <http://example.org/junior-roles.csv>
+   ] .
+
+s:table a csvw:Table;
+   csvw:row s:post-90115,
+     s:post-90250,
+     s:post-90284,
+     s:post-90334;
+   dcat:distribution [
+     a dcat:Distribution;
+     dcat:downloadURL <http://example.org/senior-roles.csv>
+   ] .
+
+s:post-90115 s:grade "SCS1A";
+   s:job "Deputy Chief Executive";
+   s:name "Steve Egan";
+   s:ref "90115";
+   s:reportsTo "90334" .
+
+s:post-90250 s:grade "SCS1A";
+   s:job "Director";
+   s:name "David Sweeney";
+   s:ref "90250";
+   s:reportsTo "90334" .
+
+s:post-90284 s:grade "SCS1A";
+   s:job "Director";
+   s:name "Heather Fry";
+   s:ref "90284";
+   s:reportsTo "90334" .
+
+s:post-90334 s:grade "SCS4";
+   s:job "Chief Executive";
+   s:name "Sir Alan Langlands";
+   s:ref "90334";
+   s:reportsTo "xx" .

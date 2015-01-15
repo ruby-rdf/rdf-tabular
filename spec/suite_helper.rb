@@ -54,11 +54,11 @@ module RDF::Util
               response
             end
           else
-            Kernel.open(filename_or_url.to_s, &block)
+            Kernel.open(filename_or_url.to_s, "r:utf-8", &block)
           end
         end
       else
-        Kernel.open(filename_or_url.to_s, &block)
+        Kernel.open(filename_or_url.to_s, "r:utf-8", &block)
       end
     end
   end

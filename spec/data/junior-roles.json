@@ -1,6 +1,6 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
-  "@id": "http://example.org/schema/junior-roles.json",
+  "@id": "http://example.org/junior-roles.json",
   "columns": [{
     "name": "reportsTo",
     "title": "Reporting Senior Post"
@@ -8,7 +8,7 @@
   "foreignKeys": [{
     "columns": "reportsTo",
     "reference": {
-      "schema": "http://example.org/schema/senior-roles.json",
+      "schema": "http://example.org/senior-roles.json",
       "columns": "ref"
     }
   }]

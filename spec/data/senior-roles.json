@@ -1,6 +1,6 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
-  "@id": "http://example.org/schema/senior-roles.json",
+  "@id": "http://example.org/senior-roles.json",
   "columns": [{
     "name": "ref",
     "title": "Post Unique Reference"
@@ -22,7 +22,7 @@
   "foreignKeys": [{
     "columns": "reportsTo",
     "reference": {
-      "schema": "http://example.org/schema/senior-roles.json",
+      "schema": "http://example.org/senior-roles.json",
       "columns": "ref"
     }
   }]

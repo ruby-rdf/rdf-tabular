@@ -86,7 +86,7 @@ module RDF::Tabular
             # Get Metadata to invoke and open referenced files
             case input.type
             when :TableGroup
-              table_group = Node.new
+              table_group = RDF::Node.new
               add_statement(0, table_group, RDF.type, CSVW.TableGroup)
 
               # Common Properties

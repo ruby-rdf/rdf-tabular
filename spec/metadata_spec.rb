@@ -4,18 +4,26 @@ require 'spec_helper'
 
 describe RDF::Tabular::Metadata do
   before(:each) do
-    WebMock.stub_request(:get, "https://example.org/countries.csv").
-      to_return(body: File.read(File.expand_path("../data/countries.csv", __FILE__)),
-                status: 200,
-                headers: { 'Content-Type' => 'text/csv'})
-    WebMock.stub_request(:get, "http://example.org/schema/senior-roles.json").
-      to_return(body: File.read(File.expand_path("../data/senior-roles.json", __FILE__)),
-                status: 200,
-                headers: { 'Content-Type' => 'application/json'})
-    WebMock.stub_request(:get, "http://example.org/schema/junior-roles.json").
-      to_return(body: File.read(File.expand_path("../data/junior-roles.json", __FILE__)),
-                status: 200,
-                headers: { 'Content-Type' => 'application/json'})
+    WebMock.stub_request(:any, %r(.*example.org.*)).
+      to_return(lambda {|request|
+        file = request.uri.to_s.split('/').last
+        content_type = case file
+        when /\.json/ then 'application/json'
+        when /\.csv/  then 'text/csv'
+        else 'text/plain'
+        end
+
+        case file
+        when "metadata.json", "country-codes-and-names.csv-metadata.json"
+          {status: 401}
+        else
+          {
+            body: File.read(File.expand_path("../data/#{file}", __FILE__)),
+            status: 200,
+            headers: {'Content-Type' => content_type}
+          }
+        end
+      })
     WebMock.stub_request(:get, "http://www.w3.org/ns/csvw").
       to_return(body: File.read(File.expand_path("../w3c-csvw/ns/csvw.jsonld", __FILE__)),
                 status: 200,
@@ -340,6 +348,7 @@ describe RDF::Tabular::Metadata do
 
   context "parses example metadata" do
     Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
+      next if filename =~ /-result.json/
       context filename do
         specify {expect {RDF::Tabular::Metadata.open(filename)}.not_to raise_error}
       end
@@ -365,6 +374,7 @@ describe RDF::Tabular::Metadata do
   describe ".open" do
     context "validates example metadata" do
       Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
+        next if filename =~ /-result.json/
         context filename do
           specify do
             md = RDF::Tabular::Metadata.open(filename, debug: @debug)

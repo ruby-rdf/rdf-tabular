@@ -9,18 +9,26 @@ describe RDF::Tabular::Reader do
   before(:each) do
     @reader = RDF::Tabular::Reader.new(StringIO.new(""))
 
-    WebMock.stub_request(:get, "http://example.org/tree-ops.csv").
-      to_return(body: File.read(File.expand_path("../data/tree-ops.csv", __FILE__)),
-                status: 200,
-                headers: { 'Content-Type' => 'text/csv'})
-    WebMock.stub_request(:get, "http://example.org/tree-ops.csv-metadata.json").
-      to_return(body: File.read(File.expand_path("../data/tree-ops.csv-metadata.json", __FILE__)),
-                status: 200,
-                headers: { 'Content-Type' => 'application/json'})
-    WebMock.stub_request(:get, "http://example.org/metadata.json").
-      to_return(status: 401)
-    WebMock.stub_request(:get, "http://example.org/country-codes-and-names.csv-metadata.json").
-      to_return(status: 401)
+    WebMock.stub_request(:any, %r(.*example.org.*)).
+      to_return(lambda {|request|
+        file = request.uri.to_s.split('/').last
+        content_type = case file
+        when /\.json/ then 'application/json'
+        when /\.csv/  then 'text/csv'
+        else 'text/plain'
+        end
+
+        case file
+        when "metadata.json", "country-codes-and-names.csv-metadata.json"
+          {status: 401}
+        else
+          {
+            body: File.read(File.expand_path("../data/#{file}", __FILE__)),
+            status: 200,
+            headers: {'Content-Type' => content_type}
+          }
+        end
+      })
 
     @debug = []
   end
@@ -41,9 +49,11 @@ describe RDF::Tabular::Reader do
 
   context "Test Files" do
     test_files = {
-      "tree-ops.csv" => "tree-ops.ttl",
-      "tree-ops.csv-metadata.json" => "tree-ops.ttl",
-      "country-codes-and-names.csv" => "country-codes-and-names.ttl",
+      "tree-ops.csv" => "tree-ops-result.ttl",
+      "tree-ops.csv-metadata.json" => "tree-ops-result.ttl",
+      "country-codes-and-names.csv" => "country-codes-and-names-result.ttl",
+      "countries.json" => "countries-result.ttl",
+      "roles.json" => "roles-result.ttl",
     }
     describe "#each_statement" do
       test_files.each do |csv, ttl|
