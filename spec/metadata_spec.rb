@@ -480,6 +480,38 @@ describe RDF::Tabular::Metadata do
           "notes": ["countryCode,latitude,longitude,name"]
         })
       },
+      "with @language" => {
+        input: "https://example.org/tree-ops.csv",
+        metadata: %({
+          "@context": {"@language": "en"},
+          "@type": "Table"
+        }),
+        result: %({
+          "@context": {"@language": "en"},
+          "@id": "https://example.org/tree-ops.csv",
+          "@type": "Table",
+          "schema": {
+            "@type": "Schema",
+            "columns": [
+              {
+                "title": "GID"
+              },
+              {
+                "title": "On Street"
+              },
+              {
+                "title": "Species"
+              },
+              {
+                "title": "Trim Cycle"
+              },
+              {
+                "title": "Inventory Date"
+              }
+            ]
+          }
+        })
+      },
     }.each do |name, props|
       it name do
         metadata = if props[:metadata]

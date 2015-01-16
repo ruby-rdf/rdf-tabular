@@ -551,14 +551,22 @@ module RDF::Tabular
         return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
       end
 
-      table = {
+      table = {}
+      # SPEC SUGGESTION: Use @context from parsing metadata in created metadata
+      table["@context"] = self[:@context] if self[:@context]
+      table["@context"] ||= parent[:@context] if parent && parent[:@context]
+
+      table.merge!({
         "@id" => (options.fetch(:base, "")),
         "@type" => "Table",
         "schema" => {
           "@type" => "Schema",
           "columns" => nil
         }
-      }
+      })
+
+      # SPEC SUGGESTION: Set table language from context
+      table["language"] = context.default_language if context.default_language
 
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)
@@ -762,13 +770,14 @@ module RDF::Tabular
                 when :columns
                   # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
                   value.each_with_index do |t, index|
+                    debug("merge!: columns") {"index: #{index}"}
                     ta = self[key][index]
                     if ta && ta.name == t.name
                       # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
                     elsif ta &&
                           !(Array(ta.title) & Array(t.title)).empty? &&
-                          t.language == ta.language
+                          t.context.default_language == ta.context.default_language
                       # SPEC SUGGESTION:
                       # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
@@ -819,23 +828,21 @@ module RDF::Tabular
                 end
               when :natural_language
                 # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
-                # SPEC CONFUSION using default language is at odds with the use of column language for title.
                 a = case self[key]
                 when Hash then self[key]
-                #when Array then {(ctx.default_language || "und") => self[key]}
-                #when String then {(ctx.default_language || "und") => [self[key]]}
-                when Array then {(language || "und") => self[key]}
-                when String then {(language || "und") => [self[key]]}
+                when Array then {(context.default_language || "und") => self[key]}
+                when String then {(context.default_language || "und") => [self[key]]}
                 else {}
                 end
                 b = case value
                 when Hash then value
-                #when Array then {(metadata.context.default_language || "und") => value}
-                #when String then {(metadata.context.default_language || "und") => [value]}
-                when Array then {(metadata.language || "und") => value}
-                when String then {(metadata.language || "und") => [value]}
+                when Array then {(metadata.context.default_language || "und") => value}
+                when String then {(metadata.context.default_language || "und") => [value]}
                 else {}
                 end
+                debug("merge!: natural_language") {
+                  "A: #{a.inspect}, B: #{b.inspect}"
+                }
                 b.each do |k, v|
                   vv = Array(a[k]) + (Array(b[k]) - Array(a[k]))
                   a[k] = vv.length == 1 ? vv.first : vv
