@@ -493,21 +493,11 @@ describe RDF::Tabular::Metadata do
           "schema": {
             "@type": "Schema",
             "columns": [
-              {
-                "title": "GID"
-              },
-              {
-                "title": "On Street"
-              },
-              {
-                "title": "Species"
-              },
-              {
-                "title": "Trim Cycle"
-              },
-              {
-                "title": "Inventory Date"
-              }
+              {"title": "GID"},
+              {"title": "On Street"},
+              {"title": "Species"},
+              {"title": "Trim Cycle"},
+              {"title": "Inventory Date"}
             ]
           }
         })

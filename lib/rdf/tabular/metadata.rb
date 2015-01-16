@@ -376,11 +376,16 @@ module RDF::Tabular
       @context || (parent.context if parent)
     end
 
-    # Treat `dialect` similar to an inherited property, but default
+    # Treat `dialect` similar to an inherited property, but merge together values from Table and TableGroup
     # @return [Dialect]
     def dialect
       case
-      when self[:dialect] then self[:dialect]
+      when self[:dialect]
+        if is_a?(Table) && parent && parent[:dialect]
+          self[:dialect].merge(parent[:dialect]) # Prioritize self
+        else
+          self[:dialect]
+        end
       when parent then parent.dialect
       when is_a?(Table) || is_a?(TableGroup)
         Dialect.new({}, @options.merge(parent: self, context: nil))
@@ -935,20 +940,7 @@ module RDF::Tabular
     # @param [String] url of the table
     # @return [Table]
     def for_table(url)
-      if table = resources.detect {|t| t.id == url}
-        table = table.dup
-        table.remove_instance_variable(:@parent)
-        unless table.context
-          table.instance_variable_set(:@context, context)
-          table[:@context] = self[:@context]
-        end
-
-        # Copy specific properties
-        %w(table-direction dialect templates).map(&:to_sym).each do |p|
-          table[p] ||= self[p] if self.has_key?(p)
-        end
-      end
-      table
+      resources.detect {|t| t.id == url}
     end
   end
 
