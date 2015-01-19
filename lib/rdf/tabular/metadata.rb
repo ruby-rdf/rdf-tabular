@@ -389,7 +389,7 @@ module RDF::Tabular
     # Treat `dialect` similar to an inherited property, but merge together values from Table and TableGroup
     # @return [Dialect]
     def dialect
-      case
+      @dialect ||= case
       when self[:dialect]
         if is_a?(Table) && parent && parent[:dialect]
           self[:dialect].merge(parent[:dialect]) # Prioritize self
@@ -596,10 +596,10 @@ module RDF::Tabular
       end
       debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
 
-      (1..(dialect.headerRowCount || 1)).each do
+      (1..dialect.headerRowCount).each do
         Array(csv.shift).each_with_index do |value, index|
           # Skip columns
-          next if index < dialect.skipColumns
+          next if index < dialect.skipColumns.to_i
 
           # Trim value
           value.lstrip! if %w(true start).include?(dialect.trim.to_s)
@@ -608,7 +608,7 @@ module RDF::Tabular
           # Initialize title
           # SPEC CONFUSION: does title get an array, or concatenated values?
           columns = table["schema"]["columns"] ||= []
-          column = columns[index - dialect.skipColumns] ||= {
+          column = columns[index - dialect.skipColumns.to_i] ||= {
             "title" => [],
           }
           column["title"] << value
@@ -632,7 +632,7 @@ module RDF::Tabular
     def each_row(input)
       csv = ::CSV.new(input, csv_options)
       # Skip skipRows and headerRows
-      rownum = dialect.skipRows.to_i + (dialect.headerRowCount || 1)
+      rownum = dialect.skipRows.to_i + dialect.headerRowCount
       (1..rownum).each {csv.shift}
       csv.each do |row|
         rownum += 1
@@ -701,8 +701,8 @@ module RDF::Tabular
           @parent = tg  # Link from parent
           tg
         end
+      else self.dup
       end
-      raise "Can't merge #{self.class}" unless this.is_a?(TableGroup)
 
       # Merge all passed metadata into this
       metadata.reduce(this) do |memo, md|
@@ -721,8 +721,10 @@ module RDF::Tabular
             tg
           end
         else
-          raise "Can't merge #{md.class}"
+          md
         end
+
+        raise "Can't merge #{memo.class} with #{md.class}" unless memo.class == md.class
 
         memo.merge!(md)
       end
@@ -738,6 +740,7 @@ module RDF::Tabular
           @filenames = Array(@filenames) | Array(metadata.filenames)
         end
 
+        @dialect = nil  # So that it is re-built when needed
         # Merge each property from metadata into self
         metadata.each do |key, value|
           case key
@@ -778,6 +781,8 @@ module RDF::Tabular
                       ta.merge!(t)
                     else
                       # otherwise, the table description from B is appended to the array of table descriptions A
+                      t = t.dup
+                      t.instance_variable_set(:@parent, self)
                       self[key] << t
                     end
                   end
@@ -790,28 +795,35 @@ module RDF::Tabular
                       ta.merge!(t)
                     else
                       # otherwise, the template specification from B is appended to the array of template specifications A
+                      t = t.dup
+                      t.instance_variable_set(:@parent, self) if self
                       self[key] << t
                     end
                   end
                 when :columns
                   # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
                   value.each_with_index do |t, index|
-                    debug("merge!: columns") {"index: #{index}"}
                     ta = self[key][index]
                     if ta && ta.name == t.name
+                      debug("merge!: columns") {"index: #{index}, name=name"}
                       # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
                     elsif ta &&
                           !(Array(ta.title) & Array(t.title)).empty? &&
                           t.context.default_language == ta.context.default_language
+                      debug("merge!: columns") {"index: #{index}, title=title"}
                       # SPEC SUGGESTION:
                       # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
                     elsif ta.nil?
+                      debug("merge!: columns") {"index: #{index}, nil"}
                       # SPEC SUGGESTION:
                       # If there is no column description at the same index within A, then the column description is taken from that index of B.
+                      t = t.dup
+                      t.instance_variable_set(:@parent, self) if self
                       self[key][index] = t
                     else
+                      debug("merge!: columns") {"index: #{index}, ignore"}
                       # otherwise, the column description is ignored
                     end
                   end
@@ -849,6 +861,8 @@ module RDF::Tabular
                     # otherwise (if both values as objects) the objects are merged as described here
                     self[key].merge!(value)
                   else
+                    value = value.dup
+                    value.instance_variable_set(:@parent, self) if self
                     self[key] = value
                   end
                 end
@@ -1169,6 +1183,24 @@ module RDF::Tabular
       define_method("#{a}=".to_sym) do |value|
         self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
       end
+    end
+
+    # escape character
+    # @return [String]
+    def escape_character
+      self.doubleQuote ? '"' : '\\'
+    end
+
+    # default for headerRowCount is zero if header is false
+    # @return [Integer]
+    def headerRowCount
+      self.fetch(:headerRowCount, self.header ? 1 : 0)
+    end
+
+    # default for trim comes from skipInitialSpace
+    # @return [Boolean, String]
+    def trim
+      self.fetch(:trim, self.skipInitialSpace ? 'start' : false)
     end
 
     # Logic for accessing elements as accessors
