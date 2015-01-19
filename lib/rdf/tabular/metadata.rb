@@ -94,9 +94,10 @@ module RDF::Tabular
     # @return [Metadata]
     attr_reader :parent
 
-    # Filename (URI) of opened metadata, if any
-    # @return [RDF::URI] filename
-    attr_reader :filename
+    # Filename(s) (URI) of opened metadata, if any
+    # May be plural when merged
+    # @return [Array<RDF::URI>] filenames
+    attr_reader :filenames
 
     ##
     # Attempt to retrieve the file at the specified path. If it is valid metadata, create a new Metadata object from it, otherwise, an empty Metadata object
@@ -112,7 +113,7 @@ module RDF::Tabular
       )
       path = "file:" + path unless path =~ /^\w+:/
       RDF::Util::File.open_file(path, options) do |file|
-        self.new(file, options.merge(base: path, filename: path))
+        self.new(file, options.merge(base: path, filenames: path))
       end
     end
 
@@ -279,7 +280,7 @@ module RDF::Tabular
       @options[:base] = RDF::URI(@options[:base])
 
       @options[:depth] ||= 0
-      @filename = RDF::URI(@options[:filename]) if @options[:filename]
+      @filenames = Array(@options[:filenames]).map {|fn| RDF::URI(fn)} if @options[:filenames]
       @properties = self.class.const_get(:PROPERTIES)
       @required = self.class.const_get(:REQUIRED)
 
@@ -359,6 +360,7 @@ module RDF::Tabular
       @type ||= self[:@type].to_sym if self[:@type]
       if reason
         debug("md#initialize") {reason}
+        debug("md#initialize") {"filenames: #{filenames}"}
         debug("md#initialize") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
       end
 
@@ -677,6 +679,7 @@ module RDF::Tabular
     # @param [Array<Metadata>] metadata
     # @return [Metadata]
     def merge(*metadata)
+      return self if metadata.empty?
       # If the top-level object of any of the metadata files are table descriptions, these are treated as if they were table group descriptions containing a single table description (ie having a single resource property whose value is the same as the original table description).
       this = case self
       when TableGroup then self.dup
@@ -688,7 +691,7 @@ module RDF::Tabular
           content['@context'] = self.delete(:@context) if self[:@context]
           ctx = @context
           self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context) 
-          tg = TableGroup.new(content, context: ctx)
+          tg = TableGroup.new(content, context: ctx, filenames: @filenames)
           @parent = tg  # Link from parent
           tg
         end
@@ -707,7 +710,7 @@ module RDF::Tabular
             ctx = md.context
             content['@context'] = md.delete(:@context) if md[:@context]
             md.remove_instance_variable(:@context) if md.instance_variables.include?(:@context) 
-            tg = TableGroup.new(content, context: ctx)
+            tg = TableGroup.new(content, context: ctx, filenames: md.filenames)
             md.instance_variable_set(:@parent, tg)  # Link from parent
             tg
           end
@@ -724,6 +727,11 @@ module RDF::Tabular
       raise "Merging non-equivalent metadata types: #{self.class} vs #{metadata.class}" unless self.class == metadata.class
 
       depth do
+        # Merge filenames
+        if @filenames || metadata.filenames
+          @filenames = Array(@filenames) | Array(metadata.filenames)
+        end
+
         # Merge each property from metadata into self
         metadata.each do |key, value|
           case key

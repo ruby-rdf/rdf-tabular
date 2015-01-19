@@ -180,11 +180,11 @@ module RDF::Tabular
           end
 
           # FIXME: multiple metadata files?
-          if @metadata.filename
+          Array(@metadata.filenames).each do |fn|
             usage = RDF::Node.new
             add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
             add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(@metadata.filename))
+            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(fn))
             # FIXME: needs to be defined in vocabulary
             add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "tabularMetadata")
           end
@@ -303,7 +303,7 @@ module RDF::Tabular
         # Optional describedBy
         # Provenance
         # Fixme multiple metadata files?
-        table["describedBy"] = @metadata.filename if @metadata.filename && !@options[:noProv]
+        table["describedBy"] = @metadata.filenames if @metadata.filenames && !@options[:noProv]
         table
       end
     end
