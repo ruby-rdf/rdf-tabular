@@ -259,18 +259,43 @@ module RDF::Tabular
             table_group.merge!(input.common_properties)
 
             input.resources.each do |table|
-              Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id, no_found_metadata: true)) do |r|
+              Reader.open(table.id, options.merge(
+                format:             :tabular,
+                metadata:           table,
+                base:               table.id,
+                no_found_metadata:  true,
+                noProv:             true
+              )) do |r|
                 tables << r.to_hash(options)
               end
+            end
+
+            # Optional describedBy
+            # Provenance
+            if Array(input.filenames).length > 0 && !@options[:noProv]
+              table_group["describedBy"] = input.filenames.length == 1 ? input.filenames.first : input.filenames
             end
 
             # Result is table_group
             table_group
           when :Table
             table = nil
-            Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id, no_found_metadata: true)) do |r|
+            Reader.open(input.id, options.merge(
+              format:             :tabular,
+              metadata:           input,
+              base:               input.id,
+              no_found_metadata:  true,
+              noProv:             true
+            )) do |r|
               table = r.to_hash(options)
             end
+
+            # Optional describedBy
+            # Provenance
+            if Array(input.filenames).length > 0 && !@options[:noProv]
+              table["describedBy"] = input.filenames.length == 1 ? input.filenames.first : input.filenames
+            end
+
             table
           else
             raise "Opened inappropriate metadata type: #{input.type}"
@@ -303,7 +328,9 @@ module RDF::Tabular
         # Optional describedBy
         # Provenance
         # Fixme multiple metadata files?
-        table["describedBy"] = @metadata.filenames if @metadata.filenames && !@options[:noProv]
+        if Array(@metadata.filenames).length > 0 && !@options[:noProv]
+          table["describedBy"] = @metadata.filenames.length == 1 ? @metadata.filenames.first : @metadata.filenames
+        end
         table
       end
     end
