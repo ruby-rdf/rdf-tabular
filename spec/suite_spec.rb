@@ -21,6 +21,7 @@ describe RDF::Tabular::Reader do
               expect(reader).to be_a RDF::Reader
 
               t.metadata = reader.metadata # for debug output
+              t.metadata = t.metadata.parent if t.metadata && t.metadata.parent
 
               graph = RDF::Repository.new
 

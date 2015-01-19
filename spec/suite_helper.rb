@@ -38,17 +38,16 @@ module RDF::Util
             }
             #puts "use #{filename_or_url} locally"
             case filename_or_url.to_s
-            when /\.html$/   then document_options[:content_type] = 'text/html'
-            when /\.ttl$/    then document_options[:content_type] = 'text/turtle'
-            when /\.json$/   then document_options[:content_type] = 'application/json'
-            when /\.jsonld$/ then document_options[:content_type] = 'application/ld+json'
-            when /\.html$/   then document_options[:content_type] = 'text/html'
-            else                  document_options[:content_type] = 'unknown'
+            when /\.html$/   then document_options[:headers][:content_type] = 'text/html'
+            when /\.ttl$/    then document_options[:headers][:content_type] = 'text/turtle'
+            when /\.json$/   then document_options[:headers][:content_type] = 'application/json'
+            when /\.jsonld$/ then document_options[:headers][:content_type] = 'application/ld+json'
+            when /\.html$/   then document_options[:headers][:content_type] = 'text/html'
+            else                  document_options[:headers][:content_type] = 'unknown'
             end
 
             # For overriding content type from test data
-            document_options[:content_type] = options[:contentType] if options[:contentType]
-            document_options[:headers][:content_type] = document_options[:content_type]
+            document_options[:headers][:content_type] = options[:contentType] if options[:contentType]
 
             # For overriding Link header from test data
             document_options[:headers][:link] = options[:httpLink] if options[:httpLink]

@@ -51,6 +51,11 @@ module RDF::Tabular
              @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
             @input = Metadata.new(@input, @options)
           else
+            # HTTP flags
+            if @input.respond_to?(:headers) &&
+               input.headers.fetch(:content_type, '').split(';').include?('header=absent')
+              @options[:metadata] ||= TableGroup.new(dialect: {header: false})
+            end
             # Otherwise, it's tabluar data
             @metadata = Metadata.for_input(@input, @options)
 
@@ -127,7 +132,7 @@ module RDF::Tabular
         end
 
         # Column metadata
-        metadata.schema.columns.compact.each do |column|
+        Array(metadata.schema.columns).compact.each do |column|
           pred = column.predicateUrl
 
           # SPEC FIXME: Output csvw:Column, if set
