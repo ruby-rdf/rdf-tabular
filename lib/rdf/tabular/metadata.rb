@@ -141,12 +141,13 @@ module RDF::Tabular
         # load link metadata, if available
         if input.respond_to?(:links) && 
           link = input.links.find_link(%w(rel describedby))
+          link = RDF::URI(base).join(link)
           found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}")) if link
         end
 
         # For testing purposes, act as if a link header was provided with option
-        if md = options[:httpLink].to_s.match(/^.*<[^>]+>/) && !options[:no_found_metadata]
-          link = md[1]
+        if (md = options[:httpLink].to_s.match(/^.*<([^>]+)>/)) && !options[:no_found_metadata]
+          link = RDF::URI(base).join(md[1])
           found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
         end
 

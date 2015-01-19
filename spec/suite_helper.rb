@@ -82,6 +82,7 @@ module Fixtures
         "comment": "rdfs:comment",
         "data": {"@id": "mq:data", "@type": "@id"},
         "entries": {"@id": "mf:entries", "@type": "@id", "@container": "@list"},
+        "httpLink": "csvt:httpLink",
         "metadata": {"@id": "csvt:metadata", "@type": "@id"},
         "name": "mf:name",
         "noProv": {"@id": "csvt:noProv", "@type": "xsd:boolean"},
