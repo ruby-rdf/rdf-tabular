@@ -44,7 +44,7 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     end +
     "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
-    (@info.metadata ? "\nMetadata:\n#{@info.metadata}" : "") +
+    (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}" : "") +
     (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
   end  
 end

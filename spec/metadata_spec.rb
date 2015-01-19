@@ -577,10 +577,10 @@ describe RDF::Tabular::Metadata do
           "@type": "Table",
           "@id": "http://example.org/table"
         }),
-        B: %({
+        B: [%({
           "@type": "Table",
           "@id": "http://example.org/table"
-        }),
+        })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
@@ -594,10 +594,10 @@ describe RDF::Tabular::Metadata do
           "@type": "Table",
           "@id": "http://example.org/table1"
         }),
-        B: %({
+        B: [%({
           "@type": "Table",
           "@id": "http://example.org/table2"
-        }),
+        })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
@@ -614,13 +614,13 @@ describe RDF::Tabular::Metadata do
           "@type": "Table",
           "@id": "http://example.org/table1"
         }),
-        B: %({
+        B: [%({
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
             "@id": "http://example.org/table2"
           }]
-        }),
+        })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
@@ -640,10 +640,10 @@ describe RDF::Tabular::Metadata do
             "@id": "http://example.org/table1"
           }]
         }),
-        B: %({
+        B: [%({
           "@type": "Table",
           "@id": "http://example.org/table2"
-        }),
+        })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
@@ -655,12 +655,41 @@ describe RDF::Tabular::Metadata do
           }]
         })
       },
+      "table-group and two tables" => {
+        A: %({
+          "@type": "TableGroup",
+          "resources": [{
+            "@type": "Table",
+            "@id": "http://example.org/table1"
+          }]
+        }),
+        B: [%({
+          "@type": "Table",
+          "@id": "http://example.org/table2",
+          "dc:label": "foo"
+        }), %({
+          "@type": "Table",
+          "@id": "http://example.org/table2",
+          "dc:label": "bar"
+        })],
+        R: %({
+          "@type": "TableGroup",
+          "resources": [{
+            "@type": "Table",
+            "@id": "http://example.org/table1"
+          }, {
+            "@type": "Table",
+            "@id": "http://example.org/table2",
+            "dc:label": ["foo", "bar"]
+          }]
+        })
+      },
     }.each do |name, props|
       it name do
         a = described_class.new(::JSON.parse(props[:A]))
-        b = described_class.new(::JSON.parse(props[:B]))
+        b = props[:B].map {|md| described_class.new(::JSON.parse(md))}
         r = described_class.new(::JSON.parse(props[:R]))
-        expect(a.merge(b)).to produce(r, @debug)
+        expect(a.merge(*b)).to produce(r, @debug)
       end
     end
 

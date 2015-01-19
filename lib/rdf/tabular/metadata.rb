@@ -136,32 +136,32 @@ module RDF::Tabular
         Metadata.open(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
       end
 
-      found_metadata = nil
+      found_metadata = []
       if !options[:no_found_metadata]
         # load link metadata, if available
-        found_metadata ||= if input.respond_to?(:links) && 
+        if input.respond_to?(:links) && 
           link = input.links.find_link(%w(rel describedby))
-          Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
+          found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}")) if link
         end
 
         # For testing purposes, act as if a link header was provided with option
-        found_metadata ||= if md = options[:httpLink].to_s.match(/^.*<[^>]+>/) && !options[:no_found_metadata]
+        if md = options[:httpLink].to_s.match(/^.*<[^>]+>/) && !options[:no_found_metadata]
           link = md[1]
-          Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
+          found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
         end
 
         if base
           # Otherwise, look for metadata based on filename
-          found_metadata ||= begin
+          begin
             loc = "#{base}-metadata.json"
-            Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
+            found_metadata << Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
           rescue
           end
 
           # Otherwise, look for metadata in directory
-          found_metadata ||= begin
+          begin
             loc = RDF::URI(base).join("metadata.json")
-            Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
+            found_metadata << Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
           rescue
           end
         end
@@ -169,16 +169,15 @@ module RDF::Tabular
 
       # Extract file metadata, and left-merge if appropriate
       # Use found metadata when parsing embedded data, but don't merge in until complete
-      parse_md = user_metadata && found_metadata ?
-                 user_metadata.merge(found_metadata) :
-                 (user_metadata || found_metadata || Table.new({}))
+      md, *rest = found_metadata.dup.unshift(user_metadata).compact
+      parse_md = md ? md.merge(*rest) : Table.new({})
       embedded_metadata = parse_md.embedded_metadata(input, options)
 
       # Merge user metadata with embedded metadata 
       embedded_metadata = user_metadata.merge(embedded_metadata) if user_metadata
 
       # Merge embedded metadata with found
-      found_metadata ? embedded_metadata.merge(found_metadata) : embedded_metadata
+      embedded_metadata.merge(*found_metadata)
     end
 
     ##
@@ -271,6 +270,7 @@ module RDF::Tabular
     def initialize(input, options = {})
       @options = options.dup
       @context = options[:context] if options[:context]
+      reason = @options.delete(:reason)
 
       @options[:base] ||= context.base if context
       @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
@@ -288,8 +288,6 @@ module RDF::Tabular
       # Parent of this Metadata, if any
       @parent = @options[:parent]
 
-      debug("md.new") {@options.delete(:reason)} if @options[:reason]
-      debug("md.new") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
       depth do
         # Metadata is object with symbolic keys
         object.each do |key, value|
@@ -358,7 +356,10 @@ module RDF::Tabular
 
       # Set type from @type, if present and not otherwise defined
       @type ||= self[:@type].to_sym if self[:@type]
-      debug("md.new") {inspect} unless is_a?(Dialect)
+      if reason
+        debug("md#initialize") {reason}
+        debug("md#initialize") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
+      end
 
       validate! if options[:validate]
     end
@@ -584,7 +585,7 @@ module RDF::Tabular
         value = value[1..-1] if dialect.commentPrefix && value.start_with?(dialect.commentPrefix)
         table["notes"] ||= [] << value unless value.empty?
       end
-      debug("embedded_metadata") {"notes: #{notes.inspect}"}
+      debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
 
       (1..(dialect.headerRowCount || 1)).each do
         Array(csv.shift).each_with_index do |value, index|
@@ -611,7 +612,7 @@ module RDF::Tabular
       debug("embedded_metadata") {"table: #{table.inspect}"}
       input.rewind if input.respond_to?(:rewind)
 
-      Table.new(table, options)
+      Table.new(table, options.merge(reason: "load embedded metadata: #{table['@id']}"))
     end
 
     ##
@@ -672,7 +673,9 @@ module RDF::Tabular
     end
 
     # Merge metadata into this a copy of this metadata
-    def merge(metadata)
+    # @param [Array<Metadata>] metadata
+    # @return [Metadata]
+    def merge(*metadata)
       # If the top-level object of any of the metadata files are table descriptions, these are treated as if they were table group descriptions containing a single table description (ie having a single resource property whose value is the same as the original table description).
       this = case self
       when TableGroup then self.dup
@@ -689,27 +692,30 @@ module RDF::Tabular
           tg
         end
       end
-        raise "Can't merge #{self.class}" unless this.is_a?(TableGroup)
+      raise "Can't merge #{self.class}" unless this.is_a?(TableGroup)
 
-      metadata = case metadata
-      when TableGroup then metadata
-      when Table
-        if metadata.parent
-          metadata.parent
+      # Merge all passed metadata into this
+      metadata.reduce(this) do |memo, md|
+        md = case md
+        when TableGroup then md
+        when Table
+          if md.parent
+            md.parent
+          else
+            content = {"@type" => "TableGroup", "resources" => [md]}
+            ctx = md.context
+            content['@context'] = md.delete(:@context) if md[:@context]
+            md.remove_instance_variable(:@context) if md.instance_variables.include?(:@context) 
+            tg = TableGroup.new(content, context: ctx)
+            md.instance_variable_set(:@parent, tg)  # Link from parent
+            tg
+          end
         else
-          content = {"@type" => "TableGroup", "resources" => [metadata]}
-          ctx = metadata.context
-          content['@context'] = metadata.delete(:@context) if metadata[:@context]
-          metadata.remove_instance_variable(:@context) if metadata.instance_variables.include?(:@context) 
-          tg = TableGroup.new(content, context: ctx)
-          metadata.instance_variable_set(:@parent, tg)  # Link from parent
-          tg
+          raise "Can't merge #{md.class}"
         end
-      else
-        raise "Can't merge #{metadata.class}"
-      end
 
-      this.merge!(metadata)
+        memo.merge!(md)
+      end
     end
 
     # Merge metadata into self

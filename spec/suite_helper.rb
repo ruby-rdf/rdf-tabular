@@ -118,6 +118,7 @@ module Fixtures
  
     class Entry < JSON::LD::Resource
       attr_accessor :debug
+      attr_accessor :metadata
 
       def id
         attributes['id']

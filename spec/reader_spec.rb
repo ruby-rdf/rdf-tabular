@@ -61,8 +61,16 @@ describe RDF::Tabular::Reader do
           about = RDF::URI("http://example.org").join(csv)
           input = File.expand_path("../data/#{csv}", __FILE__)
           expected = File.expand_path("../data/#{ttl}", __FILE__)
-          graph = RDF::Graph.load(input, format: :tabular, base_uri: about, noProv: true, debug: @debug)
-          expect(graph).to be_equivalent_graph(RDF::Graph.load(expected, base_uri: about), debug: @debug, id: about, action: about, result: expected)
+          RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+            graph = RDF::Graph.new << reader
+            graph2 = RDF::Graph.load(expected, base_uri: about)
+            expect(graph).to be_equivalent_graph(graph2,
+                                                 debug: @debug,
+                                                 id: about,
+                                                 action: about,
+                                                 result: expected,
+                                                 metadata: reader.metadata)
+          end
         end
       end
     end
@@ -76,8 +84,12 @@ describe RDF::Tabular::Reader do
           expected = File.expand_path("../data/#{json}", __FILE__)
 
           RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
-            expect(JSON.parse(reader.to_json)).to produce(JSON.parse(File.read(expected)), @debug)
-            reader.to_json
+            expect(JSON.parse(reader.to_json)).to produce(JSON.parse(File.read(expected)),
+                                                         debug: @debug,
+                                                         id: about,
+                                                         action: about,
+                                                         result: expected,
+                                                         metadata: reader.metadata)
           end
         end
       end

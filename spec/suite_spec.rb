@@ -20,6 +20,8 @@ describe RDF::Tabular::Reader do
             ) do |reader|
               expect(reader).to be_a RDF::Reader
 
+              t.metadata = reader.metadata # for debug output
+
               graph = RDF::Repository.new
 
               if t.positive_test?
