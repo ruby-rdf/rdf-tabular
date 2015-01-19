@@ -179,7 +179,6 @@ module RDF::Tabular
             add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "csvEncodedTabularData")
           end
 
-          # FIXME: multiple metadata files?
           Array(@metadata.filenames).each do |fn|
             usage = RDF::Node.new
             add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
@@ -327,7 +326,6 @@ module RDF::Tabular
 
         # Optional describedBy
         # Provenance
-        # Fixme multiple metadata files?
         if Array(@metadata.filenames).length > 0 && !@options[:noProv]
           table["describedBy"] = @metadata.filenames.length == 1 ? @metadata.filenames.first : @metadata.filenames
         end

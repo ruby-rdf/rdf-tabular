@@ -142,15 +142,19 @@ module RDF::Tabular
         # load link metadata, if available
         if input.respond_to?(:links) && 
           link = input.links.find_link(%w(rel describedby))
-          link = RDF::URI(base).join(link)
-          found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}")) if link
+          link = RDF::URI(base).join(link.href)
+          begin
+            found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}")) if link
+          rescue
+            debug("for_input", options) {"failed to load linked metadata #{link}: #{$!}"}
+          end
         end
 
         # For testing purposes, act as if a link header was provided with option
-        if (md = options[:httpLink].to_s.match(/^.*<([^>]+)>/)) && !options[:no_found_metadata]
-          link = RDF::URI(base).join(md[1])
-          found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
-        end
+        #if (md = options[:httpLink].to_s.match(/^.*<([^>]+)>/)) && !options[:no_found_metadata]
+        #  link = RDF::URI(base).join(md[1])
+        #  found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
+        #end
 
         if base
           # Otherwise, look for metadata based on filename
@@ -158,6 +162,7 @@ module RDF::Tabular
             loc = "#{base}-metadata.json"
             found_metadata << Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
           rescue
+            debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
           end
 
           # Otherwise, look for metadata in directory
@@ -165,6 +170,7 @@ module RDF::Tabular
             loc = RDF::URI(base).join("metadata.json")
             found_metadata << Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
           rescue
+            debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
           end
         end
       end
@@ -917,6 +923,17 @@ module RDF::Tabular
         quote_char: dialect.quoteChar,
         encoding: dialect.encoding
       }
+    end
+
+    class DebugContext
+      include Utils
+      def initialize(*args, &block)
+        @options = {}
+        debug(*args, &block)
+      end
+    end
+    def self.debug(*args, &block)
+      DebugContext.new(*args, &block)
     end
   end
 

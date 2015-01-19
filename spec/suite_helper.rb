@@ -30,28 +30,34 @@ module RDF::Util
         begin
           #puts "attempt to open #{filename_or_url} locally"
           if response = ::File.open(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH))
+            document_options = {
+              base_uri:     RDF::URI(filename_or_url),
+              charset:      Encoding::UTF_8,
+              code:         200,
+              headers:      {}
+            }
             #puts "use #{filename_or_url} locally"
             case filename_or_url.to_s
-            when /\.html$/
-              def response.content_type; 'text/html'; end
-            when /\.ttl$/
-              def response.content_type; 'text/turtle'; end
-            when /\.json$/
-              def response.content_type; 'application/json'; end
-            when /\.jsonld$/
-              def response.content_type; 'application/ld+json'; end
-            else
-              def response.content_type; 'unknown'; end
+            when /\.html$/   then document_options[:content_type] = 'text/html'
+            when /\.ttl$/    then document_options[:content_type] = 'text/turtle'
+            when /\.json$/   then document_options[:content_type] = 'application/json'
+            when /\.jsonld$/ then document_options[:content_type] = 'application/ld+json'
+            when /\.html$/   then document_options[:content_type] = 'text/html'
+            else                  document_options[:content_type] = 'unknown'
             end
 
+            # For overriding content type from test data
+            document_options[:content_type] = options[:contentType] if options[:contentType]
+            document_options[:headers][:content_type] = document_options[:content_type]
+
+            # For overriding Link header from test data
+            document_options[:headers][:link] = options[:httpLink] if options[:httpLink]
+
+            remote_document = RDF::Util::File::RemoteDocument.new(response.read, document_options)
             if block_given?
-              begin
-                yield response
-              ensure
-                response.close
-              end
+              yield remote_document
             else
-              response
+              remote_document
             end
           else
             Kernel.open(filename_or_url.to_s, "r:utf-8", &block)
@@ -80,6 +86,7 @@ module Fixtures
         "action":  {"@id": "mf:action", "@type": "@id"},
         "approval":  {"@id": "csvt:approval", "@type": "@id"},
         "comment": "rdfs:comment",
+        "contentType": "csvt:contentType",
         "data": {"@id": "mq:data", "@type": "@id"},
         "entries": {"@id": "mf:entries", "@type": "@id", "@container": "@list"},
         "httpLink": "csvt:httpLink",
@@ -171,6 +178,7 @@ module Fixtures
         res[:noProv] = option['noProv'] == 'true' if option && option.has_key?('noProv')
         res[:metadata] = option['metadata'] if option && option.has_key?('metadata')
         res[:httpLink] = httpLink if attributes['httpLink']
+        res[:contentType] = contentType if attributes['contentType']
         res
       end
     end
