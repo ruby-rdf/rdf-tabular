@@ -1,0 +1,10 @@
+{
+  "@id": "http://example.org/country-codes-and-names.csv",
+  "distribution": {"downloadURL": "http://example.org/country-codes-and-names.csv"},
+  "row": [
+    {"country": "AD", "name": "Andorra"},
+    {"country": "AF", "name": "Afghanistan"},
+    {"country": "AI", "name": "Anguilla"},
+    {"country": "AL", "name": "Albania"}
+  ]
+}

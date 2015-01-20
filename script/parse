@@ -1,0 +1,82 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require "bundler/setup"
+$:.unshift(File.expand_path("../../lib", __FILE__))
+begin
+  require 'linkeddata'
+rescue LoadError
+end
+require 'rdf/tabular'
+require 'getoptlong'
+
+def run(input, options)
+
+  start = Time.new
+  output = if input.is_a?(String) && input.end_with?(".json")
+    RDF::Tabular::Metadata.open(input, options[:parser_options])
+  elsif input.is_a?(String) && input.end_with(".csv")
+    RDF::Graph.load(input, options[:parse_options].merge(format: :csv))
+  else
+    RDF::Graph.new << RDF::Tabular::Reader.new(input, options[:parse_options])
+  end
+  secs = Time.new - start
+
+  if output.is_a?(RDF::Enumerable)
+    output.write(option[:output], options[:output_format])
+  else
+    options[:output].puts output.to_json(::JSON::LD::JSON_STATE)
+  end
+rescue
+  fname = input.respond_to?(:path) ? input.path : (input.is_a?(String) ? input : "-stdin-")
+  STDERR.puts("Error in #{fname}")
+  raise
+end
+
+parser_options = {
+  :base     => nil,
+  :progress => false,
+  :profile  => false,
+  :validate => false,
+  :strict   => false,
+}
+
+options = {
+  :parser_options => parser_options,
+  :output        => STDOUT,
+  :output_format => :turtle,
+  :input_format  => :csv,
+}
+input = nil
+
+opts = GetoptLong.new(
+  ["--dbg", GetoptLong::NO_ARGUMENT],
+  ["--execute", "-e", GetoptLong::REQUIRED_ARGUMENT],
+  ["--format", GetoptLong::REQUIRED_ARGUMENT],
+  ["--output", "-o", GetoptLong::REQUIRED_ARGUMENT],
+  ["--quiet", GetoptLong::NO_ARGUMENT],
+  ["--uri", GetoptLong::REQUIRED_ARGUMENT],
+  ["--validate", GetoptLong::NO_ARGUMENT],
+  ["--verbose", GetoptLong::NO_ARGUMENT]
+)
+opts.each do |opt, arg|
+  case opt
+  when '--dbg'          then parser_options[:debug] = ::JSON::LD::debug = true
+  when '--execute'      then input = arg
+  when '--format'       then options[:output_format] = arg.to_sym
+  when '--output'       then options[:output] = File.open(arg, "w")
+  when '--quiet'        then options[:quiet] = true
+  when '--uri'          then parser_options[:base] = arg
+  when '--validate'     then parser_options[:validate] = true
+  when '--verbose'      then $verbose = true
+  end
+end
+
+if ARGV.empty?
+  s = input ? input : $stdin.read
+  run(StringIO.new(s), options)
+else
+  ARGV.each do |test_file|
+    run(test_file, options)
+  end
+end
+puts

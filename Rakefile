@@ -3,14 +3,14 @@ require 'yard'
 require 'rspec/core/rake_task'
 
 namespace :gem do
-  desc "Build the rdf-csv-#{File.read('VERSION').chomp}.gem file"
+  desc "Build the rdf-tabular-#{File.read('VERSION').chomp}.gem file"
   task :build do
-    sh "gem build rdf-csv.gemspec && mv rdf-csv-#{File.read('VERSION').chomp}.gem pkg/"
+    sh "gem build rdf-tabular.gemspec && mv rdf-tabular-#{File.read('VERSION').chomp}.gem pkg/"
   end
 
-  desc "Release the rdf-csv-#{File.read('VERSION').chomp}.gem file"
+  desc "Release the rdf-tabular-#{File.read('VERSION').chomp}.gem file"
   task :release do
-    sh "gem push pkg/rdf-csv-#{File.read('VERSION').chomp}.gem"
+    sh "gem push pkg/rdf-tabular-#{File.read('VERSION').chomp}.gem"
   end
 end
 
@@ -34,12 +34,31 @@ namespace :doc do
   end
 end
 
+desc "Create CSVW vocabulary definition"
+task :vocab do
+  puts "Generate lib/rdf/tabular/csvw.rb"
+  require 'linkeddata'
+  require 'rdf/cli/vocab-loader'
+  begin
+    File.open("lib/rdf/tabular/csvw.rb", "w") do |out|
+      loader = RDF::VocabularyLoader.new("CSVW")
+      loader.uri = "http://www.w3.org/ns/csvw#"
+      loader.module_name = "RDF::Tabular"
+      loader.strict = true
+      loader.output = out
+      loader.run
+    end
+  rescue
+    puts "Failed to load CSVW: #{$!.message}"
+  end
+end
+
 task :default => :spec
 task :specs => :spec
 
 desc "Generate etc/doap.{nt,ttl} from etc/doap.csv."
 task :doap do
-  require 'rdf/csv'
+  require 'rdf/tabular'
   require 'rdf/turtle'
   require 'rdf/ntriples'
   g = RDF::Graph.load("etc/doap.csv")

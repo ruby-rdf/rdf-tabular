@@ -1,37 +1,37 @@
 # Tabular Data RDF Reader and JSON serializer
 
-[RDF-CSV][] reader for [RDF.rb][] and fully JSON serializer.
+[RDF::Tabular][] reader for [RDF.rb][] and fully JSON serializer.
 
-[![Gem Version](https://badge.fury.io/rb/rdf-csv.png)](http://badge.fury.io/rb/rdf-csv)
-[![Build Status](https://secure.travis-ci.org/ruby-rdf/rdf-csv.png?branch=master)](http://travis-ci.org/ruby-rdf/rdf-csv)
+[![Gem Version](https://badge.fury.io/rb/rdf-tabular.png)](http://badge.fury.io/rb/rdf-tabular)
+[![Build Status](https://secure.travis-ci.org/ruby-rdf/rdf-tabular.png?branch=master)](http://travis-ci.org/ruby-rdf/rdf-tabular)
 
 ## Features
 
-RDF::CSV parses and serializes CSV or other Tabular Data into [RDF][] and JSON.
+RDF::Tabular parses CSV or other Tabular Data into [RDF][] and JSON.
 
-Install with `gem install rdf-csv`
+Install with `gem install rdf-tabular`
 
 ## Examples
 
     require 'rubygems'
-    require 'rdf/csv
+    require 'rdf/tabular'
 
 ## RDF Reader
-{RDF::CSV} also acts as a normal RDF reader, using the standard RDF.rb Reader interface:
+{RDF::Tabular} also acts as a normal RDF reader, using the standard RDF.rb Reader interface:
 
     graph = RDF::Graph.load("etc/doap.csv")
 
 
 ## Documentation
-Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-csv/file/README.md)
+Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-tabular/file/README.md)
 
 
 ### Principal Classes
-* {RDF::CSV}
-  * {RDF::CSV::JSON}
-  * {RDF::CSV::Format}
-  * {RDF::CSV::Metadata}
-  * {RDF::CSV::Reader}
+* {RDF::Tabular}
+  * {RDF::Tabular::JSON}
+  * {RDF::Tabular::Format}
+  * {RDF::Tabular::Metadata}
+  * {RDF::Tabular::Reader}
 
 ## Dependencies
 * [Ruby](http://ruby-lang.org/) (>= 1.9.2)
@@ -40,9 +40,9 @@ Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-csv/file/
 
 ## Installation
 The recommended installation method is via [RubyGems](http://rubygems.org/).
-To install the latest official release of the `RDF::CSV` gem, do:
+To install the latest official release of the `RDF::Tabular` gem, do:
 
-    % [sudo] gem install rdf-csv
+    % [sudo] gem install rdf-tabular
 
 ## Mailing List
 * <http://lists.w3.org/Archives/Public/public-rdf-ruby/>
