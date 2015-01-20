@@ -7,7 +7,7 @@
 
 ## Features
 
-RDF::Tabular parses CSV or other Tabular Data into [RDF][] and JSON.
+RDF::Tabular parses CSV or other Tabular Data into [RDF][] and JSON using the [W3C CSVW][] specifications, currently undergoing development.
 
 Install with `gem install rdf-tabular`
 
@@ -20,7 +20,6 @@ Install with `gem install rdf-tabular`
 {RDF::Tabular} also acts as a normal RDF reader, using the standard RDF.rb Reader interface:
 
     graph = RDF::Graph.load("etc/doap.csv")
-
 
 ## Documentation
 Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-tabular/file/README.md)
@@ -55,13 +54,9 @@ To install the latest official release of the `RDF::Tabular` gem, do:
 * Don't use hard tabs, and don't leave trailing whitespace on any line.
 * Do document every method you add using [YARD][] annotations. Read the
   [tutorial][YARD-GS] or just look at the existing code for examples.
-* Don't touch the `json-ld.gemspec`, `VERSION` or `AUTHORS` files. If you need to
-  change them, do so on your private branch only.
-* Do feel free to add yourself to the `CREDITS` file and the corresponding
-  list in the the `README`. Alphabetical order applies.
-* Do note that in order for us to merge any non-trivial changes (as a rule
-  of thumb, additions larger than about 15 lines of code), we need an
-  explicit [public domain dedication][PDD] on record from you.
+* Don't touch the `rdf-tabular.gemspec`, `VERSION` or `AUTHORS` files. If you need to change them, do so on your private branch only.
+* Do feel free to add yourself to the `CREDITS` file and the corresponding list in the the `README`. Alphabetical order applies.
+* Do note that in order for us to merge any non-trivial changes (as a rule of thumb, additions larger than about 15 lines of code), we need an explicit [public domain dedication][PDD] on record from you.
 
 License
 -------
@@ -75,3 +70,4 @@ see <http://unlicense.org/> or the accompanying {file:UNLICENSE} file.
 [YARD-GS]:          http://rubydoc.info/docs/yard/file/docs/GettingStarted.md
 [PDD]:              http://lists.w3.org/Archives/Public/public-rdf-ruby/2010May/0013.html
 [RDF.rb]:           http://rubygems.org/gems/rdf
+[W3C CSVW]:         http://www.w3.org/2013/csvw/wiki/Main_Page
