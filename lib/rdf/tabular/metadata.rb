@@ -537,7 +537,7 @@ module RDF::Tabular
 
     ##
     # Determine if a natural language property is valid
-    # @param [String, Array<String>, Hash{String => String}]
+    # @param [String, Array<String>, Hash{String => String}] value
     # @return [Boolean]
     def valid_natural_language_property?(value)
       case value
@@ -1229,8 +1229,8 @@ module RDF::Tabular
 
     ##
     # @param [Array<Array<String>>] row
-    # @param [Metadata] Table metadata
-    # @param [rownum] 1-based row number
+    # @param [Metadata] metadata for Table
+    # @param [Integer] rownum 1-based row number
     # @return [Row]
     def initialize(row, metadata, rownum)
       @rownum = rownum

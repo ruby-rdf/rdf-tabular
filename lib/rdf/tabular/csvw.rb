@@ -2,6 +2,10 @@
 # This file generated automatically using vocab-fetch from http://www.w3.org/ns/csvw#
 require 'rdf'
 module RDF::Tabular
+  # @!parse
+  #   # CSVW Vocabulary.
+  #   class CSVW < RDF::StrictVocabulary
+  #   end
   class CSVW < RDF::StrictVocabulary("http://www.w3.org/ns/csvw#")
 
     # Class definitions
