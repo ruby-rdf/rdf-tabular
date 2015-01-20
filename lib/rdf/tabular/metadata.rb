@@ -802,7 +802,7 @@ module RDF::Tabular
                   end
                 when :columns
                   # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
-                  value.each_with_index do |t, index|
+                  Array(value).each_with_index do |t, index|
                     ta = self[key][index]
                     if ta && ta.name == t.name
                       debug("merge!: columns") {"index: #{index}, name=name"}
