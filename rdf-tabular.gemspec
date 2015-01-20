@@ -23,6 +23,7 @@ Gem::Specification.new do |gem|
 
   gem.required_ruby_version = '>= 1.9.2'
   gem.requirements          = []
+  gem.add_runtime_dependency     'bcp47',           '~> 0.3', '>= 0.3.3'
   gem.add_runtime_dependency     'rdf',             '~> 1.1', '>= 1.1.7'
   gem.add_runtime_dependency     'rdf-xsd',         '~> 1.1'
   gem.add_runtime_dependency     'json-ld',         '~> 1.1'
