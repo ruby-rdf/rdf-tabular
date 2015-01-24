@@ -999,6 +999,7 @@ module RDF::Tabular
      notes:                 :object,
      :"table-direction"  => :atomic,
      templates:             :array,
+     title:                 :natural_language,
      dialect:               :object,
     }.freeze
     REQUIRED = [:@id].freeze
