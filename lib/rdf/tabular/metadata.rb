@@ -198,7 +198,7 @@ module RDF::Tabular
       object = input
 
       # Only define context if input is readable, or there's no parent
-      context = if !options[:parent] || !input.is_a?(Hash) || input.has_key?('@context')
+      if !options[:parent] || !input.is_a?(Hash) || input.has_key?('@context')
         # Open as JSON-LD to get context
         jsonld = ::JSON::LD::API.new(input, context)
 
@@ -207,7 +207,15 @@ module RDF::Tabular
         if !context.term_definitions.has_key?('csvw') &&
            !jsonld.context.term_definitions.has_key?('csvw')
           input.rewind if input.respond_to?(:rewind)
-          jsonld = ::JSON::LD::API.new(input, 'http://www.w3.org/ns/csvw')
+
+          # Also use context from jsonld value in addition to default
+          use_context = case jsonld.value['@context']
+          when Array  then %w(http://www.w3.org/ns/csvw) + jsonld.value['@context']
+          when Hash then ['http://www.w3.org/ns/csvw', jsonld.value['@context']]
+          else             'http://www.w3.org/ns/csvw'
+          end
+          
+          jsonld = ::JSON::LD::API.new(input, use_context)
         end
 
         # If we already have a context, merge in the context from this object, otherwise, set it to this object
@@ -895,21 +903,14 @@ module RDF::Tabular
                   # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
                   self[key] = Array(self[key]) + (Array[value] - Array[self[key]])
                 when /:/
-                  # SPEC SUGGESTION: common property
-                  a = case self[key]
-                  when nil then []
-                  when Array then self[key]
-                  else [self[key]]
-                  end
+                  # If the property is a common property, the result is an array containing values from A followed by values from B not already in A. Values are first expanded using the @context of A or B respectively
+                  a = self[key] ? ::JSON::LD::API.expand({key => self[key]}, expandContext: self.context).
+                    first.values.first : []
 
-                  b = case metadata[key]
-                  when nil then []
-                  when Array then metadata[key]
-                  else [metadata[key]]
-                  end
+                  b = ::JSON::LD::API.expand({key => metadata[key]}, expandContext: metadata.context).
+                    first.values.first
 
                   self[key] = a + (b - a)
-                  self[key] = self[key].first if self[key].length == 1
                 else
                   # if the property only accepts single values, the value from A overrides that from B;
                   self[key] ||= value
@@ -1154,7 +1155,7 @@ module RDF::Tabular
       skipColumns:        0,
       skipInitialSpace:   false,
       skipRows:           0,
-      trim:               "false"
+      trim:               false
     }.freeze
 
     PROPERTIES = {

@@ -240,7 +240,7 @@ module RDF::Tabular
       else
         hash = self.to_hash(options.is_a?(Hash) ? options : {})
         state = (options[:state] if options.is_a?(Hash)) || options
-        ::JSON.generate(hash, options)
+        ::JSON.generate(hash, state)
       end
     end
 
@@ -309,10 +309,23 @@ module RDF::Tabular
         rows = []
         table = {
           # SPEC CONFUSION: aren't these URIs the same?
-          "@id" => metadata.id.to_s,
-          "distribution" => { "downloadURL" => metadata.id},
-        }.merge(metadata.common_properties).
-        merge("row" => rows)
+          "url" => metadata.id.to_s,
+          "distribution" => { "downloadURL" => metadata.id}
+        }
+
+        # Use string values from common properties
+        metadata.common_properties.each do |prop, value|
+          value = [value] unless value.is_a?(Array)
+          value = value.map do |v|
+            if v.is_a?(Hash) && !(v.keys & %w(@id @value)).empty?
+              v['@value'] || v['@id']
+            else
+              v
+            end
+          end
+          table[prop] = value.length == 1 ? value.first : value
+        end
+        table.merge!("row" => rows)
 
         # Input is file containing CSV data.
         # Output ROW-Level statements

@@ -1,7 +1,7 @@
 {
   "tables": [
     {
-      "@id": "http://example.org/countries.csv",
+      "url": "http://example.org/countries.csv",
       "distribution": {
         "downloadURL": "http://example.org/countries.csv"
       },
@@ -30,7 +30,7 @@
       ]
     },
     {
-      "@id": "http://example.org/country_slice.csv",
+      "url": "http://example.org/country_slice.csv",
       "distribution": {
         "downloadURL": "http://example.org/country_slice.csv"
       },

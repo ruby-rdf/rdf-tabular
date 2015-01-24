@@ -1,7 +1,7 @@
 {
   "tables": [
     {
-      "@id": "http://example.org/senior-roles.csv",
+      "url": "http://example.org/senior-roles.csv",
       "distribution": {
         "downloadURL": "http://example.org/senior-roles.csv"
       },
@@ -41,7 +41,7 @@
       ]
     },
     {
-      "@id": "http://example.org/junior-roles.csv",
+      "url": "http://example.org/junior-roles.csv",
       "distribution": {
         "downloadURL": "http://example.org/junior-roles.csv"
       },

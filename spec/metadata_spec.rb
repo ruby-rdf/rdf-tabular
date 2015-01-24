@@ -499,7 +499,8 @@ describe RDF::Tabular::Metadata do
               {"title": "Trim Cycle"},
               {"title": "Inventory Date"}
             ]
-          }
+          },
+          "language": "en"
         })
       },
     }.each do |name, props|
@@ -680,7 +681,10 @@ describe RDF::Tabular::Metadata do
           }, {
             "@type": "Table",
             "@id": "http://example.org/table2",
-            "dc:label": ["foo", "bar"]
+            "dc:label": [
+              {"@value": "foo"},
+              {"@value": "bar"}
+            ]
           }]
         })
       },
@@ -747,7 +751,11 @@ describe RDF::Tabular::Metadata do
       "TableGroup with matching resources" => {
         A: %({"resources": [{"@id": "http://example.org/foo", "dc:title": "foo"}]}),
         B: %({"resources": [{"@id": "http://example.org/foo", "dc:description": "bar"}]}),
-        R: %({"resources": [{"@id": "http://example.org/foo", "dc:title": "foo", "dc:description": "bar"}]})
+        R: %({"resources": [{
+          "@id": "http://example.org/foo",
+          "dc:title": "foo",
+          "dc:description": [{"@value": "bar"}]
+        }]})
       },
       "TableGroup with differing resources" => {
         A: %({"resources": [{"@id": "http://example.org/foo", "dc:title": "foo"}]}),
@@ -853,7 +861,37 @@ describe RDF::Tabular::Metadata do
       "Table with common properties merges A and B" => {
         A: %({"@type": "Table", "@id": "http://example.com/foo", "rdfs:label": "foo"}),
         B: %({"@type": "Table", "@id": "http://example.com/foo", "rdfs:label": "bar"}),
-        R: %({"@type": "Table", "@id": "http://example.com/foo", "rdfs:label": ["foo", "bar"]}),
+        R: %({
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "rdfs:label": [
+            {"@value": "foo"},
+            {"@value": "bar"}
+          ]
+        }),
+      },
+      "Table with common properties in different languages merges A and B" => {
+        A: %({
+          "@context": {"@language": "en"},
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "rdfs:label": "foo"
+        }),
+        B: %({
+          "@context": {"@language": "fr"},
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "rdfs:label": "foo"
+        }),
+        R: %({
+          "@context": {"@language": "en"},
+          "@type": "Table",
+          "@id": "http://example.com/foo",
+          "rdfs:label": [
+            {"@value": "foo", "@language": "en"},
+            {"@value": "foo", "@language": "fr"}
+          ]
+        }),
       },
       "Schema with matching columns merges A and B" => {
         A: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),

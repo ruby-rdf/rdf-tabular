@@ -1,14 +1,11 @@
 {
-  "@id": "http://example.org/tree-ops.csv",
+  "url": "http://example.org/tree-ops.csv",
   "distribution": {"downloadURL": "http://example.org/tree-ops.csv"},
   "dc:title": "Tree Operations",
   "dc:keywords": ["tree", "street", "maintenance"],
-  "dc:publisher": {
-    "sch:name": "Example Municipality",
-    "sch:url": {"@id": "http://example.org"}
-  },
-  "dc:license": {"@id": "http://opendefinition.org/licenses/cc-by/"},
-  "dc:modified": {"@value": "2010-12-31", "@type": "xsd:date"},
+  "dc:publisher": "Example Municipality",
+  "dc:license": "http://opendefinition.org/licenses/cc-by/",
+  "dc:modified": "2010-12-31",
   "row": [
     {
       "url": "http://example.org/tree-ops.csv#gid-1",
