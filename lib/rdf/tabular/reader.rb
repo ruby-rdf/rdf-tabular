@@ -159,8 +159,10 @@ module RDF::Tabular
               end
             end
 
-            Array(cell.valueUrl || cell.value).each do |v|
-              add_statement(row.rownum, cell.aboutUrl, cell.propertyUrl, v)
+            cell.propertyUrl.each do |pred|
+              Array(cell.valueUrl || cell.value).each do |v|
+                add_statement(row.rownum, cell.aboutUrl, pred, v)
+              end
             end
           end
           done_columns = true
@@ -336,7 +338,7 @@ module RDF::Tabular
           r["url"] = row.resource.to_s if row.resource.is_a?(RDF::URI)
 
           row.values.each_with_index do |value, index|
-            column = metadata.schema.columns[index]
+            column = metadata.tableSchema.columns[index]
             # SPEC CONFUSION: propertyUrl or simply name?
             r[column.name] = value
           end

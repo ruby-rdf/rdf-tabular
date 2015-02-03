@@ -24,42 +24,44 @@ module RDF::Util
       when /^file:/
         path = filename_or_url[5..-1]
         Kernel.open(path.to_s, &block)
-      when 'http://www.w3.org/ns/csvw'
-        Kernel.open(::File.join(LOCAL_PATH, "ns/csvw.jsonld"), &block)
-      when /^#{REMOTE_PATH}/
+      when %r{^(#{REMOTE_PATH}|http://www.w3.org/ns/csvw)}
         begin
           #puts "attempt to open #{filename_or_url} locally"
-          if response = ::File.open(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH))
-            document_options = {
-              base_uri:     RDF::URI(filename_or_url),
-              charset:      Encoding::UTF_8,
-              code:         200,
-              headers:      {}
-            }
-            #puts "use #{filename_or_url} locally"
-            case filename_or_url.to_s
-            when /\.html$/   then document_options[:headers][:content_type] = 'text/html'
-            when /\.ttl$/    then document_options[:headers][:content_type] = 'text/turtle'
-            when /\.json$/   then document_options[:headers][:content_type] = 'application/json'
-            when /\.jsonld$/ then document_options[:headers][:content_type] = 'application/ld+json'
-            when /\.html$/   then document_options[:headers][:content_type] = 'text/html'
-            else                  document_options[:headers][:content_type] = 'unknown'
-            end
+          localpath = case filename_or_url.to_s
+          when 'http://www.w3.org/ns/csvw' then ::File.join(LOCAL_PATH, "ns/csvw.jsonld")
+          else filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)
+          end
+          response = begin
+            ::File.open(localpath)
+          rescue Errno::ENOENT
+            Kernel.open(filename_or_url.to_s, "r:utf-8", 'Accept' => "application/ld+json, application/json, text/csv")
+          end
+          document_options = {
+            base_uri:     RDF::URI(filename_or_url),
+            charset:      Encoding::UTF_8,
+            code:         200,
+            headers:      {}
+          }
+          #puts "use #{filename_or_url} locally"
+          document_options[:headers][:content_type] = case filename_or_url.to_s
+          when /\.csv$/   then 'text/csv'
+          when /\.json$/   then 'application/json'
+          when /\.jsonld$/ then 'application/ld+json'
+          else                  'unknown'
+          end
 
-            # For overriding content type from test data
-            document_options[:headers][:content_type] = options[:contentType] if options[:contentType]
+          document_options[:headers][:content_type] = response.content_type if response.respond_to?(:content_type)
+          # For overriding content type from test data
+          document_options[:headers][:content_type] = options[:contentType] if options[:contentType]
 
-            # For overriding Link header from test data
-            document_options[:headers][:link] = options[:httpLink] if options[:httpLink]
+          # For overriding Link header from test data
+          document_options[:headers][:link] = options[:httpLink] if options[:httpLink]
 
-            remote_document = RDF::Util::File::RemoteDocument.new(response.read, document_options)
-            if block_given?
-              yield remote_document
-            else
-              remote_document
-            end
+          remote_document = RDF::Util::File::RemoteDocument.new(response.read, document_options)
+          if block_given?
+            yield remote_document
           else
-            Kernel.open(filename_or_url.to_s, "r:utf-8", &block)
+            remote_document
           end
         end
       else

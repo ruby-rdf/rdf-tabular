@@ -603,13 +603,9 @@ module RDF::Tabular
           # SPEC CONFUSION: does title get an array, or concatenated values?
           columns = table["tableSchema"]["columns"] ||= []
           column = columns[index - dialect.skipColumns.to_i] ||= {
-            "title" => [],
+            "title" => {"und" => []},
           }
-          column["title"] << value
-        end
-
-        Array(table["tableSchema"]["columns"]).each do |c|
-          c["title"] = c["title"].first if c["title"].length == 1
+          column["title"]["und"] << value
         end
       end
       debug("embedded_metadata") {"table: #{table.inspect}"}
@@ -798,17 +794,16 @@ module RDF::Tabular
                   # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
                   Array(value).each_with_index do |t, index|
                     ta = self[key][index]
-                    if ta && ta.name == t.name
-                      debug("merge!: columns") {"index: #{index}, name=#{t.name}"}
+                    if ta && ta[:name] && ta[:name] == t[:name] 
+                      debug("merge!: columns") {"index: #{index}, name=#{t[:name] }"}
                       # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
-                    elsif ta &&
-                          !(Array(ta.title) & Array(t.title)).empty? &&
-                          t.context.default_language == ta.context.default_language
+                    elsif ta && ta[:title] && t[:title] && (
+                      ta[:title].any? {|lang, values| !(Array(t[:title][lang]) & values).empty?} ||
+                      !(Array(ta[:title]['und']) & t[:title].values.flatten.compact).empty? ||
+                      !(Array(t[:title]['und']) & ta[:title].values.flatten.compact).empty?)
                       debug("merge!: columns") {"index: #{index}, title=#{t.title}"}
-                      # SPEC SUGGESTION:
-                      # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
-                      # Also, und matches any language
+                      # otherwise, if there is a column description at the same index within A with a title that is also a title in A, considering the language of each title where und matches a value in any language, the column description from B is imported into the matching column description in A.
                       ta.merge!(t)
                     elsif ta.nil?
                       debug("merge!: columns") {"index: #{index}, nil"}
@@ -863,24 +858,20 @@ module RDF::Tabular
                 end
               when :natural_language
                 # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
-                a = case self[key]
-                when Hash then self[key]
-                when Array then {(context.default_language || "und") => self[key]}
-                when String then {(context.default_language || "und") => [self[key]]}
-                else {}
-                end
-                b = case value
-                when Hash then value
-                when Array then {(metadata.context.default_language || "und") => value}
-                when String then {(metadata.context.default_language || "und") => [value]}
-                else {}
-                end
+                a = self[key] || {}
+                b = value
                 debug("merge!: natural_language") {
                   "A: #{a.inspect}, B: #{b.inspect}"
                 }
                 b.each do |k, v|
-                  vv = Array(a[k]) + (Array(b[k]) - Array(a[k]))
-                  a[k] = vv.length == 1 ? vv.first : vv
+                  a[k] = Array(a[k]) + (Array(b[k]) - Array(a[k]))
+                end
+                # SPEC SUGGESTION: eliminate titles with no language where the same string exists with a language
+                if a.has_key?("und")
+                  a["und"] = a["und"].reject do |v|
+                    a.any? {|lang, values| lang != 'und' && values.include?(v)}
+                  end
+                  a.delete("und") if a["und"].empty?
                 end
                 self[key] = a
               else

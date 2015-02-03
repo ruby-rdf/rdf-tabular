@@ -1,74 +1,68 @@
-@prefix : <http://example.org/countries.csv#> .
-@prefix slice: <http://example.org/country_slice.csv#> .
 @prefix csvw: <http://www.w3.org/ns/csvw#> .
 @prefix dcat: <http://www.w3.org/ns/dcat#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <http://schema.org/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-:countryCode a rdf:Property;
-   rdfs:label "countryCode"; .
+<http://example.org/country_slice.csv#countryRef> a rdf:Property .
 
-:latitude a rdf:Property;
-   rdfs:label "latitude" .
+<http://example.org/country_slice.csv#population> a rdf:Property .
 
-:longitude a rdf:Property;
-   rdfs:label "longitude" .
+<http://example.org/country_slice.csv#year> a rdf:Property .
 
-:name a rdf:Property;
-   rdfs:label "name" .
+schema:latitude a rdf:Property .
 
-slice:countryRef a rdf:Property;
-   rdfs:label "countryRef" .
+schema:longitude a rdf:Property .
 
-slice:population a rdf:Property;
-   rdfs:label "population" .
+schema:name a rdf:Property .
 
-slice:year a rdf:Property;
-   rdfs:label "year" .
+<http://www.geonames.org/ontology#countryCode> a rdf:Property .
 
-:AD :countryCode "AD";
-   :latitude 42.546245;
-   :longitude 1.601554;
-   :name "Andorra" .
+<http://example.org/countries.csv#AD> schema:latitude 42.546245;
+   schema:longitude 1.601554;
+   schema:name "Andorra";
+   <http://www.geonames.org/ontology#countryCode> "AD" .
 
-:AE :countryCode "AE";
-   :latitude 23.424076;
-   :longitude 53.847818;
-   :name "United Arab Emirates" .
+<http://example.org/countries.csv#AE> schema:latitude 23.424076;
+   schema:longitude 53.847818;
+   schema:name "United Arab Emirates";
+   <http://www.geonames.org/ontology#countryCode> "AE" .
 
-:AF :countryCode "AF";
-   :latitude 33.93911;
-   :longitude 67.709953;
-   :name "Afghanistan" .
-
-[
-   a csvw:TableGroup;
-   csvw:table :table, slice:table
-] .
-
-:table a csvw:Table;
-   csvw:row :AD, :AE, :AF;
+<http://example.org/countries.csv#table> a csvw:Table;
+   csvw:row <http://example.org/countries.csv#AD>,
+     <http://example.org/countries.csv#AE>,
+     <http://example.org/countries.csv#AF>;
    dcat:distribution [
      a dcat:Distribution;
      dcat:downloadURL <http://example.org/countries.csv>
    ] .
 
-slice:table a csvw:Table;
+<http://example.org/country_slice.csv#table> a csvw:Table;
    csvw:row [
-     slice:countryRef "AF";
-     slice:population 9616353;
-     slice:year "1960"^^xsd:gYear
+     <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
+     <http://example.org/country_slice.csv#population> 9616353;
+     <http://example.org/country_slice.csv#year> "1960"^^xsd:gYear
    ],  [
-     slice:countryRef "AF";
-     slice:population 9799379;
-     slice:year "1961"^^xsd:gYear
+     <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
+     <http://example.org/country_slice.csv#population> 9799379;
+     <http://example.org/country_slice.csv#year> "1961"^^xsd:gYear
    ],  [
-     slice:countryRef "AF";
-     slice:population 9989846;
-     slice:year "1962"^^xsd:gYear
+     <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
+     <http://example.org/country_slice.csv#population> 9989846;
+     <http://example.org/country_slice.csv#year> "1962"^^xsd:gYear
    ];
    dcat:distribution [
      a dcat:Distribution;
      dcat:downloadURL <http://example.org/country_slice.csv>
    ] .
+
+<http://example.org/countries.csv#AF> schema:latitude 33.93911;
+   schema:longitude 67.709953;
+   schema:name "Afghanistan";
+   <http://www.geonames.org/ontology#countryCode> "AF" .
+
+ [
+    a csvw:TableGroup;
+    csvw:table <http://example.org/countries.csv#table>,
+      <http://example.org/country_slice.csv#table>
+ ] .

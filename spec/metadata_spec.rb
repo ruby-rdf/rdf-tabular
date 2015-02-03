@@ -24,10 +24,6 @@ describe RDF::Tabular::Metadata do
           }
         end
       })
-    WebMock.stub_request(:get, "http://www.w3.org/ns/csvw").
-      to_return(body: File.read(File.expand_path("../w3c-csvw/ns/csvw.jsonld", __FILE__)),
-                status: 200,
-                headers: { 'Content-Type' => 'application/ld+json'})
     @debug = []
   end
 
@@ -1018,6 +1014,31 @@ describe RDF::Tabular::Metadata do
           ]
         }),
       },
+      "Table with different languages merges A and B" => {
+        A: %({
+          "@context": {"@language": "en"},
+          "@type": "Table",
+          "url": "http://example.com/foo",
+          "tableSchema": {
+            "columns": [{"title": "foo"}]
+          }
+        }),
+        B: %({
+          "@type": "Table",
+          "url": "http://example.com/foo",
+          "tableSchema": {
+            "columns": [{"title": "foo"}]
+          }
+        }),
+        R: %({
+          "@context": {"@language": "en"},
+          "@type": "Table",
+          "url": "http://example.com/foo",
+          "tableSchema": {
+            "columns": [{"title": {"en": ["foo"]}}]
+          }
+        }),
+      },
       "Schema with matching columns merges A and B" => {
         A: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
         B: %({"@type": "Schema", "columns": [{"name": "foo", "required": false}]}),
@@ -1031,7 +1052,7 @@ describe RDF::Tabular::Metadata do
       "Schema with matching column titles" => {
         A: %({"@type": "Schema", "columns": [{"title": "Foo"}]}),
         B: %({"@type": "Schema", "columns": [{"name": "foo", "title": "Foo"}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo", "title": {"und": "Foo"}}]}),
+        R: %({"@type": "Schema", "columns": [{"name": "foo", "title": {"und": ["Foo"]}}]}),
       },
       "Schema with primaryKey always takes A" => {
         A: %({"@type": "Schema", "primaryKey": "foo"}),
@@ -1055,10 +1076,6 @@ describe RDF::Tabular::Metadata do
       },
     }.each do |name, props|
       it name do
-        WebMock.stub_request(:get, "http://www.w3.org/ns/csvw/").
-          to_return(body: File.read(File.expand_path("../w3c-csvw/ns/csvw.jsonld", __FILE__)),
-                    status: 200,
-                    headers: { 'Content-Type' => 'application/ld+json'})
         a = described_class.new(::JSON.parse(props[:A]), debug: @debug)
         b = described_class.new(::JSON.parse(props[:B]))
         r = described_class.new(::JSON.parse(props[:R]))

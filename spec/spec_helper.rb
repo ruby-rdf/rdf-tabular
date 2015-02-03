@@ -15,6 +15,8 @@ require 'suite_helper'
 require 'simplecov'
 SimpleCov.start
 
+WebMock.allow_net_connect!(net_http_connect_on_start: true)
+
 JSON_STATE = JSON::State.new(
   :indent       => "  ",
   :space        => " ",
