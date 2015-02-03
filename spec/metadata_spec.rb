@@ -37,7 +37,7 @@ describe RDF::Tabular::Metadata do
         valid: ["foo"],
         invalid: [1, true, nil]
       },
-      language: {
+      lang: {
         valid: %w(en en-US),
         invalid: %w(1 foo)
       },
@@ -60,6 +60,27 @@ describe RDF::Tabular::Metadata do
       datatype: {
         valid: %w(anySimpleType string token language Name NCName boolean gYear number binary datetime any xml html json),
         invalid: [nil, 1, true, "foo"]
+      },
+      aboutUrl: {
+        valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row.{_row}"],
+        invalid: [1, true, nil, %w(foo bar)]
+      },
+      propertyUrl: {
+        valid: [
+          "http://example.org/example.csv#col={_name}",
+          "http://example.org/tree/{on%2Dstreet}/{GID}",
+          "#row.{_row}",
+          %w(foo bar)
+        ],
+        invalid: [1, true]
+      },
+      valueUrl: {
+        valid: [
+          "http://example.org/example.csv#row={_row}",
+          "http://example.org/tree/{on%2Dstreet}/{GID}",
+          "#row.{_row}"
+        ],
+        invalid: [1, true, nil, %w(foo bar)]
       },
       length: {
         valid: [1, 10, "1", "10"],
@@ -109,6 +130,7 @@ describe RDF::Tabular::Metadata do
           it "invalidates" do
             params[:invalid].each do |v|
               subject.send("#{prop}=".to_sym, v)
+              subject.valid?
               expect(subject).not_to be_valid
             end
           end
@@ -161,8 +183,9 @@ describe RDF::Tabular::Metadata do
       [1, true, nil, "_foo"].each {|v| expect(described_class.new("name" => v)).not_to be_valid}
     end
 
-    it "detects absence of name" do
-      expect(described_class.new("@type" => "Column")).not_to be_valid
+    it "allows absence of name" do
+      expect(described_class.new("@type" => "Column")).to be_valid
+      expect(described_class.new("@type" => "Column").name).to eql '_col.0'
     end
 
     its(:type) {is_expected.to eql :Column}
@@ -170,16 +193,12 @@ describe RDF::Tabular::Metadata do
     {
       title: {
         valid: ["foo", %w(foo bar), {"en" => "foo", "de" => "bar"}],
-        invalid: [1, true, nil, {"en" => ["foo"]}]
+        invalid: [1, true, nil]
       },
       required: {
         valid: [true, false, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
         invalid: [nil, "foo"],
       },
-      predicateUrl: {
-        valid: [RDF::URI("http://example.org/")],
-        invalid: [1, "foo", RDF::URI("foo")]
-      }
     }.each do |prop, params|
       context prop.to_s do
         it "validates" do
@@ -193,6 +212,17 @@ describe RDF::Tabular::Metadata do
             subject.send("#{prop}=".to_sym, v)
             expect(subject).not_to be_valid
           end
+        end
+      end
+    end
+
+    context "title" do
+      {
+        string: ["foo", {"und" => ["foo"]}],
+      }.each do |name, (input, output)|
+        it name do
+          subject.title = input
+          expect(subject.title).to produce(output)
         end
       end
     end
@@ -267,28 +297,6 @@ describe RDF::Tabular::Metadata do
     describe "foreignKeys" do
       it "FIXME"
     end
-
-    {
-      urlTemplate: {
-        valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row={_row}"],
-        invalid: [1, true, nil, %w(foo bar)]
-      },
-    }.each do |prop, params|
-      context prop.to_s do
-        it "validates" do
-          params[:valid].each do |v|
-            subject.send("#{prop}=".to_sym, v)
-            expect(subject).to be_valid
-          end
-        end
-        it "invalidates" do
-          params[:invalid].each do |v|
-            subject.send("#{prop}=".to_sym, v)
-            expect(subject).not_to be_valid
-          end
-        end
-      end
-    end
   end
 
   describe RDF::Tabular::Template do
@@ -301,6 +309,17 @@ describe RDF::Tabular::Metadata do
     its(:type) {is_expected.to eql :Template}
 
     it "FIXME"
+
+    context "title" do
+      {
+        string: ["foo", {"und" => ["foo"]}],
+      }.each do |name, (input, output)|
+        it name do
+          subject.title = input
+          expect(subject.title).to produce(output)
+        end
+      end
+    end
   end
 
   describe RDF::Tabular::Dialect do
@@ -325,17 +344,28 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Table do
-    subject {described_class.new({"@id" => "http://example.org/table.csv"}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"url" => "http://example.org/table.csv"}, base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}      
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
     its(:type) {is_expected.to eql :Table}
 
     it "FIXME"
+
+    context "title" do
+      {
+        string: ["foo", {"und" => ["foo"]}],
+      }.each do |name, (input, output)|
+        it name do
+          subject.title = input
+          expect(subject.title).to produce(output)
+        end
+      end
+    end
   end
 
   describe RDF::Tabular::TableGroup do
-    let(:table) {{"@id" => "http://example.org/table.csv"}}
+    let(:table) {{"url" => "http://example.org/table.csv"}}
     subject {described_class.new({"resources" => [table]}, base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     
@@ -356,18 +386,18 @@ describe RDF::Tabular::Metadata do
   end
 
   context "inherited properties" do
-    let(:table) {{"@id" => "http://example.org/table.csv", "schema" => {"@type" => "Schema"}, "@type" => "Table"}}
+    let(:table) {{"url" => "http://example.org/table.csv", "tableSchema" => {"@type" => "Schema"}, "@type" => "Table"}}
     subject {described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)}
 
     it "inherits properties from parent" do
-      subject.language = "en"
-      expect(subject.schema.language).to eql "en" 
+      subject.lang = "en"
+      expect(subject.tableSchema.lang).to eql "en" 
     end
 
     it "overrides properties in parent" do
-      subject.language = "en"
-      subject.schema.language = "de"
-      expect(subject.schema.language).to eql "de" 
+      subject.lang = "en"
+      subject.tableSchema.lang = "de"
+      expect(subject.tableSchema.lang).to eql "de" 
     end
   end
 
@@ -407,7 +437,7 @@ describe RDF::Tabular::Metadata do
         "@type Dialect" => [{"@type" => "Dialect"}, RDF::Tabular::Dialect],
         "resources TableGroup" => [{"resources" => []}, RDF::Tabular::TableGroup],
         "dialect Table" => [{"dialect" => {}}, RDF::Tabular::Table],
-        "schema Table" => [{"schema" => {}}, RDF::Tabular::Table],
+        "tableSchema Table" => [{"tableSchema" => {}}, RDF::Tabular::Table],
         "templates Table" => [{"templates" => []}, RDF::Tabular::Table],
         "targetFormat Template" => [{"targetFormat" => "foo"}, RDF::Tabular::Template],
         "templateFormat Template" => [{"templateFormat" => "foo"}, RDF::Tabular::Template],
@@ -416,7 +446,6 @@ describe RDF::Tabular::Metadata do
         "primaryKey Schema" => [{"primaryKey" => "foo"}, RDF::Tabular::Schema],
         "foreignKeys Schema" => [{"foreignKeys" => []}, RDF::Tabular::Schema],
         "urlTemplate Schema" => [{"urlTemplate" => "foo"}, RDF::Tabular::Schema],
-        "predicateUrl Column" => [{"predicateUrl" => "foo"}, RDF::Tabular::Column],
         "commentPrefix Dialect" => [{"commentPrefix" => "#"}, RDF::Tabular::Dialect],
         "delimiter Dialect" => [{"delimiter" => ","}, RDF::Tabular::Dialect],
         "doubleQuote Dialect" => [{"doubleQuote" => true}, RDF::Tabular::Dialect],
@@ -446,15 +475,15 @@ describe RDF::Tabular::Metadata do
       "with defaults" => {
         input: "https://example.org/countries.csv",
         result: %({
-          "@id": "https://example.org/countries.csv",
+          "url": "https://example.org/countries.csv",
           "@type": "Table",
-          "schema": {
+          "tableSchema": {
             "@type": "Schema",
             "columns": [
-              {"title": "countryCode"},
-              {"title": "latitude"},
-              {"title": "longitude"},
-              {"title": "name"}
+              {"title": {"und": ["countryCode"]}},
+              {"title": {"und": ["latitude"]}},
+              {"title": {"und": ["longitude"]}},
+              {"title": {"und": ["name"]}}
             ]
           }
         })
@@ -466,15 +495,15 @@ describe RDF::Tabular::Metadata do
           "dialect": {"skipRows": 1}
         }),
         result: %({
-          "@id": "https://example.org/countries.csv",
+          "url": "https://example.org/countries.csv",
           "@type": "Table",
-          "schema": {
+          "tableSchema": {
             "@type": "Schema",
             "columns": [
-              {"title": "AD"},
-              {"title": "42.546245"},
-              {"title": "1.601554"},
-              {"title": "Andorra"}
+              {"title": {"und": ["AD"]}},
+              {"title": {"und": ["42.546245"]}},
+              {"title": {"und": ["1.601554"]}},
+              {"title": {"und": ["Andorra"]}}
             ]
           },
           "notes": ["countryCode,latitude,longitude,name"]
@@ -487,20 +516,18 @@ describe RDF::Tabular::Metadata do
           "@type": "Table"
         }),
         result: %({
-          "@context": {"@language": "en"},
-          "@id": "https://example.org/tree-ops.csv",
+          "url": "https://example.org/tree-ops.csv",
           "@type": "Table",
-          "schema": {
+          "tableSchema": {
             "@type": "Schema",
             "columns": [
-              {"title": "GID"},
-              {"title": "On Street"},
-              {"title": "Species"},
-              {"title": "Trim Cycle"},
-              {"title": "Inventory Date"}
+              {"title": {"und": ["GID"]}},
+              {"title": {"und": ["On Street"]}},
+              {"title": {"und": ["Species"]}},
+              {"title": {"und": ["Trim Cycle"]}},
+              {"title": {"und": ["Inventory Date"]}}
             ]
-          },
-          "language": "en"
+          }
         })
       },
     }.each do |name, props|
@@ -519,26 +546,26 @@ describe RDF::Tabular::Metadata do
   describe "#each_row" do
     subject {
       described_class.new(JSON.parse(%({
-        "@id": "https://example.org/countries.csv",
+        "url": "https://example.org/countries.csv",
         "@type": "Table",
-        "schema": {
+        "tableSchema": {
           "@type": "Schema",
           "columns": [{
             "name": "countryCode",
             "title": "countryCode",
-            "predicateUrl": "https://example.org/countries.csv#countryCode"
+            "propertyUrl": "https://example.org/countries.csv#countryCode"
           }, {
             "name": "latitude",
             "title": "latitude",
-            "predicateUrl": "https://example.org/countries.csv#latitude"
+            "propertyUrl": "https://example.org/countries.csv#latitude"
           }, {
             "name": "longitude",
             "title": "longitude",
-            "predicateUrl": "https://example.org/countries.csv#longitude"
+            "propertyUrl": "https://example.org/countries.csv#longitude"
           }, {
             "name": "name",
             "title": "name",
-            "predicateUrl": "https://example.org/countries.csv#name"
+            "propertyUrl": "https://example.org/countries.csv#name"
           }]
         }
       })), base: RDF::URI("http://example.org/base"), debug: @debug)
@@ -552,18 +579,116 @@ describe RDF::Tabular::Metadata do
       expect(nums).to eql([2, 3, 4])
     end
 
-    it "returns resources BNode resources" do
+    it "returns BNode resources" do
       resources = subject.to_enum(:each_row, input).map(&:resource)
       expect(resources).to include(RDF::Node, RDF::Node, RDF::Node, RDF::Node)
     end
 
-    it "returns resources values" do
-      values = subject.to_enum(:each_row, input).map(&:values)
-      expect(values).to produce([
-        %w(AD 42.546245 1.601554 Andorra),
-        %w(AE 23.424076 53.847818) << "United Arab Emirates",
-        %w(AF 33.93911 67.709953 Afghanistan),
-      ], @debug)
+    it "returns cells" do
+      subject.each_row(input) do |row|
+        expect(row).to be_a(RDF::Tabular::Row)
+        expect(row.values.length).to eql 4
+        expect(row.values.map(&:class).compact).to include(RDF::Tabular::Row::Cell)
+      end
+    end
+
+    it "has expected aboutUrls" do
+      subject.each_row(input) do |row|
+        expect(row.values[0].aboutUrl).to eql row.resource
+        expect(row.values[1].aboutUrl).to eql row.resource
+        expect(row.values[2].aboutUrl).to eql row.resource
+        expect(row.values[3].aboutUrl).to eql row.resource
+      end
+    end
+
+    it "has expected propertyUrls" do
+      subject.each_row(input) do |row|
+        expect(row.values[0].propertyUrl).to include "https://example.org/countries.csv#countryCode"
+        expect(row.values[1].propertyUrl).to include "https://example.org/countries.csv#latitude"
+        expect(row.values[2].propertyUrl).to include "https://example.org/countries.csv#longitude"
+        expect(row.values[3].propertyUrl).to include "https://example.org/countries.csv#name"
+      end
+    end
+
+    it "has expected valueUrls" do
+      subject.each_row(input) do |row|
+        expect(row.values[0].valueUrl).to be_nil
+        expect(row.values[1].valueUrl).to be_nil
+        expect(row.values[2].valueUrl).to be_nil
+        expect(row.values[3].valueUrl).to be_nil
+      end
+    end
+
+    it "has expected values" do
+      rows = subject.to_enum(:each_row, input).to_a
+      expect(rows[0].values.map(&:to_s)).to produce(%w(AD 42.546245 1.601554 Andorra), @debug)
+      expect(rows[1].values.map(&:to_s)).to produce((%w(AE 23.424076 53.847818) << "United Arab Emirates"), @debug)
+      expect(rows[2].values.map(&:to_s)).to produce(%w(AF 33.93911 67.709953 Afghanistan), @debug)
+    end
+
+    context "URL expansion" do
+      subject {
+        described_class.new(JSON.parse(%({
+          "url": "https://example.org/countries.csv",
+          "tableSchema": {
+            "columns": [
+              {"title": "countryCode"},
+              {"title": "latitude"},
+              {"title": "longitude"},
+              {"title": "name"}
+            ]
+          }
+        })), base: RDF::URI("http://example.org/base"), debug: @debug)
+      }
+      let(:input) {RDF::Util::File.open_file("https://example.org/countries.csv")}
+
+      {
+        "default title" => {
+          aboutUrl: [RDF::Node, RDF::Node, RDF::Node, RDF::Node],
+          propertyUrl: %w(#countryCode #latitude #longitude #name),
+          valueUrl: [nil, nil, nil, nil],
+          md: {"url" => "https://example.org/countries.csv", "tableSchema" => {"columns" => []}}
+        },
+        "schema templates" => {
+          aboutUrl: %w(#countryCode #latitude #longitude #name),
+          propertyUrl: %w(?_name=countryCode ?_name=latitude ?_name=longitude ?_name=name),
+          valueUrl: %w(countryCode latitude longitude name),
+          md: {
+            "url" => "https://example.org/countries.csv",
+            "tableSchema" => {
+              "aboutUrl" => "{#_name}",
+              "propertyUrl" => '{?_name}',
+              "valueUrl" => '{_name}',
+              "columns" => []
+            }
+          }
+        },
+      }.each do |name, props|
+        context name do
+          let(:md) {RDF::Tabular::Table.new(props[:md]).merge(subject).resources.first}
+          let(:cells) {md.to_enum(:each_row, input).to_a.first.values}
+          let(:aboutUrls) {props[:aboutUrl].map {|u| u.is_a?(String) ? md.url.join(u) : u}}
+          let(:propertyUrls) {props[:propertyUrl].map {|u| u.is_a?(String) ? md.url.join(u) : u}}
+          let(:valueUrls) {props[:valueUrl].map {|u| u.is_a?(String) ? md.url.join(u) : u}}
+          it "aboutUrl is #{props[:aboutUrl]}" do
+            if aboutUrls.first == RDF::Node
+              expect(cells.map(&:aboutUrl)).to all(be_node)
+            else
+              expect(cells.map(&:aboutUrl)).to include(*aboutUrls)
+            end
+          end
+          it "propertyUrl is #{props[:propertyUrl]}" do
+            cells.each_with_index do |cell, index|
+              expect(cell.propertyUrl).to include(*Array(propertyUrls[index]))
+            end
+          end
+          it "valueUrl is #{props[:valueUrl]}" do
+            expect(cells.map(&:valueUrl)).to include(*valueUrls)
+          end
+        end
+      end
+    end
+    it "expands aboutUrl in cells" do
     end
   end
 
@@ -576,60 +701,60 @@ describe RDF::Tabular::Metadata do
       "two tables with same id" => {
         A: %({
           "@type": "Table",
-          "@id": "http://example.org/table"
+          "url": "http://example.org/table"
         }),
         B: [%({
           "@type": "Table",
-          "@id": "http://example.org/table"
+          "url": "http://example.org/table"
         })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
-            "@id": "http://example.org/table"
+            "url": "http://example.org/table"
           }]
         })
       },
       "two tables with different id" => {
         A: %({
           "@type": "Table",
-          "@id": "http://example.org/table1"
+          "url": "http://example.org/table1"
         }),
         B: [%({
           "@type": "Table",
-          "@id": "http://example.org/table2"
+          "url": "http://example.org/table2"
         })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
-            "@id": "http://example.org/table1"
+            "url": "http://example.org/table1"
           }, {
             "@type": "Table",
-            "@id": "http://example.org/table2"
+            "url": "http://example.org/table2"
           }]
         })
       },
       "table and table-group" => {
         A: %({
           "@type": "Table",
-          "@id": "http://example.org/table1"
+          "url": "http://example.org/table1"
         }),
         B: [%({
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
-            "@id": "http://example.org/table2"
+            "url": "http://example.org/table2"
           }]
         })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
-            "@id": "http://example.org/table1"
+            "url": "http://example.org/table1"
           }, {
             "@type": "Table",
-            "@id": "http://example.org/table2"
+            "url": "http://example.org/table2"
           }]
         })
       },
@@ -638,21 +763,21 @@ describe RDF::Tabular::Metadata do
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
-            "@id": "http://example.org/table1"
+            "url": "http://example.org/table1"
           }]
         }),
         B: [%({
           "@type": "Table",
-          "@id": "http://example.org/table2"
+          "url": "http://example.org/table2"
         })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
-            "@id": "http://example.org/table1"
+            "url": "http://example.org/table1"
           }, {
             "@type": "Table",
-            "@id": "http://example.org/table2"
+            "url": "http://example.org/table2"
           }]
         })
       },
@@ -661,26 +786,26 @@ describe RDF::Tabular::Metadata do
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
-            "@id": "http://example.org/table1"
+            "url": "http://example.org/table1"
           }]
         }),
         B: [%({
           "@type": "Table",
-          "@id": "http://example.org/table2",
+          "url": "http://example.org/table2",
           "dc:label": "foo"
         }), %({
           "@type": "Table",
-          "@id": "http://example.org/table2",
+          "url": "http://example.org/table2",
           "dc:label": "bar"
         })],
         R: %({
           "@type": "TableGroup",
           "resources": [{
             "@type": "Table",
-            "@id": "http://example.org/table1"
+            "url": "http://example.org/table1"
           }, {
             "@type": "Table",
-            "@id": "http://example.org/table2",
+            "url": "http://example.org/table2",
             "dc:label": [
               {"@value": "foo"},
               {"@value": "bar"}
@@ -749,56 +874,56 @@ describe RDF::Tabular::Metadata do
         R: %({"resources": [], "@type": "TableGroup"})
       },
       "TableGroup with matching resources" => {
-        A: %({"resources": [{"@id": "http://example.org/foo", "dc:title": "foo"}]}),
-        B: %({"resources": [{"@id": "http://example.org/foo", "dc:description": "bar"}]}),
+        A: %({"resources": [{"url": "http://example.org/foo", "dc:title": "foo"}]}),
+        B: %({"resources": [{"url": "http://example.org/foo", "dc:description": "bar"}]}),
         R: %({"resources": [{
-          "@id": "http://example.org/foo",
+          "url": "http://example.org/foo",
           "dc:title": "foo",
           "dc:description": [{"@value": "bar"}]
         }]})
       },
       "TableGroup with differing resources" => {
-        A: %({"resources": [{"@id": "http://example.org/foo", "dc:title": "foo"}]}),
-        B: %({"resources": [{"@id": "http://example.org/bar", "dc:description": "bar"}]}),
+        A: %({"resources": [{"url": "http://example.org/foo", "dc:title": "foo"}]}),
+        B: %({"resources": [{"url": "http://example.org/bar", "dc:description": "bar"}]}),
         R: %({
           "resources": [
-            {"@id": "http://example.org/foo", "dc:title": "foo"},
-            {"@id": "http://example.org/bar", "dc:description": "bar"}
+            {"url": "http://example.org/foo", "dc:title": "foo"},
+            {"url": "http://example.org/bar", "dc:description": "bar"}
           ]})
       },
       "Table with schemas always takes A" => {
         A: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "schema": {"columns": [{"name": "foo"}]}
         }),
         B: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "schema": {"columns": [{"name": "bar"}]}
         }),
         R: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "schema": {"columns": [{"name": "foo"}]}
         }),
       },
       "Table with table-direction always takes A" => {
-        A: %({"@type": "Table", "@id": "http://example.com/foo", "table-direction": "ltr"}),
-        B: %({"@type": "Table", "@id": "http://example.com/foo", "table-direction": "rtl"}),
-        R: %({"@type": "Table", "@id": "http://example.com/foo", "table-direction": "ltr"}),
+        A: %({"@type": "Table", "url": "http://example.com/foo", "table-direction": "ltr"}),
+        B: %({"@type": "Table", "url": "http://example.com/foo", "table-direction": "rtl"}),
+        R: %({"@type": "Table", "url": "http://example.com/foo", "table-direction": "ltr"}),
       },
       "Table with dialect merges A and B" => {
-        A: %({"@type": "Table", "@id": "http://example.com/foo", "dialect": {"encoding": "utf-8"}}),
-        B: %({"@type": "Table", "@id": "http://example.com/foo", "dialect": {"skipRows": 0}}),
-        R: %({"@type": "Table", "@id": "http://example.com/foo", "dialect": {"encoding": "utf-8", "skipRows": 0}}),
+        A: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8"}}),
+        B: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"skipRows": 0}}),
+        R: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8", "skipRows": 0}}),
       },
       "Table with equivalent templates uses A" => {
         A: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "templates": [{
-            "@id": "http://example.com/foo",
+            "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "templateFormat": "http://example.com/template",
             "source": "json"
@@ -806,9 +931,9 @@ describe RDF::Tabular::Metadata do
         }),
         B: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "templates": [{
-            "@id": "http://example.com/foo",
+            "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "templateFormat": "http://example.com/template",
             "source": "html"
@@ -816,9 +941,9 @@ describe RDF::Tabular::Metadata do
         }),
         R: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "templates": [{
-            "@id": "http://example.com/foo",
+            "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "templateFormat": "http://example.com/template",
             "source": "json"
@@ -828,42 +953,42 @@ describe RDF::Tabular::Metadata do
       "Table with differing templates appends B to A" => {
         A: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "templates": [{
-            "@id": "http://example.com/foo",
+            "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "templateFormat": "http://example.com/template"
           }]
         }),
         B: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "templates": [{
-            "@id": "http://example.com/bar",
+            "url": "http://example.com/bar",
             "targetFormat": "http://example.com/targetb",
             "templateFormat": "http://example.com/templateb"
           }]
         }),
         R: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "templates": [{
-            "@id": "http://example.com/foo",
+            "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "templateFormat": "http://example.com/template"
           }, {
-            "@id": "http://example.com/bar",
+            "url": "http://example.com/bar",
             "targetFormat": "http://example.com/targetb",
             "templateFormat": "http://example.com/templateb"
           }]
         }),
       },
       "Table with common properties merges A and B" => {
-        A: %({"@type": "Table", "@id": "http://example.com/foo", "rdfs:label": "foo"}),
-        B: %({"@type": "Table", "@id": "http://example.com/foo", "rdfs:label": "bar"}),
+        A: %({"@type": "Table", "url": "http://example.com/foo", "rdfs:label": "foo"}),
+        B: %({"@type": "Table", "url": "http://example.com/foo", "rdfs:label": "bar"}),
         R: %({
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "rdfs:label": [
             {"@value": "foo"},
             {"@value": "bar"}
@@ -874,19 +999,19 @@ describe RDF::Tabular::Metadata do
         A: %({
           "@context": {"@language": "en"},
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "rdfs:label": "foo"
         }),
         B: %({
           "@context": {"@language": "fr"},
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "rdfs:label": "foo"
         }),
         R: %({
           "@context": {"@language": "en"},
           "@type": "Table",
-          "@id": "http://example.com/foo",
+          "url": "http://example.com/foo",
           "rdfs:label": [
             {"@value": "foo", "@language": "en"},
             {"@value": "foo", "@language": "fr"}

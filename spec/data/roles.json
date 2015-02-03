@@ -2,10 +2,10 @@
   "@context": "http://www.w3.org/ns/csvw",
   "dialect": {"trim": true},
   "resources": [{
-    "@id": "senior-roles.csv",
-    "schema": "http://example.org/senior-roles.json"
+    "url": "senior-roles.csv",
+    "tableSchema": "http://example.org/senior-roles.json"
   }, {
-    "@id": "junior-roles.csv",
-    "schema": "http://example.org/junior-roles.json"
+    "url": "junior-roles.csv",
+    "tableSchema": "http://example.org/junior-roles.json"
   }]
 }

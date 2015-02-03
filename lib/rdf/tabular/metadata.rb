@@ -21,12 +21,15 @@ module RDF::Tabular
     # Inheritect properties, valid for all types
     INHERITED_PROPERTIES = {
       null:               :atomic,
-      language:           :atomic,
+      lang:               :atomic,
       :"text-direction" =>:atomic,
       separator:          :atomic,
       default:            :atomic,
       format:             :atomic,
       datatype:           :atomic,
+      aboutUrl:           :uri_template,
+      propertyUrl:        :uri_template,
+      valueUrl:           :uri_template,
       length:             :atomic,
       minLength:          :atomic,
       maxLength:          :atomic,
@@ -47,6 +50,7 @@ module RDF::Tabular
       language:           RDF::XSD.language,
       Name:               RDF::XSD.Name,
       NCName:             RDF::XSD.NCName,
+      lang:               RDF::XSD.language,
       boolean:            RDF::XSD.boolean,
       decimal:            RDF::XSD.decimal,
       integer:            RDF::XSD.integer,
@@ -64,7 +68,6 @@ module RDF::Tabular
       positiveInteger:    RDF::XSD.positiveInteger,
       float:              RDF::XSD.float,
       double:             RDF::XSD.double,
-      duration:           RDF::XSD.duration,
       dateTime:           RDF::XSD.dateTime,
       time:               RDF::XSD.time,
       date:               RDF::XSD.date,
@@ -86,9 +89,9 @@ module RDF::Tabular
       json:               RDF::Tabular::CSVW.json,
     }
 
-    # ID of this Metadata
+    # URL of this Metadata
     # @return [RDF::URI]
-    attr_reader :id
+    attr_reader :url
 
     # Parent of this Metadata (TableGroup for Table, ...)
     # @return [Metadata]
@@ -149,12 +152,6 @@ module RDF::Tabular
             debug("for_input", options) {"failed to load linked metadata #{link}: #{$!}"}
           end
         end
-
-        # For testing purposes, act as if a link header was provided with option
-        #if (md = options[:httpLink].to_s.match(/^.*<([^>]+)>/)) && !options[:no_found_metadata]
-        #  link = RDF::URI(base).join(md[1])
-        #  found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}"))
-        #end
 
         if base
           # Otherwise, look for metadata based on filename
@@ -244,10 +241,10 @@ module RDF::Tabular
           object_keys = object.keys.map(&:to_s)
           type ||= case
           when %w(resources).any? {|k| object_keys.include?(k)} then :TableGroup
-          when %w(dialect schema templates).any? {|k| object_keys.include?(k)} then :Table
+          when %w(dialect tableSchema templates).any? {|k| object_keys.include?(k)} then :Table
           when %w(targetFormat templateFormat source).any? {|k| object_keys.include?(k)} then :Template
           when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
-          when %w(predicateUrl name required).any? {|k| object_keys.include?(k)} then :Column
+          when %w(name required).any? {|k| object_keys.include?(k)} then :Column
           when %w(commentPrefix delimiter doubleQuote encoding header headerColumnCount headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
           when %w(lineTerminator quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
           end
@@ -329,7 +326,7 @@ module RDF::Tabular
               # Invalid, but preserve value
               value
             end
-            @type ||= :Tabl
+            @type ||= :Table
           when :resources
             # An array of table descriptions for the tables in the group.
             self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
@@ -338,7 +335,7 @@ module RDF::Tabular
               # Invalid, but preserve value
               value
             end
-          when :schema
+          when :tableSchema
             # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
             self[key] = case value
             when String then Schema.open(value, @options.merge(parent: self, context: nil))
@@ -355,11 +352,11 @@ module RDF::Tabular
               # Invalid, but preserve value
               value
             end
-          when :@id
+          when :url
             # URL of CSV relative to metadata
             # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
-            self[:@id] = value
-            @id = base.join(value)
+            self[:url] = value
+            @url = base.join(value)
           else
             if @properties.has_key?(key)
               self.send("#{key}=".to_sym, value)
@@ -440,7 +437,7 @@ module RDF::Tabular
       end
 
       # It has only expected properties (exclude metadata)
-      keys = self.keys - [:"@context"]
+      keys = self.keys - [:"@id", :"@context"]
       keys = keys.reject {|k| k.to_s.include?(':')} unless is_a?(Dialect)
       raise "#{type} has unexpected keys: #{keys - expected_props}" unless keys.all? {|k| expected_props.include?(k)}
 
@@ -479,10 +476,10 @@ module RDF::Tabular
             raise "Foreign key reference must be an Object" unless reference.is_a?(Hash)
 
             if reference.has_key?('resource')
-              raise "Foreign key having a resource reference, must not have a schema" if reference.has_key?('schema')
+              raise "Foreign key having a resource reference, must not have a tableSchema" if reference.has_key?('tableSchema')
               # FIXME resource is a URL of a specific resource (table) which must exist
-            elsif reference.has_key?('schema')
-              # FIXME schema is a URL of a specific schema which must exist
+            elsif reference.has_key?('tableSchema')
+              # FIXME tableSchema is a URL of a specific schema which must exist
             end
             # FIXME: columns
             true
@@ -497,7 +494,7 @@ module RDF::Tabular
           raise "Use of both length and minLength requires they be equal" unless self.fetch(:minLength, value) == value
           raise "Use of both length and maxLength requires they be equal" unless self.fetch(:maxLength, value) == value
           value.is_a?(Numeric) && value.integer? && value > 0
-        when :language then BCP47::Language.identify(value)
+        when :lang then BCP47::Language.identify(value)
         when :lineTerminator then value.is_a?(String)
         when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
           value.is_a?(Numeric) ||
@@ -509,7 +506,8 @@ module RDF::Tabular
         when :name then value.is_a?(String) && !name.start_with?("_")
         when :notes then value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
         when :null then value.is_a?(String)
-        when :predicateUrl then Array(value).all? {|v| RDF::URI(v).valid?}
+        when :propertyUrl then Array(value).all? {|v| v.is_a?(String)}
+        when :aboutUrl, :valueUrl then value.is_a?(String)
         when :primaryKey
           # A column reference property that holds either a single reference to a column description object or an array of references.
           Array(value).all? do |k|
@@ -518,7 +516,7 @@ module RDF::Tabular
         when :quoteChar then value.is_a?(String) && value.length == 1
         when :required then %w(true false 1 0).include?(value.to_s.downcase)
         when :resources then value.is_a?(Array) && value.all? {|v| v.is_a?(Table) && v.validate!}
-        when :schema then value.is_a?(Schema) && value.validate!
+        when :tableSchema then value.is_a?(Schema) && value.validate!
         when :separator then value.nil? || value.is_a?(String) && value.length == 1
         when :skipInitialSpace then %w(true false 1 0).include?(value.to_s.downcase)
         when :skipBlankRows then %w(true false 1 0).include?(value.to_s.downcase)
@@ -532,7 +530,7 @@ module RDF::Tabular
         when :title then valid_natural_language_property?(value)
         when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
         when :urlTemplate then value.is_a?(String)
-        when :@id then @id.valid?
+        when :url then @url.valid?
         when :@type then value.to_sym == type
         else
           raise "?!?! shouldn't get here for key #{key}"
@@ -548,12 +546,8 @@ module RDF::Tabular
     # @param [String, Array<String>, Hash{String => String}] value
     # @return [Boolean]
     def valid_natural_language_property?(value)
-      case value
-      when String then true
-      when Array  then value.all? {|v| v.is_a?(String)}
-      when Hash   then value.all? {|k, v| k.is_a?(String) && v.is_a?(String)}
-      else
-        false
+      value.is_a?(Hash) && value.all? do |k, v|
+        Array(v).all? {|vv| vv.is_a?(String)}
       end
     end
 
@@ -574,22 +568,14 @@ module RDF::Tabular
         return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
       end
 
-      table = {}
-      # SPEC SUGGESTION: Use @context from parsing metadata in created metadata
-      table["@context"] = self[:@context] if self[:@context]
-      table["@context"] ||= parent[:@context] if parent && parent[:@context]
-
-      table.merge!({
-        "@id" => (options.fetch(:base, "")),
+      table = {
+        "url" => (options.fetch(:base, "")),
         "@type" => "Table",
-        "schema" => {
+        "tableSchema" => {
           "@type" => "Schema",
           "columns" => nil
         }
-      })
-
-      # SPEC SUGGESTION: Set table language from context
-      table["language"] = context.default_language if context.default_language
+      }
 
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)
@@ -615,14 +601,14 @@ module RDF::Tabular
 
           # Initialize title
           # SPEC CONFUSION: does title get an array, or concatenated values?
-          columns = table["schema"]["columns"] ||= []
+          columns = table["tableSchema"]["columns"] ||= []
           column = columns[index - dialect.skipColumns.to_i] ||= {
             "title" => [],
           }
           column["title"] << value
         end
 
-        Array(table["schema"]["columns"]).each do |c|
+        Array(table["tableSchema"]["columns"]).each do |c|
           c["title"] = c["title"].first if c["title"].length == 1
         end
       end
@@ -784,8 +770,8 @@ module RDF::Tabular
                 when :resources
                   # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
                   value.each do |t|
-                    if ta = self[key].detect {|e| e.id == t.id}
-                      # if there is a table description with the same @id in A, the table description from B is imported into the matching table description in A
+                    if ta = self[key].detect {|e| e.url == t.url}
+                      # if there is a table description with the same url in A, the table description from B is imported into the matching table description in A
                       ta.merge!(t)
                     else
                       # otherwise, the table description from B is appended to the array of table descriptions A
@@ -813,15 +799,16 @@ module RDF::Tabular
                   Array(value).each_with_index do |t, index|
                     ta = self[key][index]
                     if ta && ta.name == t.name
-                      debug("merge!: columns") {"index: #{index}, name=name"}
+                      debug("merge!: columns") {"index: #{index}, name=#{t.name}"}
                       # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
                       ta.merge!(t)
                     elsif ta &&
                           !(Array(ta.title) & Array(t.title)).empty? &&
                           t.context.default_language == ta.context.default_language
-                      debug("merge!: columns") {"index: #{index}, title=title"}
+                      debug("merge!: columns") {"index: #{index}, title=#{t.title}"}
                       # SPEC SUGGESTION:
                       # if there is a column description at the same index within A and that column description has a title, is also in A, the column description from B is imported into the matching column description in A
+                      # Also, und matches any language
                       ta.merge!(t)
                     elsif ta.nil?
                       debug("merge!: columns") {"index: #{index}, nil"}
@@ -899,7 +886,7 @@ module RDF::Tabular
               else
                 # If the property is an atomic property, then
                 case key.to_s
-                when "predicateUrl", "null"
+                when "null"
                   # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
                   self[key] = Array(self[key]) + (Array[value] - Array[self[key]])
                 when /:/
@@ -929,6 +916,20 @@ module RDF::Tabular
       self.class.name + super
     end
 
+  protected
+
+    # When setting a natural language property, always put in language-map form
+    # @param [Symbol] prop
+    # @param [Hash{String => String, Array<String>}, Array<String>, String] value
+    # @return [Hash{String => Array<String>}]
+    def set_nl(prop, value)
+      self[prop] = case value
+      when String then {(context.default_language || 'und') => [value]}
+      when Array then {(context.default_language || 'und') => value}
+      else value
+      end
+    end
+    
   private
     # Options passed to CSV.new based on dialect
     def csv_options
@@ -954,10 +955,9 @@ module RDF::Tabular
 
   class TableGroup < Metadata
     PROPERTIES = {
-     :@id               => :link,
      :"@type"           => :atomic,
      resources:            :array,
-     schema:               :object,
+     tableSchema:          :object,
      :"table-direction" => :atomic,
      dialect:              :object,
      templates:            :array,
@@ -965,9 +965,14 @@ module RDF::Tabular
     REQUIRED = [].freeze
 
     # Setters
-    PROPERTIES.keys.each do |a|
+    PROPERTIES.each do |a, type|
       define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        case type
+        when :natural_language
+          set_nl(a, value)
+        else
+          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        end
       end
     end
 
@@ -987,27 +992,32 @@ module RDF::Tabular
     # @param [String] url of the table
     # @return [Table]
     def for_table(url)
-      resources.detect {|t| t.id == url}
+      resources.detect {|t| t.url == url}
     end
   end
 
   class Table < Metadata
     PROPERTIES = {
-      :@id               => :link,
-     :"@type"            => :atomic,
-     schema:                :object,
-     notes:                 :object,
-     :"table-direction"  => :atomic,
-     templates:             :array,
-     title:                 :natural_language,
-     dialect:               :object,
+      url:                   :link,
+      :"@type"            => :atomic,
+      tableSchema:           :object,
+      notes:                 :object,
+      :"table-direction"  => :atomic,
+      templates:             :array,
+      title:                 :natural_language,
+      dialect:               :object,
     }.freeze
-    REQUIRED = [:@id].freeze
+    REQUIRED = [:url].freeze
 
     # Setters
-    PROPERTIES.keys.each do |a|
+    PROPERTIES.each do |a, type|
       define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        case type
+        when :natural_language
+          set_nl(a, value)
+        else
+          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        end
       end
     end
 
@@ -1024,7 +1034,7 @@ module RDF::Tabular
 
   class Template < Metadata
     PROPERTIES = {
-      :@id         => :link,
+      url:            :link,
      :"@type"      => :atomic,
       targetFormat:   :link,
       templateFormat: :link,
@@ -1034,9 +1044,14 @@ module RDF::Tabular
     REQUIRED = %w(targetFormat templateFormat).map(&:to_sym).freeze
 
     # Setters
-    PROPERTIES.keys.each do |a|
+    PROPERTIES.each do |a, type|
       define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        case type
+        when :natural_language
+          set_nl(a, value)
+        else
+          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        end
       end
     end
 
@@ -1048,19 +1063,22 @@ module RDF::Tabular
 
   class Schema < Metadata
     PROPERTIES = {
-      :@id       => :link,
       :"@type"   => :atomic,
       columns:      :array,
       primaryKey:   :column_reference,
       foreignKeys:  :array,
-      urlTemplate:  :uri_template,
     }.freeze
     REQUIRED = [].freeze
 
     # Setters
-    PROPERTIES.keys.each do |a|
+    PROPERTIES.each do |a, type|
       define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        case type
+        when :natural_language
+          set_nl(a, value)
+        else
+          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        end
       end
     end
 
@@ -1077,56 +1095,41 @@ module RDF::Tabular
 
   class Column < Metadata
     PROPERTIES = {
-      :@id       => :link,
       :"@type"   => :atomic,
       name:         :atomic,
       title:        :natural_language,
       required:     :atomic,
-      predicateUrl: :atomic,
     }.freeze
-    REQUIRED = [:name].freeze
+    REQUIRED = [].freeze
 
     # Column number set on initialization
     # @return [Integer] 1-based colnum number
     def colnum; @options.fetch(:colnum, 0); end
 
     # Setters
-    PROPERTIES.keys.each do |a|
+    PROPERTIES.each do |a, type|
       define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+$/ ? value.to_i : value
+        case type
+        when :natural_language
+          set_nl(a, value)
+        else
+          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        end
       end
     end
 
-    # Create predicateUrl by merging with table ID
-    def predicateUrl=(value)
-      # SPEC CONFUSION: what's the point of having an array?
-      table = self
-      table = table.parent while table.parent && table.type != :Table
-      self[:predicateUrl] = table && table.id ? table.id.join(value) : RDF::URI(value)
-    end
-
-    # Return or create a predicateUrl for the column
-    def predicateUrl
-      self.fetch(:predicateUrl) do
-        self.predicateUrl = "##{URI.encode(name)}"
-        self[:predicateUrl]
+    # Return the inherited, or default propertyUrl as a URI template
+    def propertyUrl
+      self.fetch(:propertyUrl) do
+        parent && parent.propertyUrl ? parent.propertyUrl : "{#_name}"
       end
     end
 
     # Return or create a name for the column from title, if it exists
     def name
-      self[:name] || (title ? Array(title).join("\n") : "_col=#{colnum}")
-    end
-
-    # If the property value is an object, then use the column language to determine the one
-    def title
-      value = case self[:title]
-      when Hash
-        Array(self[:title][language || 'und'])
-      else
-        Array(self[:title])
-      end
-      value.length <= 1 ? value.first : value
+      self[:name] ||= if title && (ts = title[context.default_language || 'und'])
+        Array(ts).first
+      end || "_col.#{colnum}"
     end
 
     # Logic for accessing elements as accessors
@@ -1218,6 +1221,35 @@ module RDF::Tabular
 
   # Wraps each resulting row
   class Row
+    # Class for returning values
+    Cell = Struct.new(:column, :raw, :aboutUrl, :propertyUrl, :valueUrl, :value) do
+      def set_aboutUrl(url, mapped_values)
+        self.aboutUrl = if column.aboutUrl
+          t = Addressable::Template.new(column.aboutUrl)
+          # Expand template with translated cell values along with column name
+          url.join(t.expand(mapped_values))
+        end
+      end
+
+      def set_propertyUrl(url, mapped_values)
+        self.propertyUrl = Array(column.propertyUrl).map do |templ|
+          t = Addressable::Template.new(templ)
+          # Expand template with translated cell values along with column name
+          url.join(t.expand(mapped_values))
+        end
+      end
+
+      def set_valueUrl(url, mapped_values)
+        self.valueUrl = if column.valueUrl
+          t = Addressable::Template.new(column.valueUrl)
+          # Expand template with translated cell values along with column name
+          url.join(t.expand(mapped_values))
+        end
+      end
+
+      def to_s; value.to_s; end
+    end
+
     # URI or BNode of this row, after expanding `uriTemplate`
     # @return [RDF::Resource] resource
     attr_reader :resource
@@ -1236,6 +1268,7 @@ module RDF::Tabular
     # @return [Row]
     def initialize(row, metadata, rownum)
       @rownum = rownum
+      @values = []
       skipColumns = metadata.dialect.skipColumns
 
       # Create values hash
@@ -1244,65 +1277,54 @@ module RDF::Tabular
 
       # SPEC SUGGESTION:
       # Create columns if no columns were ever set; this would be the case when headerRowCount is zero, and nothing was set from explicit metadata
-      create_columns = metadata.schema.columns.nil?
-      columns = metadata.schema.columns ||= []
+      create_columns = metadata.tableSchema.columns.nil?
+      columns = metadata.tableSchema.columns ||= []
       row.each_with_index do |value, index|
         next if index < skipColumns
 
         # create column if necessary
         if create_columns && !columns[index - skipColumns]
-          columns[index - skipColumns] = Column.new({}, parent: metadata.schema, context: nil, colnum: index + 1)
+          columns[index - skipColumns] = Column.new({}, parent: metadata.tableSchema, context: nil, colnum: index + 1)
         end
 
         column = columns[index - skipColumns]
+
+        @values << cell = Cell.new(column, value)
+
         # Trim value
         value.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
         value.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
         value.strip! if %w(string anySimpleType any).include?(column.datatype.to_s)
 
-        map_values[columns[index].name] = value
+        cell_values = column.separator ? value.split(column.separator) : [value]
+
+        cell_values = cell_values.map do |v|
+          case
+          when v == column.null then nil
+          when v.to_s.empty? then metadata.dialect.default
+          when column.datatype
+            # FIXME: use of format in extracting information
+            RDF::Literal(v, datatype: metadata.context.expand_iri(column.datatype, vocab: true))
+          else
+            RDF::Literal(v, language: column.lang)
+          end
+        end.compact
+
+        cell.value = (column.separator ? cell_values : cell_values.first)
+
+        map_values[columns[index].name] =  (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
 
-      # Create resource using urlTemplate and values hash
-      @resource = if metadata.schema.urlTemplate
-        t = Addressable::Template.new(metadata.schema.urlTemplate)
-        metadata.id.join(t.expand(map_values))
-      else
-        RDF::Node.new
-      end
+      # Map URLs for row
+      @values.each do |cell|
+        mapped_values = map_values.merge("_name" => cell[:column].name)
+        cell.set_aboutUrl(metadata.url, mapped_values)
+        cell.set_propertyUrl(metadata.url, mapped_values)
+        cell.set_valueUrl(metadata.url, mapped_values)
 
-      # Yield each value, after conversion
-      @values = []
-      row.each_with_index do |cell, index|
-        next if index < skipColumns
-        @values << if column = columns[index - skipColumns]
-          cv = cell.to_s
-          # Trim value
-          cv.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
-          cv.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
-          cv.strip! if %w(string anySimpleType any).include?(column.datatype.to_s)
-
-          cell_values = column.separator ? cv.split(column.separator) : [cv]
-
-          cell_values = cell_values.map do |v|
-            case
-            when v == column.null then nil
-            when v.to_s.empty? then metadata.dialect.default
-            when column.datatype == :anyUri
-              metadata.id.join(v)
-            when column.datatype
-              # FIXME: use of format in extracting information
-              RDF::Literal(v, datatype: metadata.context.expand_iri(column.datatype, vocab: true))
-            else
-              RDF::Literal(v, language: column.language)
-            end
-          end.compact
-
-          (column.separator ? cell_values : cell_values.first)
-        else
-          # Non-mapped columns
-          nil
-        end
+        # Row resource set from first cell, or a new Blank Node
+        @resource ||= cell.aboutUrl || RDF::Node.new
+        cell.aboutUrl ||= @resource # Use default
       end
     end
   end

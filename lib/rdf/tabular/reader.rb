@@ -100,13 +100,13 @@ module RDF::Tabular
               end
 
               input.resources.each do |table|
-                add_statement(0, table_group, CSVW.table, table.id + "#table")
-                Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id, no_found_metadata: true)) do |r|
+                add_statement(0, table_group, CSVW.table, table.url + "#table")
+                Reader.open(table.url, options.merge(format: :tabular, metadata: table, base: table.url, no_found_metadata: true)) do |r|
                   r.each_statement(&block)
                 end
               end
             when :Table
-              Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id, no_found_metadata: true)) do |r|
+              Reader.open(input.url, options.merge(format: :tabular, metadata: input, base: input.url, no_found_metadata: true)) do |r|
                 r.each_statement(&block)
               end
             else
@@ -117,52 +117,53 @@ module RDF::Tabular
         end
 
         # Output Table-Level RDF triples
-        table_resource = metadata.id + "#table"
+        table_resource = metadata.url + "#table"
         add_statement(0, table_resource, RDF.type, CSVW.Table)
 
         # Distribution
         distribution = RDF::Node.new
         add_statement(0, table_resource, RDF::DCAT.distribution, distribution)
         add_statement(0, distribution, RDF.type, RDF::DCAT.Distribution)
-        add_statement(0, distribution, RDF::DCAT.downloadURL, metadata.id)
+        add_statement(0, distribution, RDF::DCAT.downloadURL, metadata.url)
 
         # Output table common properties
         metadata.common_properties(table_resource) do |statement|
           add_statement(0, statement)
         end
 
-        # Column metadata
-        Array(metadata.schema.columns).compact.each do |column|
-          pred = column.predicateUrl
-
-          # SPEC FIXME: Output csvw:Column, if set
-          add_statement(0, pred, RDF.type, RDF.Property)
-
-          # Titles
-          column.rdf_values(pred, "title", column.title) do |statement|
-            # Make sure to use column language, not that from the context
-            statement.object = RDF::Literal(statement.object.value, language: column.language) if statement.object.literal?
-            statement.predicate = RDF::RDFS.label if statement.predicate == CSVW.title
-            add_statement(0, statement)
-          end
-
-          # Common Properties
-          column.common_properties(pred) do |statement|
-            add_statement(0, statement)
-          end
-        end
-
         # Input is file containing CSV data.
         # Output ROW-Level statements
+        done_columns = false
         metadata.each_row(input) do |row|
           # Output row-level metadata
           add_statement(row.rownum, table_resource, CSVW.row, row.resource)
-          row.values.each_with_index do |value, index|
-            column = metadata.schema.columns[index]
-            Array(value).each do |v|
-              add_statement(row.rownum, row.resource, column.predicateUrl, v)
+          row.values.each_with_index do |cell, index|
+            column = cell.column
+
+            # If this is the first row, output Column metadata
+            unless done_columns
+              cell.propertyUrl.each do |prop|
+                add_statement(row.rownum, prop, RDF.type, RDF.Property)
+
+                # Titles
+                column.rdf_values(prop, "title", column.title) do |statement|
+                  # Make sure to use column language, not that from the context
+                  statement.predicate = RDF::RDFS.label if statement.predicate == CSVW.title
+                  add_statement(row.rownum, statement)
+                end
+
+                # Common Properties
+                column.common_properties(prop) do |statement|
+                  add_statement(row.rownum, statement)
+                end
+              end
+            end
+
+            Array(cell.valueUrl || cell.value).each do |v|
+              add_statement(row.rownum, cell.aboutUrl, cell.propertyUrl, v)
             end
           end
+          done_columns = true
         end
 
         # Provenance
@@ -263,10 +264,10 @@ module RDF::Tabular
             table_group.merge!(input.common_properties)
 
             input.resources.each do |table|
-              Reader.open(table.id, options.merge(
+              Reader.open(table.url, options.merge(
                 format:             :tabular,
                 metadata:           table,
-                base:               table.id,
+                base:               table.url,
                 no_found_metadata:  true,
                 noProv:             true
               )) do |r|
@@ -284,10 +285,10 @@ module RDF::Tabular
             table_group
           when :Table
             table = nil
-            Reader.open(input.id, options.merge(
+            Reader.open(input.url, options.merge(
               format:             :tabular,
               metadata:           input,
-              base:               input.id,
+              base:               input.url,
               no_found_metadata:  true,
               noProv:             true
             )) do |r|
@@ -309,8 +310,8 @@ module RDF::Tabular
         rows = []
         table = {
           # SPEC CONFUSION: aren't these URIs the same?
-          "url" => metadata.id.to_s,
-          "distribution" => { "downloadURL" => metadata.id}
+          "url" => metadata.url.to_s,
+          "distribution" => { "downloadURL" => metadata.url}
         }
 
         # Use string values from common properties
@@ -336,7 +337,7 @@ module RDF::Tabular
 
           row.values.each_with_index do |value, index|
             column = metadata.schema.columns[index]
-            # SPEC CONFUSION: predicateUrl or simply name?
+            # SPEC CONFUSION: propertyUrl or simply name?
             r[column.name] = value
           end
           rows << r

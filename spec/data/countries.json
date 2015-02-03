@@ -1,8 +1,8 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
   "resources": [{
-    "@id": "http://example.org/countries.csv",
-    "schema": {
+    "url": "http://example.org/countries.csv",
+    "tableSchema": {
       "columns": [{
         "name": "countryCode",
         "datatype": "string"
@@ -16,12 +16,12 @@
         "name": "name",
         "datatype": "string"
       }],
-      "urlTemplate": "http://example.org/countries.csv{#countryCode}",
+      "aboutUrl": "http://example.org/countries.csv{#countryCode}",
       "primaryKey": "countryCode"
     }
   }, {
-    "@id": "http://example.org/country_slice.csv",
-    "schema": {
+    "url": "http://example.org/country_slice.csv",
+    "tableSchema": {
       "columns": [{
         "name": "countryRef",
         "datatype": "string"

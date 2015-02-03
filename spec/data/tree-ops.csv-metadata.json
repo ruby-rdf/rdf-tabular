@@ -1,12 +1,12 @@
 {
-  "@id": "tree-ops.csv",
+  "url": "tree-ops.csv",
   "@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}],
   "dc:title": "Tree Operations",
   "dc:keywords": ["tree", "street", "maintenance"],
   "dc:publisher": "Example Municipality",
   "dc:license": {"@id": "http://opendefinition.org/licenses/cc-by/"},
   "dc:modified": {"@value": "2010-12-31", "@type": "xsd:date"},
-  "schema": {
+  "tableSchema": {
     "columns": [{
       "name": "GID",
       "title": [
@@ -39,6 +39,6 @@
       "format": "M/D/YYYY"
     }],
     "primaryKey": "GID",
-    "urlTemplate": "#gid-{GID}"
+    "aboutUrl": "#gid-{GID}"
   }
 }
