@@ -1,6 +1,5 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
-  "@id": "http://example.org/senior-roles.json",
   "columns": [{
     "name": "ref",
     "title": "Post Unique Reference"
@@ -15,7 +14,9 @@
     "title": "Job Title"
   }, {
     "name": "reportsTo",
-    "title": "Reports to Senior Post"
+    "title": "Reports to Senior Post",
+    "propertyUrl": "http://example.org/reportsTo",
+    "valueUrl": "http://example.org/senior-roles.csv#post-{reportsTo}"
   }],
   "primaryKey": "ref",
   "aboutUrl": "#post-{ref}",

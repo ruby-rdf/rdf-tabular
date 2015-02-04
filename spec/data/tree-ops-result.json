@@ -1,14 +1,55 @@
 {
   "url": "http://example.org/tree-ops.csv",
-  "distribution": {"downloadURL": "http://example.org/tree-ops.csv"},
+  "distribution": {
+    "downloadURL": "http://example.org/tree-ops.csv"
+  },
+  "tableSchema": {
+    "columns": [
+      {
+        "colnum": 1,
+        "aboutUrl": "#gid-{GID}",
+        "propertyUrl": "{#_name}",
+        "dc:description": "An identifier for the operation on a tree."
+      },
+      {
+        "colnum": 2,
+        "aboutUrl": "#gid-{GID}",
+        "propertyUrl": "{#_name}",
+        "dc:description": "The street that the tree is on."
+      },
+      {
+        "colnum": 3,
+        "aboutUrl": "#gid-{GID}",
+        "propertyUrl": "{#_name}",
+        "dc:description": "The species of the tree."
+      },
+      {
+        "colnum": 4,
+        "aboutUrl": "#gid-{GID}",
+        "propertyUrl": "{#_name}",
+        "dc:description": "The operation performed on the tree."
+      },
+      {
+        "colnum": 5,
+        "aboutUrl": "#gid-{GID}",
+        "propertyUrl": "{#_name}",
+        "dc:description": "The date of the operation that was performed."
+      }
+    ]
+  },
   "dc:title": "Tree Operations",
-  "dc:keywords": ["tree", "street", "maintenance"],
+  "dc:keywords": [
+    "tree",
+    "street",
+    "maintenance"
+  ],
   "dc:publisher": "Example Municipality",
   "dc:license": "http://opendefinition.org/licenses/cc-by/",
   "dc:modified": "2010-12-31",
   "row": [
     {
       "url": "http://example.org/tree-ops.csv#gid-1",
+      "rownum": 2,
       "GID": "1",
       "on-street": "ADDISON AV",
       "species": "Celtis australis",
@@ -17,6 +58,7 @@
     },
     {
       "url": "http://example.org/tree-ops.csv#gid-2",
+      "rownum": 3,
       "GID": "2",
       "on-street": "EMERSON ST",
       "species": "Liquidambar styraciflua",
@@ -25,6 +67,7 @@
     },
     {
       "url": "http://example.org/tree-ops.csv#gid-3",
+      "rownum": 4,
       "GID": "3",
       "on-street": "EMERSON ST",
       "species": "Liquidambar styraciflua",

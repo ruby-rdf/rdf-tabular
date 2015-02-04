@@ -1,70 +1,84 @@
 @prefix : <http://example.org/tree-ops.csv#> .
 @prefix csvw: <http://www.w3.org/ns/csvw#> .
-@prefix dcat: <http://www.w3.org/ns/dcat#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-@prefix csvw: <http://www.w3.org/ns/csvw#> .
 @prefix dc: <http://purl.org/dc/terms/> .
 @prefix dcat: <http://www.w3.org/ns/dcat#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix schema: <http://schema.org/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-:GID a rdf:Property;
-   rdfs:label "GID"@en, "Generic Identifier"@en;
-   dc:description "An identifier for the operation on a tree."@en .
-
-:on-street a rdf:Property;
-   rdfs:label "On Street"@en;
-   dc:description "The street that the tree is on."@en .
-
-:species a rdf:Property;
-   rdfs:label "Species"@en;
-   dc:description "The species of the tree."@en .
-
-:trim-cycle a rdf:Property;
-   rdfs:label "Trim Cycle"@en;
-   dc:description "The operation performed on the tree."@en .
-
-:inventory-date a rdf:Property;
-   rdfs:label "Inventory Date"@en;
-   dc:description "The date of the operation that was performed."@en .
 
 :table a csvw:Table;
    dc:title "Tree Operations"@en;
-   dc:keywords "tree"@en, "street"@en, "maintenance"@en;
+   dc:keywords "tree"@en,
+     "street"@en,
+     "maintenance"@en;
    dc:license <http://opendefinition.org/licenses/cc-by/>;
    dc:modified "2010-12-31"^^xsd:date;
    dc:publisher "Example Municipality"@en;
-   csvw:row :gid-1, :gid-2, :gid-3;
+   csvw:row :gid-1,
+     :gid-2,
+     :gid-3;
+   csvw:tableSchema [
+     a csvw:Schema;
+     csvw:column [
+       a csvw:Column;
+       rdfs:label "GID"@en,
+         "Generic Identifier"@en;
+       dc:description "An identifier for the operation on a tree."@en;
+       csvw:aboutUrl "#gid-{GID}";
+       csvw:colnum 1;
+       csvw:propertyUrl "{#_name}"
+     ],  [
+       a csvw:Column;
+       rdfs:label "On Street"@en;
+       dc:description "The street that the tree is on."@en;
+       csvw:aboutUrl "#gid-{GID}";
+       csvw:colnum 2;
+       csvw:propertyUrl "{#_name}"
+     ],  [
+       a csvw:Column;
+       rdfs:label "Species"@en;
+       dc:description "The species of the tree."@en;
+       csvw:aboutUrl "#gid-{GID}";
+       csvw:colnum 3;
+       csvw:propertyUrl "{#_name}"
+     ],  [
+       a csvw:Column;
+       rdfs:label "Trim Cycle"@en;
+       dc:description "The operation performed on the tree."@en;
+       csvw:aboutUrl "#gid-{GID}";
+       csvw:colnum 4;
+       csvw:propertyUrl "{#_name}"
+     ],  [
+       a csvw:Column;
+       rdfs:label "Inventory Date"@en;
+       dc:description "The date of the operation that was performed."@en;
+       csvw:aboutUrl "#gid-{GID}";
+       csvw:colnum 5;
+       csvw:propertyUrl "{#_name}"
+     ]
+   ];
    dcat:distribution [
      a dcat:Distribution;
      dcat:downloadURL <http://example.org/tree-ops.csv>
    ] .
 
-:gid-1
-  :GID "1";
-  :on-street "ADDISON AV";
-  :species "Celtis australis";
-  :trim-cycle "Large Tree Routine Prune";
-  :inventory-date "10/18/2010"^^xsd:date;
-  .
+:gid-1 :GID "1";
+   :inventory-date "10/18/2010"^^xsd:date;
+   :on-street "ADDISON AV";
+   :species "Celtis australis";
+   :trim-cycle "Large Tree Routine Prune";
+   csvw:rownum 2 .
 
-:gid-2
-  :GID "2";
-  :on-street "EMERSON ST";
-  :species "Liquidambar styraciflua";
-  :trim-cycle "Large Tree Routine Prune";
-  :inventory-date "6/2/2010"^^xsd:date;
-  .
+:gid-2 :GID "2";
+   :inventory-date "6/2/2010"^^xsd:date;
+   :on-street "EMERSON ST";
+   :species "Liquidambar styraciflua";
+   :trim-cycle "Large Tree Routine Prune";
+   csvw:rownum 3 .
 
-:gid-3
-  :GID "3";
-  :on-street "EMERSON ST";
-  :species "Liquidambar styraciflua";
-  :trim-cycle "Large Tree Routine Prune";
-  :inventory-date "6/2/2010"^^xsd:date;
-  .
+:gid-3 :GID "3";
+   :inventory-date "6/2/2010"^^xsd:date;
+   :on-street "EMERSON ST";
+   :species "Liquidambar styraciflua";
+   :trim-cycle "Large Tree Routine Prune";
+   csvw:rownum 4 .

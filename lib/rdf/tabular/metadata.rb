@@ -89,7 +89,11 @@ module RDF::Tabular
       json:               RDF::Tabular::CSVW.json,
     }
 
-    # URL of this Metadata
+    # ID of this Metadata
+    # @return [RDF::URI]
+    attr_reader :id
+
+    # URL of related resource
     # @return [RDF::URI]
     attr_reader :url
 
@@ -309,10 +313,10 @@ module RDF::Tabular
           when :columns
             # An array of template specifications that provide mechanisms to transform the tabular data into other formats
             self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              colno = parent ? dialect.skipColumns : 0  # Get dialect from Table, not Schema
+              colnum = parent ? dialect.skipColumns : 0  # Get dialect from Table, not Schema
               value.map do |v|
-                colno += 1
-                Column.new(v, @options.merge(parent: self, context: nil, colno: colno))
+                colnum += 1
+                Column.new(v, @options.merge(parent: self, context: nil, colnum: colnum))
               end
             else
               # Invalid, but preserve value
@@ -357,6 +361,10 @@ module RDF::Tabular
             # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
             self[:url] = value
             @url = base.join(value)
+          when :@id
+            # metadata identifier
+            self[:@id] = value
+            @id = base.join(value)
           else
             if @properties.has_key?(key)
               self.send("#{key}=".to_sym, value)
@@ -649,6 +657,8 @@ module RDF::Tabular
           common[key.to_s] = value if key.to_s.include?(':')
         end
         ::JSON::LD::API.toRdf(common, expandContext: context) do |statement|
+          # Fix subject reference, which is a hack relying upon the JSON-LD naming scheme
+          statement.subject = subject if subject && subject.node? && statement.subject.to_s == "_:b0"
           statement.object = RDF::Literal(statement.object.value) if statement.object.literal? && statement.object.language == :und
           yield statement
         end
@@ -666,6 +676,8 @@ module RDF::Tabular
     # @yieldparam [RDF::Statement] statement
     def rdf_values(subject, property, value)
       ::JSON::LD::API.toRdf({'@id' => subject.to_s, property => value}, expandContext: context) do |statement|
+        # Fix subject reference, which is a hack relying upon the JSON-LD naming scheme
+        statement.subject = subject if subject.node? && statement.subject.to_s == "_:b0"
         statement.object = RDF::Literal(statement.object.value) if statement.object.literal? && statement.object.language == :und
         yield statement
       end

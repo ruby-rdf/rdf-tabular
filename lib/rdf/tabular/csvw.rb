@@ -6,7 +6,7 @@ module RDF::Tabular
   #   # CSVW Vocabulary.
   #   class CSVW < RDF::StrictVocabulary
   #   end
-  class CSVW < RDF::StrictVocabulary("http://www.w3.org/ns/csvw#")
+  class CSVW < RDF::Vocabulary("http://www.w3.org/ns/csvw#")
 
     # Class definitions
     term :Column,
