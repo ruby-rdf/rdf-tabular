@@ -514,8 +514,7 @@ module RDF::Tabular
         when :name then value.is_a?(String) && !name.start_with?("_")
         when :notes then value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
         when :null then value.is_a?(String)
-        when :propertyUrl then Array(value).all? {|v| v.is_a?(String)}
-        when :aboutUrl, :valueUrl then value.is_a?(String)
+        when :aboutUrl, :propertyUrl, :valueUrl then value.is_a?(String)
         when :primaryKey
           # A column reference property that holds either a single reference to a column description object or an array of references.
           Array(value).all? do |k|
@@ -1226,27 +1225,12 @@ module RDF::Tabular
   class Row
     # Class for returning values
     Cell = Struct.new(:column, :raw, :aboutUrl, :propertyUrl, :valueUrl, :value) do
-      def set_aboutUrl(url, mapped_values)
-        self.aboutUrl = if column.aboutUrl
-          t = Addressable::Template.new(column.aboutUrl)
-          # Expand template with translated cell values along with column name
-          url.join(t.expand(mapped_values))
-        end
-      end
-
-      def set_propertyUrl(url, mapped_values)
-        self.propertyUrl = Array(column.propertyUrl).map do |templ|
-          t = Addressable::Template.new(templ)
-          # Expand template with translated cell values along with column name
-          url.join(t.expand(mapped_values))
-        end
-      end
-
-      def set_valueUrl(url, mapped_values)
-        self.valueUrl = if column.valueUrl
-          t = Addressable::Template.new(column.valueUrl)
-          # Expand template with translated cell values along with column name
-          url.join(t.expand(mapped_values))
+      def set_urls(url, mapped_values)
+        %w(aboutUrl propertyUrl valueUrl).each do |prop|
+          if v = column.send(prop.to_sym)
+            t = Addressable::Template.new(v)
+            self.send("#{prop}=".to_sym, url.join(t.expand(mapped_values)))
+          end
         end
       end
 
@@ -1321,9 +1305,7 @@ module RDF::Tabular
       # Map URLs for row
       @values.each do |cell|
         mapped_values = map_values.merge("_name" => cell[:column].name)
-        cell.set_aboutUrl(metadata.url, mapped_values)
-        cell.set_propertyUrl(metadata.url, mapped_values)
-        cell.set_valueUrl(metadata.url, mapped_values)
+        cell.set_urls(metadata.url, mapped_values)
 
         # Row resource set from first cell, or a new Blank Node
         @resource ||= cell.aboutUrl || RDF::Node.new

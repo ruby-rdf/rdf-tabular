@@ -65,10 +65,9 @@ describe RDF::Tabular::Metadata do
         valid: [
           "http://example.org/example.csv#col={_name}",
           "http://example.org/tree/{on%2Dstreet}/{GID}",
-          "#row.{_row}",
-          %w(foo bar)
+          "#row.{_row}"
         ],
-        invalid: [1, true]
+        invalid: [1, true, %w(foo bar)]
       },
       valueUrl: {
         valid: [
@@ -599,10 +598,10 @@ describe RDF::Tabular::Metadata do
 
     it "has expected propertyUrls" do
       subject.each_row(input) do |row|
-        expect(row.values[0].propertyUrl).to include "https://example.org/countries.csv#countryCode"
-        expect(row.values[1].propertyUrl).to include "https://example.org/countries.csv#latitude"
-        expect(row.values[2].propertyUrl).to include "https://example.org/countries.csv#longitude"
-        expect(row.values[3].propertyUrl).to include "https://example.org/countries.csv#name"
+        expect(row.values[0].propertyUrl).to eq "https://example.org/countries.csv#countryCode"
+        expect(row.values[1].propertyUrl).to eq "https://example.org/countries.csv#latitude"
+        expect(row.values[2].propertyUrl).to eq "https://example.org/countries.csv#longitude"
+        expect(row.values[3].propertyUrl).to eq "https://example.org/countries.csv#name"
       end
     end
 
@@ -674,9 +673,7 @@ describe RDF::Tabular::Metadata do
             end
           end
           it "propertyUrl is #{props[:propertyUrl]}" do
-            cells.each_with_index do |cell, index|
-              expect(cell.propertyUrl).to include(*Array(propertyUrls[index]))
-            end
+            expect(cells.map(&:propertyUrl)).to include(*propertyUrls)
           end
           it "valueUrl is #{props[:valueUrl]}" do
             expect(cells.map(&:valueUrl)).to include(*valueUrls)
@@ -891,17 +888,17 @@ describe RDF::Tabular::Metadata do
         A: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "schema": {"columns": [{"name": "foo"}]}
+          "tableSchema": {"columns": [{"name": "foo"}]}
         }),
         B: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "schema": {"columns": [{"name": "bar"}]}
+          "tableSchema": {"columns": [{"name": "bar"}]}
         }),
         R: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "schema": {"columns": [{"name": "foo"}]}
+          "tableSchema": {"columns": [{"name": "foo"}]}
         }),
       },
       "Table with table-direction always takes A" => {

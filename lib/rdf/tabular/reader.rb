@@ -150,9 +150,7 @@ module RDF::Tabular
 
           # URI templates
           add_statement(0, column_resource, CSVW.aboutUrl, column.aboutUrl) if column.aboutUrl
-          Array(column.propertyUrl).each do |prop|
-            add_statement(0, column_resource, CSVW.propertyUrl, prop)
-          end
+          add_statement(0, column_resource, CSVW.propertyUrl, column.propertyUrl)
           add_statement(0, column_resource, CSVW.valueUrl, column.valueUrl) if column.valueUrl
 
           # Titles
@@ -175,10 +173,8 @@ module RDF::Tabular
           add_statement(row.rownum, table_resource, CSVW.row, row.resource)
           add_statement(row.rownum, row.resource, CSVW.rownum, row.rownum)
           row.values.each_with_index do |cell, index|
-            cell.propertyUrl.each do |pred|
-              Array(cell.valueUrl || cell.value).each do |v|
-                add_statement(row.rownum, cell.aboutUrl, pred, v)
-              end
+            Array(cell.valueUrl || cell.value).each do |v|
+              add_statement(row.rownum, cell.aboutUrl, cell.propertyUrl, v)
             end
           end
         end
@@ -369,7 +365,7 @@ module RDF::Tabular
           schema["columns"] << col
           col["colnum"] = column.colnum
           col["aboutUrl"] = column.aboutUrl if column.aboutUrl
-          col["propertyUrl"] = column.propertyUrl unless column.propertyUrl.empty?
+          col["propertyUrl"] = column.propertyUrl
           col["valueUrl"] = column.valueUrl if column.valueUrl
 
           column.common_properties.each do |prop, value|
