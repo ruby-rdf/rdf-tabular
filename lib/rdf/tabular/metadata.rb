@@ -89,6 +89,10 @@ module RDF::Tabular
       json:               RDF::Tabular::CSVW.json,
     }
 
+    # A name is restricted according to the following RegExp.
+    # @return [RegExp]
+    NAME_SYNTAX = %r(\A[a-zA-Z0-9][a-zA-Z0-9\._]*\z)
+
     # ID of this Metadata
     # @return [RDF::URI]
     attr_reader :id
@@ -511,7 +515,7 @@ module RDF::Tabular
           RDF::Literal::DateTime.new(value).valid?
         when :minLength, :maxLength
           value.is_a?(Numeric) && value.integer? && value > 0
-        when :name then value.is_a?(String) && !name.start_with?("_")
+        when :name then value.is_a?(String) && name.match(NAME_SYNTAX)
         when :notes then value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
         when :null then value.is_a?(String)
         when :aboutUrl, :propertyUrl, :valueUrl then value.is_a?(String)
@@ -664,6 +668,12 @@ module RDF::Tabular
       else
         self.dup.keep_if {|key, value| key.to_s.include?(':')}
       end
+    end
+
+    # Does the Metadata have any common properties?
+    # @return [Boolean]
+    def has_annotations?
+      self.keys.any? {|k| k.to_s.include?(':')}
     end
 
     # Yield RDF statements after expanding property values
@@ -978,6 +988,12 @@ module RDF::Tabular
       end
     end
 
+    # Does the Metadata or any descendant have any common properties
+    # @return [Boolean]
+    def has_annotations?
+      super || resources.any? {|t| t.has_annotations? }
+    end
+
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
@@ -1021,6 +1037,12 @@ module RDF::Tabular
           self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
         end
       end
+    end
+
+    # Does the Metadata or any descendant have any common properties
+    # @return [Boolean]
+    def has_annotations?
+      super || tableSchema && tableSchema.has_annotations?
     end
 
     # Logic for accessing elements as accessors
@@ -1108,6 +1130,12 @@ module RDF::Tabular
     # @return [Integer] 1-based colnum number
     def colnum; @options.fetch(:colnum, 0); end
 
+    # Does the Metadata or any descendant have any common properties
+    # @return [Boolean]
+    def has_annotations?
+      super || columns.any? {|c| c.has_annotations? }
+    end
+
     # Setters
     PROPERTIES.each do |a, type|
       define_method("#{a}=".to_sym) do |value|
@@ -1130,7 +1158,10 @@ module RDF::Tabular
     # Return or create a name for the column from title, if it exists
     def name
       self[:name] ||= if title && (ts = title[context.default_language || 'und'])
-        Array(ts).first
+        n = Array(ts).first
+        n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
+        n1 = URI.encode(n[1..-1], /[^\w\.]/)
+        "#{n0}#{n1}"
       end || "_col.#{colnum}"
     end
 
@@ -1304,7 +1335,7 @@ module RDF::Tabular
 
       # Map URLs for row
       @values.each do |cell|
-        mapped_values = map_values.merge("_name" => cell[:column].name)
+        mapped_values = map_values.merge("_name" => URI.decode(cell[:column].name))
         cell.set_urls(metadata.url, mapped_values)
 
         # Row resource set from first cell, or a new Blank Node
