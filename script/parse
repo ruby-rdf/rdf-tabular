@@ -17,7 +17,10 @@ def run(input, options)
     if options[:output_format] == :json
       options[:output].puts reader.to_json(::JSON::LD::JSON_STATE)
     else
-      options[:output].puts reader.dump(options[:output_format], prefixes: reader.prefixes, standard_prefixes: true)
+      RDF::Writer.for(options[:output_format]).
+      new(options[:output], prefixes: reader.prefixes, standard_prefixes: true) do |writer|
+        writer << reader
+      end
     end
   end
 rescue

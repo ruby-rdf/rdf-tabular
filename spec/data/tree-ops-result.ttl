@@ -6,8 +6,7 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-:table a csvw:Table;
-   dc:title "Tree Operations"@en;
+[  dc:title "Tree Operations"@en;
    dc:keywords "tree"@en,
      "street"@en,
      "maintenance"@en;
@@ -17,68 +16,29 @@
    csvw:row :gid-1,
      :gid-2,
      :gid-3;
-   csvw:tableSchema [
-     a csvw:Schema;
-     csvw:column [
-       a csvw:Column;
-       rdfs:label "GID"@en,
-         "Generic Identifier"@en;
-       dc:description "An identifier for the operation on a tree."@en;
-       csvw:aboutUrl "#gid-{GID}";
-       csvw:colnum 1;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "On Street"@en;
-       dc:description "The street that the tree is on."@en;
-       csvw:aboutUrl "#gid-{GID}";
-       csvw:colnum 2;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Species"@en;
-       dc:description "The species of the tree."@en;
-       csvw:aboutUrl "#gid-{GID}";
-       csvw:colnum 3;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Trim Cycle"@en;
-       dc:description "The operation performed on the tree."@en;
-       csvw:aboutUrl "#gid-{GID}";
-       csvw:colnum 4;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Inventory Date"@en;
-       dc:description "The date of the operation that was performed."@en;
-       csvw:aboutUrl "#gid-{GID}";
-       csvw:colnum 5;
-       csvw:propertyUrl "{#_name}"
-     ]
-   ];
    dcat:distribution [
      a dcat:Distribution;
      dcat:downloadURL <http://example.org/tree-ops.csv>
-   ] .
+   ]
+] .
 
 :gid-1 :GID "1";
-   :inventory-date "10/18/2010"^^xsd:date;
-   :on-street "ADDISON AV";
+   :inventory_date "10/18/2010"^^xsd:date;
+   :on_street "ADDISON AV";
    :species "Celtis australis";
-   :trim-cycle "Large Tree Routine Prune";
+   :trim_cycle "Large Tree Routine Prune";
    csvw:rownum 2 .
 
 :gid-2 :GID "2";
-   :inventory-date "6/2/2010"^^xsd:date;
-   :on-street "EMERSON ST";
+   :inventory_date "6/2/2010"^^xsd:date;
+   :on_street "EMERSON ST";
    :species "Liquidambar styraciflua";
-   :trim-cycle "Large Tree Routine Prune";
+   :trim_cycle "Large Tree Routine Prune";
    csvw:rownum 3 .
 
 :gid-3 :GID "3";
-   :inventory-date "6/2/2010"^^xsd:date;
-   :on-street "EMERSON ST";
+   :inventory_date "6/2/2010"^^xsd:date;
+   :on_street "EMERSON ST";
    :species "Liquidambar styraciflua";
-   :trim-cycle "Large Tree Routine Prune";
+   :trim_cycle "Large Tree Routine Prune";
    csvw:rownum 4 .

@@ -5,30 +5,6 @@
       "distribution": {
         "downloadURL": "http://example.org/countries.csv"
       },
-      "tableSchema": {
-        "columns": [
-          {
-            "colnum": 1,
-            "aboutUrl": "http://example.org/countries.csv{#countryCode}",
-            "propertyUrl": "http://www.geonames.org/ontology{#_name}"
-          },
-          {
-            "colnum": 2,
-            "aboutUrl": "http://example.org/countries.csv{#countryCode}",
-            "propertyUrl": "http://schema.org/{_name}"
-          },
-          {
-            "colnum": 3,
-            "aboutUrl": "http://example.org/countries.csv{#countryCode}",
-            "propertyUrl": "http://schema.org/{_name}"
-          },
-          {
-            "colnum": 4,
-            "aboutUrl": "http://example.org/countries.csv{#countryCode}",
-            "propertyUrl": "http://schema.org/{_name}"
-          }
-        ]
-      },
       "row": [
         {
           "url": "http://example.org/countries.csv#AD",
@@ -60,23 +36,6 @@
       "url": "http://example.org/country_slice.csv",
       "distribution": {
         "downloadURL": "http://example.org/country_slice.csv"
-      },
-      "tableSchema": {
-        "columns": [
-          {
-            "colnum": 1,
-            "propertyUrl": "{#_name}",
-            "valueUrl": "http://example.org/countries.csv{#countryRef}"
-          },
-          {
-            "colnum": 2,
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 3,
-            "propertyUrl": "{#_name}"
-          }
-        ]
       },
       "row": [
         {

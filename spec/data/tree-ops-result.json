@@ -3,40 +3,6 @@
   "distribution": {
     "downloadURL": "http://example.org/tree-ops.csv"
   },
-  "tableSchema": {
-    "columns": [
-      {
-        "colnum": 1,
-        "aboutUrl": "#gid-{GID}",
-        "propertyUrl": "{#_name}",
-        "dc:description": "An identifier for the operation on a tree."
-      },
-      {
-        "colnum": 2,
-        "aboutUrl": "#gid-{GID}",
-        "propertyUrl": "{#_name}",
-        "dc:description": "The street that the tree is on."
-      },
-      {
-        "colnum": 3,
-        "aboutUrl": "#gid-{GID}",
-        "propertyUrl": "{#_name}",
-        "dc:description": "The species of the tree."
-      },
-      {
-        "colnum": 4,
-        "aboutUrl": "#gid-{GID}",
-        "propertyUrl": "{#_name}",
-        "dc:description": "The operation performed on the tree."
-      },
-      {
-        "colnum": 5,
-        "aboutUrl": "#gid-{GID}",
-        "propertyUrl": "{#_name}",
-        "dc:description": "The date of the operation that was performed."
-      }
-    ]
-  },
   "dc:title": "Tree Operations",
   "dc:keywords": [
     "tree",
@@ -51,28 +17,28 @@
       "url": "http://example.org/tree-ops.csv#gid-1",
       "rownum": 2,
       "GID": "1",
-      "on-street": "ADDISON AV",
+      "on_street": "ADDISON AV",
       "species": "Celtis australis",
-      "trim-cycle": "Large Tree Routine Prune",
-      "inventory-date": "10/18/2010"
+      "trim_cycle": "Large Tree Routine Prune",
+      "inventory_date": "10/18/2010"
     },
     {
       "url": "http://example.org/tree-ops.csv#gid-2",
       "rownum": 3,
       "GID": "2",
-      "on-street": "EMERSON ST",
+      "on_street": "EMERSON ST",
       "species": "Liquidambar styraciflua",
-      "trim-cycle": "Large Tree Routine Prune",
-      "inventory-date": "6/2/2010"
+      "trim_cycle": "Large Tree Routine Prune",
+      "inventory_date": "6/2/2010"
     },
     {
       "url": "http://example.org/tree-ops.csv#gid-3",
       "rownum": 4,
       "GID": "3",
-      "on-street": "EMERSON ST",
+      "on_street": "EMERSON ST",
       "species": "Liquidambar styraciflua",
-      "trim-cycle": "Large Tree Routine Prune",
-      "inventory-date": "6/2/2010"
+      "trim_cycle": "Large Tree Routine Prune",
+      "inventory_date": "6/2/2010"
     }
   ]
 }

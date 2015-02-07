@@ -103,15 +103,16 @@ describe RDF::Tabular::Reader do
         PREFIX prov: <http://www.w3.org/ns/prov#>
         PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
         ASK WHERE {
-          <http://example.org/country-codes-and-names.csv#table> prov:activity [
-            a prov:Activity;
-            prov:startedAtTime ?start;
-            prov:endedAtTime ?end;
-            prov:qualifiedUsage [
-              a prov:Usage ;
-              prov:Entity ?csv ;
-              prov:hadRole csvw:csvEncodedTabularData
-            ];
+          [ prov:activity [
+              a prov:Activity;
+              prov:startedAtTime ?start;
+              prov:endedAtTime ?end;
+              prov:qualifiedUsage [
+                a prov:Usage ;
+                prov:Entity ?csv ;
+                prov:hadRole csvw:csvEncodedTabularData
+              ];
+            ]
           ]
           FILTER (
             DATATYPE(?start) = xsd:dateTime &&

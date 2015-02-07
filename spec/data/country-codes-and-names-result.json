@@ -3,18 +3,6 @@
   "distribution": {
     "downloadURL": "http://example.org/country-codes-and-names.csv"
   },
-  "tableSchema": {
-    "columns": [
-      {
-        "colnum": 1,
-        "propertyUrl": "{#_name}"
-      },
-      {
-        "colnum": 2,
-        "propertyUrl": "{#_name}"
-      }
-    ]
-  },
   "row": [
     {
       "rownum": 2,

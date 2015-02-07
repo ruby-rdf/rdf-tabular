@@ -4,88 +4,61 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-<http://example.org/junior-roles.csv#table> a csvw:Table;
-   csvw:row [
-     <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
-     <http://example.org/junior-roles.csv#Grade> "4";
-     <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "2";
-     <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "20002";
-     <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "17426";
-     <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
-     <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90284>;
-     csvw:rownum 2
-   ],  [
-     <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
-     <http://example.org/junior-roles.csv#Grade> "5";
-     <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "1";
-     <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "22478";
-     <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "19546";
-     <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
-     <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90284>;
-     csvw:rownum 3
-   ],  [
-     <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
-     <http://example.org/junior-roles.csv#Grade> "4";
-     <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "8.67";
-     <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "20002";
-     <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "17426";
-     <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
-     <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90115>;
-     csvw:rownum 4
-   ],  [
-     <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
-     <http://example.org/junior-roles.csv#Grade> "5";
-     <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "0.5";
-     <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "22478";
-     <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "19546";
-     <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
-     <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90115>;
-     csvw:rownum 5
-   ];
-   csvw:tableSchema [
-     a csvw:Schema;
-     csvw:column [
-       a csvw:Column;
-       rdfs:label "Reporting Senior Post";
-       csvw:colnum 1;
-       csvw:propertyUrl "http://example.org/reportsTo";
-       csvw:valueUrl "http://example.org/senior-roles.csv#post-{reportsTo}"
+
+[
+   csvw:table [
+     csvw:row [
+       <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
+       <http://example.org/junior-roles.csv#Grade> "4";
+       <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "2";
+       <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "20002";
+       <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "17426";
+       <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
+       <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90284>;
+       csvw:rownum 2
      ],  [
-       a csvw:Column;
-       rdfs:label "Grade";
-       csvw:colnum 2;
-       csvw:propertyUrl "{#_name}"
+       <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
+       <http://example.org/junior-roles.csv#Grade> "5";
+       <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "1";
+       <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "22478";
+       <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "19546";
+       <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
+       <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90284>;
+       csvw:rownum 3
      ],  [
-       a csvw:Column;
-       rdfs:label "Payscale Minimum (£)";
-       csvw:colnum 3;
-       csvw:propertyUrl "{#_name}"
+       <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
+       <http://example.org/junior-roles.csv#Grade> "4";
+       <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "8.67";
+       <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "20002";
+       <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "17426";
+       <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
+       <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90115>;
+       csvw:rownum 4
      ],  [
-       a csvw:Column;
-       rdfs:label "Payscale Maximum (£)";
-       csvw:colnum 4;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Generic Job Title";
-       csvw:colnum 5;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Number of Posts in FTE";
-       csvw:colnum 6;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Profession";
-       csvw:colnum 7;
-       csvw:propertyUrl "{#_name}"
+       <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
+       <http://example.org/junior-roles.csv#Grade> "5";
+       <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "0.5";
+       <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "22478";
+       <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "19546";
+       <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
+       <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90115>;
+       csvw:rownum 5
+     ];
+     dcat:distribution [
+       a dcat:Distribution;
+       dcat:downloadURL <http://example.org/junior-roles.csv>
      ]
-   ];
-   dcat:distribution [
-     a dcat:Distribution;
-     dcat:downloadURL <http://example.org/junior-roles.csv>
-   ] .
+  ], [
+     csvw:row <http://example.org/senior-roles.csv#post-90115>,
+       <http://example.org/senior-roles.csv#post-90250>,
+       <http://example.org/senior-roles.csv#post-90284>,
+       <http://example.org/senior-roles.csv#post-90334>;
+     dcat:distribution [
+       a dcat:Distribution;
+       dcat:downloadURL <http://example.org/senior-roles.csv>
+     ]
+  ]
+] .
 
 <http://example.org/senior-roles.csv#post-90250> <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90334>;
    <http://example.org/senior-roles.csv#grade> "SCS1A";
@@ -93,51 +66,6 @@
    <http://example.org/senior-roles.csv#name> "David Sweeney";
    <http://example.org/senior-roles.csv#ref> "90250";
    csvw:rownum 3 .
-
-<http://example.org/senior-roles.csv#table> a csvw:Table;
-   csvw:row <http://example.org/senior-roles.csv#post-90115>,
-     <http://example.org/senior-roles.csv#post-90250>,
-     <http://example.org/senior-roles.csv#post-90284>,
-     <http://example.org/senior-roles.csv#post-90334>;
-   csvw:tableSchema [
-     a csvw:Schema;
-     csvw:column [
-       a csvw:Column;
-       rdfs:label "Post Unique Reference";
-       csvw:aboutUrl "#post-{ref}";
-       csvw:colnum 1;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Name";
-       csvw:aboutUrl "#post-{ref}";
-       csvw:colnum 2;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Grade";
-       csvw:aboutUrl "#post-{ref}";
-       csvw:colnum 3;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Job Title";
-       csvw:aboutUrl "#post-{ref}";
-       csvw:colnum 4;
-       csvw:propertyUrl "{#_name}"
-     ],  [
-       a csvw:Column;
-       rdfs:label "Reports to Senior Post";
-       csvw:aboutUrl "#post-{ref}";
-       csvw:colnum 5;
-       csvw:propertyUrl "http://example.org/reportsTo";
-       csvw:valueUrl "http://example.org/senior-roles.csv#post-{reportsTo}"
-     ]
-   ];
-   dcat:distribution [
-     a dcat:Distribution;
-     dcat:downloadURL <http://example.org/senior-roles.csv>
-   ] .
 
 <http://example.org/senior-roles.csv#post-90115> <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90334>;
    <http://example.org/senior-roles.csv#grade> "SCS1A";
@@ -159,9 +87,3 @@
    <http://example.org/senior-roles.csv#name> "Sir Alan Langlands";
    <http://example.org/senior-roles.csv#ref> "90334";
    csvw:rownum 5 .
-
- [
-    a csvw:TableGroup;
-    csvw:table <http://example.org/senior-roles.csv#table>,
-      <http://example.org/junior-roles.csv#table>
- ] .

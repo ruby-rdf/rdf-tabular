@@ -92,8 +92,8 @@ module RDF::Tabular
             case input.type
             when :TableGroup
               # SPEC SUGGESTION: Use resolved @id of TableGroup, if available
-              table_group = input.id || RDF::Node.new
-              add_statement(0, table_group, RDF.type, CSVW.TableGroup)
+              table_group = RDF::Node.new
+              #add_statement(0, table_group, RDF.type, CSVW.TableGroup)
 
               # Common Properties
               input.common_properties(table_group) do |statement|
@@ -101,8 +101,15 @@ module RDF::Tabular
               end
 
               input.resources.each do |table|
-                add_statement(0, table_group, CSVW.table, table.url + "#table")
-                Reader.open(table.url, options.merge(format: :tabular, metadata: table, base: table.url, no_found_metadata: true)) do |r|
+                table_resource = RDF::Node.new
+                add_statement(0, table_group, CSVW.table, table_resource)
+                Reader.open(table.url, options.merge(
+                    format: :tabular,
+                    metadata: table,
+                    base: table.url,
+                    no_found_metadata: true,
+                    table_resource: table_resource
+                )) do |r|
                   r.each_statement(&block)
                 end
               end
@@ -119,8 +126,7 @@ module RDF::Tabular
 
         # Output Table-Level RDF triples
         # SPEC CONFUSION: Would we ever use the resolved @id of the Table metadata?
-        table_resource = metadata.id || (metadata.url + "#table")
-        add_statement(0, table_resource, RDF.type, CSVW.Table)
+        table_resource = options.fetch(:table_resource, RDF::Node.new)
 
         # Distribution
         distribution = RDF::Node.new
@@ -134,35 +140,37 @@ module RDF::Tabular
         end
 
         # Schema
-        schema_resource = metadata.tableSchema.id || RDF::Node.new
-        add_statement(0, table_resource, CSVW.tableSchema, schema_resource)
-        add_statement(0, schema_resource, RDF.type, CSVW.Schema)
-        metadata.tableSchema.common_properties(schema_resource) do |statement|
-          add_statement(0, statement)
-        end
-
-        # Columns
-        metadata.tableSchema.columns.each do |column|
-          column_resource = column.id || RDF::Node.new
-          add_statement(0, schema_resource, CSVW.column, column_resource)
-          add_statement(0, column_resource, RDF.type, CSVW.Column)
-          add_statement(0, column_resource, CSVW.colnum, column.colnum)
-
-          # URI templates
-          add_statement(0, column_resource, CSVW.aboutUrl, column.aboutUrl) if column.aboutUrl
-          add_statement(0, column_resource, CSVW.propertyUrl, column.propertyUrl)
-          add_statement(0, column_resource, CSVW.valueUrl, column.valueUrl) if column.valueUrl
-
-          # Titles
-          column.rdf_values(column_resource, "title", column.title) do |statement|
-            # Make sure to use column language, not that from the context
-            statement.predicate = RDF::RDFS.label if statement.predicate == CSVW.title
+        if metadata.tableSchema.has_annotations?
+          schema_resource = RDF::Node.new
+          add_statement(0, table_resource, CSVW.tableSchema, schema_resource)
+          metadata.tableSchema.common_properties(schema_resource) do |statement|
             add_statement(0, statement)
           end
 
-          # Common Properties
-          column.common_properties(column_resource) do |statement|
-            add_statement(0, statement)
+          # Columns
+          metadata.tableSchema.columns.each do |column|
+            next unless column.has_annotations?
+
+            column_resource = RDF::Node.new
+            add_statement(0, schema_resource, CSVW.column, column_resource)
+            add_statement(0, column_resource, CSVW.colnum, column.colnum)
+
+            # URI templates
+            #add_statement(0, column_resource, CSVW.aboutUrl, column.aboutUrl) if column.aboutUrl
+            #add_statement(0, column_resource, CSVW.propertyUrl, column.propertyUrl)
+            #add_statement(0, column_resource, CSVW.valueUrl, column.valueUrl) if column.valueUrl
+
+            # Titles
+            #column.rdf_values(column_resource, "title", column.title) do |statement|
+            #  # Make sure to use column language, not that from the context
+            #  statement.predicate = RDF::RDFS.label if statement.predicate == CSVW.title
+            #  add_statement(0, statement)
+            #end
+
+            # Common Properties
+            column.common_properties(column_resource) do |statement|
+              add_statement(0, statement)
+            end
           end
         end
 
@@ -321,14 +329,10 @@ module RDF::Tabular
         end
       else
         rows = []
-        schema = {
-          "columns" => []
-        }
         table = {
           # SPEC CONFUSION: aren't these URIs the same?
           "url" => metadata.url.to_s,
           "distribution" => { "downloadURL" => metadata.url},
-          "tableSchema" => schema
         }
 
         # Use string values from common properties
@@ -344,31 +348,11 @@ module RDF::Tabular
           table[prop] = value.length == 1 ? value.first : value
         end
 
-        # Schema info
-        # Use string values from common properties
-        metadata.tableSchema.common_properties.each do |prop, value|
-          value = [value] unless value.is_a?(Array)
-          value = value.map do |v|
-            if v.is_a?(Hash) && !(v.keys & %w(@id @value)).empty?
-              v['@value'] || v['@id']
-            else
-              v
-            end
-          end
-          schema[prop] = value.length == 1 ? value.first : value
-        end
-
-        # Column info
-        # Use string values from common properties
-        metadata.tableSchema.columns.each do |column|
-          col = {}
-          schema["columns"] << col
-          col["colnum"] = column.colnum
-          col["aboutUrl"] = column.aboutUrl if column.aboutUrl
-          col["propertyUrl"] = column.propertyUrl
-          col["valueUrl"] = column.valueUrl if column.valueUrl
-
-          column.common_properties.each do |prop, value|
+        if metadata.tableSchema.has_annotations?
+          table["tableSchema"] = schema = {}
+          # Schema info
+          # Use string values from common properties
+          metadata.tableSchema.common_properties.each do |prop, value|
             value = [value] unless value.is_a?(Array)
             value = value.map do |v|
               if v.is_a?(Hash) && !(v.keys & %w(@id @value)).empty?
@@ -377,7 +361,31 @@ module RDF::Tabular
                 v
               end
             end
-            col[prop] = value.length == 1 ? value.first : value
+            schema[prop] = value.length == 1 ? value.first : value
+          end
+
+          # Column info
+          # Use string values from common properties
+          metadata.tableSchema.columns.each do |column|
+            next unless column.has_annotations?
+
+            (schema["columns"] ||= []) << (col = {})
+            col["colnum"] = column.colnum
+            col["aboutUrl"] = column.aboutUrl if column.aboutUrl
+            col["propertyUrl"] = column.propertyUrl
+            col["valueUrl"] = column.valueUrl if column.valueUrl
+
+            column.common_properties.each do |prop, value|
+              value = [value] unless value.is_a?(Array)
+              value = value.map do |v|
+                if v.is_a?(Hash) && !(v.keys & %w(@id @value)).empty?
+                  v['@value'] || v['@id']
+                else
+                  v
+                end
+              end
+              col[prop] = value.length == 1 ? value.first : value
+            end
           end
         end
 

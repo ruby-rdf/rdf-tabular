@@ -5,36 +5,6 @@
       "distribution": {
         "downloadURL": "http://example.org/senior-roles.csv"
       },
-      "tableSchema": {
-        "columns": [
-          {
-            "colnum": 1,
-            "aboutUrl": "#post-{ref}",
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 2,
-            "aboutUrl": "#post-{ref}",
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 3,
-            "aboutUrl": "#post-{ref}",
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 4,
-            "aboutUrl": "#post-{ref}",
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 5,
-            "aboutUrl": "#post-{ref}",
-            "propertyUrl": "http://example.org/reportsTo",
-            "valueUrl": "http://example.org/senior-roles.csv#post-{reportsTo}"
-          }
-        ]
-      },
       "row": [
         {
           "url": "http://example.org/senior-roles.csv#post-90115",
@@ -79,78 +49,45 @@
       "distribution": {
         "downloadURL": "http://example.org/junior-roles.csv"
       },
-      "tableSchema": {
-        "columns": [
-          {
-            "colnum": 1,
-            "propertyUrl": "http://example.org/reportsTo",
-            "valueUrl": "http://example.org/senior-roles.csv#post-{reportsTo}"
-          },
-          {
-            "colnum": 2,
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 3,
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 4,
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 5,
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 6,
-            "propertyUrl": "{#_name}"
-          },
-          {
-            "colnum": 7,
-            "propertyUrl": "{#_name}"
-          }
-        ]
-      },
       "row": [
         {
           "rownum": 2,
           "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}",
           "Grade": "4",
-          "Payscale Minimum (£)": "17426",
-          "Payscale Maximum (£)": "20002",
-          "Generic Job Title": "Administrator",
-          "Number of Posts in FTE": "2",
+          "Payscale%20Minimum%20%28%C2%A3%29": "17426",
+          "Payscale%20Maximum%20%28%C2%A3%29": "20002",
+          "Generic%20Job%20Title": "Administrator",
+          "Number%20of%20Posts%20in%20FTE": "2",
           "Profession": "Operational Delivery"
         },
         {
           "rownum": 3,
           "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}",
           "Grade": "5",
-          "Payscale Minimum (£)": "19546",
-          "Payscale Maximum (£)": "22478",
-          "Generic Job Title": "Administrator",
-          "Number of Posts in FTE": "1",
+          "Payscale%20Minimum%20%28%C2%A3%29": "19546",
+          "Payscale%20Maximum%20%28%C2%A3%29": "22478",
+          "Generic%20Job%20Title": "Administrator",
+          "Number%20of%20Posts%20in%20FTE": "1",
           "Profession": "Operational Delivery"
         },
         {
           "rownum": 4,
           "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}",
           "Grade": "4",
-          "Payscale Minimum (£)": "17426",
-          "Payscale Maximum (£)": "20002",
-          "Generic Job Title": "Administrator",
-          "Number of Posts in FTE": "8.67",
+          "Payscale%20Minimum%20%28%C2%A3%29": "17426",
+          "Payscale%20Maximum%20%28%C2%A3%29": "20002",
+          "Generic%20Job%20Title": "Administrator",
+          "Number%20of%20Posts%20in%20FTE": "8.67",
           "Profession": "Operational Delivery"
         },
         {
           "rownum": 5,
           "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}",
           "Grade": "5",
-          "Payscale Minimum (£)": "19546",
-          "Payscale Maximum (£)": "22478",
-          "Generic Job Title": "Administrator",
-          "Number of Posts in FTE": "0.5",
+          "Payscale%20Minimum%20%28%C2%A3%29": "19546",
+          "Payscale%20Maximum%20%28%C2%A3%29": "22478",
+          "Generic%20Job%20Title": "Administrator",
+          "Number%20of%20Posts%20in%20FTE": "0.5",
           "Profession": "Operational Delivery"
         }
       ]
