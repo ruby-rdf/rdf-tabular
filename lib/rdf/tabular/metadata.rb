@@ -659,9 +659,9 @@ module RDF::Tabular
         each do |key, value|
           common[key.to_s] = value if key.to_s.include?(':')
         end
-        ::JSON::LD::API.toRdf(common, expandContext: context) do |statement|
-          # Fix subject reference, which is a hack relying upon the JSON-LD naming scheme
-          statement.subject = subject if subject && subject.node? && statement.subject.to_s == "_:b0"
+        ::JSON::LD::API.toRdf(common, expandContext: context, rename_bnodes: false) do |statement|
+          # Fix subject reference, is a BNode with the same "name" as subject, but a different BNode.
+          statement.subject = subject if subject && subject.node? && statement.subject.to_s == subject.to_s
           statement.object = RDF::Literal(statement.object.value) if statement.object.literal? && statement.object.language == :und
           yield statement
         end
@@ -684,9 +684,9 @@ module RDF::Tabular
     # @yield s, p, o
     # @yieldparam [RDF::Statement] statement
     def rdf_values(subject, property, value)
-      ::JSON::LD::API.toRdf({'@id' => subject.to_s, property => value}, expandContext: context) do |statement|
-        # Fix subject reference, which is a hack relying upon the JSON-LD naming scheme
-        statement.subject = subject if subject.node? && statement.subject.to_s == "_:b0"
+      ::JSON::LD::API.toRdf({'@id' => subject.to_s, property => value}, expandContext: context, rename_bnodes: false) do |statement|
+        # Fix subject reference, is a BNode with the same "name" as subject, but a different BNode.
+        statement.subject = subject if subject && subject.node? && statement.subject.to_s == subject.to_s
         statement.object = RDF::Literal(statement.object.value) if statement.object.literal? && statement.object.language == :und
         yield statement
       end
