@@ -871,7 +871,7 @@ describe RDF::Tabular::Metadata do
         B: %({"resources": [{"url": "http://example.org/foo", "dc:description": "bar"}]}),
         R: %({"resources": [{
           "url": "http://example.org/foo",
-          "dc:title": "foo",
+          "dc:title": [{"@value": "foo"}],
           "dc:description": [{"@value": "bar"}]
         }]})
       },

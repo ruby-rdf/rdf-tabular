@@ -751,6 +751,30 @@ module RDF::Tabular
           @filenames = Array(@filenames) | Array(metadata.filenames)
         end
 
+        # Expand A (this) and B (metadata) values into normal form
+        [self, metadata].each do |md|
+          md.each do |key, value|
+            md[key] = case @properties[key]
+            when :link, :url_template
+              md.base.join(value)
+            when :object
+              case key
+              when :notes then Array(value)
+              else value
+              end
+            when :natural_language
+              value.is_a?(Hash) ? value : {(md.default_language || 'und') => Array(value)}
+            else
+              if key.to_s.include?(':')
+                # Expand value relative to context
+                ::JSON::LD::API.expand({key => value}, expandContext: md.context).first.values.first
+              else
+                value
+              end
+            end
+          end
+        end
+
         @dialect = nil  # So that it is re-built when needed
         # Merge each property from metadata into self
         metadata.each do |key, value|
@@ -852,17 +876,8 @@ module RDF::Tabular
                 case key
                 when :notes
                   # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
-                  a = case self[key]
-                  when Array then self[key]
-                  when Hash then [self[key]]
-                  else Array(self[key])
-                  end
-                  b = case value
-                  when Array then value
-                  when Hash then [value]
-                  else Array(value)
-                  end
-                  self[key] = a + b
+                  a = self[key] || []
+                  self[key] = (a + value).uniq
                 else
                   # if the property only accepts single objects
                   if self[key].is_a?(String) || value.is_a?(String)
@@ -887,7 +902,7 @@ module RDF::Tabular
                 b.each do |k, v|
                   a[k] = Array(a[k]) + (Array(b[k]) - Array(a[k]))
                 end
-                # SPEC SUGGESTION: eliminate titles with no language where the same string exists with a language
+                # eliminate titles with no language where the same string exists with a language
                 if a.has_key?("und")
                   a["und"] = a["und"].reject do |v|
                     a.any? {|lang, values| lang != 'und' && values.include?(v)}
@@ -902,14 +917,7 @@ module RDF::Tabular
                   # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
                   self[key] = Array(self[key]) + (Array[value] - Array[self[key]])
                 when /:/
-                  # If the property is a common property, the result is an array containing values from A followed by values from B not already in A. Values are first expanded using the @context of A or B respectively
-                  a = self[key] ? ::JSON::LD::API.expand({key => self[key]}, expandContext: self.context).
-                    first.values.first : []
-
-                  b = ::JSON::LD::API.expand({key => metadata[key]}, expandContext: metadata.context).
-                    first.values.first
-
-                  self[key] = a + (b - a)
+                  self[key] = (Array(self[key]) + value).uniq
                 else
                   # if the property only accepts single values, the value from A overrides that from B;
                   self[key] ||= value
