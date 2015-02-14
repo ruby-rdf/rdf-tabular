@@ -18,17 +18,17 @@
        <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
        <http://example.org/country_slice.csv#population> 9616353;
        <http://example.org/country_slice.csv#year> "1960"^^xsd:gYear;
-       csvw:rownum 2
+       csvw:rownum 1
      ],  [
        <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
        <http://example.org/country_slice.csv#population> 9799379;
        <http://example.org/country_slice.csv#year> "1961"^^xsd:gYear;
-       csvw:rownum 3
+       csvw:rownum 2
      ],  [
        <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
        <http://example.org/country_slice.csv#population> 9989846;
        <http://example.org/country_slice.csv#year> "1962"^^xsd:gYear;
-       csvw:rownum 4
+       csvw:rownum 3
      ];
      dcat:distribution [
        a dcat:Distribution;
@@ -41,17 +41,17 @@
    schema:longitude 1.601554;
    schema:name "Andorra";
    <http://www.geonames.org/ontology#countryCode> "AD";
-   csvw:rownum 2 .
+   csvw:rownum 1 .
 
 <http://example.org/countries.csv#AE> schema:latitude 23.424076;
    schema:longitude 53.847818;
    schema:name "United Arab Emirates";
    <http://www.geonames.org/ontology#countryCode> "AE";
-   csvw:rownum 3 .
+   csvw:rownum 2 .
 
 
 <http://example.org/countries.csv#AF> schema:latitude 33.93911;
    schema:longitude 67.709953;
    schema:name "Afghanistan";
    <http://www.geonames.org/ontology#countryCode> "AF";
-   csvw:rownum 4 .
+   csvw:rownum 3 .

@@ -27,18 +27,18 @@
    :on_street "ADDISON AV";
    :species "Celtis australis";
    :trim_cycle "Large Tree Routine Prune";
-   csvw:rownum 2 .
+   csvw:rownum 1 .
 
 :gid-2 :GID "2";
    :inventory_date "6/2/2010"^^xsd:date;
    :on_street "EMERSON ST";
    :species "Liquidambar styraciflua";
    :trim_cycle "Large Tree Routine Prune";
-   csvw:rownum 3 .
+   csvw:rownum 2 .
 
 :gid-3 :GID "3";
    :inventory_date "6/2/2010"^^xsd:date;
    :on_street "EMERSON ST";
    :species "Liquidambar styraciflua";
    :trim_cycle "Large Tree Routine Prune";
-   csvw:rownum 4 .
+   csvw:rownum 3 .

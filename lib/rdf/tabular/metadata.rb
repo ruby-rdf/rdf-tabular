@@ -604,7 +604,7 @@ module RDF::Tabular
       (1..dialect.headerRowCount).each do
         Array(csv.shift).each_with_index do |value, index|
           # Skip columns
-          next if index < dialect.skipColumns.to_i
+          next if index < (dialect.skipColumns.to_i + dialect.headerColumnCount.to_i)
 
           # Trim value
           value.lstrip! if %w(true start).include?(dialect.trim.to_s)
@@ -632,9 +632,9 @@ module RDF::Tabular
     # @yield [Row]
     def each_row(input)
       csv = ::CSV.new(input, csv_options)
-      # Skip skipRows and headerRows
-      rownum = dialect.skipRows.to_i + dialect.headerRowCount
-      (1..rownum).each {csv.shift}
+      # Skip skipRows and headerRowCount
+      rownum, skipped = 0, (dialect.skipRows.to_i + dialect.headerRowCount)
+      (1..skipped).each {csv.shift}
       csv.each do |row|
         rownum += 1
         yield(Row.new(row, self, rownum))
@@ -1188,7 +1188,7 @@ module RDF::Tabular
       doubleQuote:        true,
       encoding:           "utf-8".freeze,
       header:             true,
-      headerColumnnCount: 0,
+      headerColumnCount:  0,
       headerRowCount:     1,
       lineTerminator:     :auto, # SPEC says "\r\n"
       quoteChar:          '"',
@@ -1207,7 +1207,7 @@ module RDF::Tabular
       doubleQuote:        :atomic,
       encoding:           :atomic,
       header:             :atomic,
-      headerColumnnCount: :atomic,
+      headerColumnCount:  :atomic,
       headerRowCount:     :atomic,
       lineTerminator:     :atomic,
       quoteChar:          :atomic,
@@ -1291,11 +1291,11 @@ module RDF::Tabular
     def initialize(row, metadata, rownum)
       @rownum = rownum
       @values = []
-      skipColumns = metadata.dialect.skipColumns
+      skipColumns = metadata.dialect.skipColumns.to_i + metadata.dialect.headerColumnCount.to_i
 
       # Create values hash
       # SPEC CONFUSION: are values pre-or-post conversion?
-      map_values = {"_row" => rownum}
+      map_values = {"_row" => rownum, "_sourceRow" => (metadata.dialect.skipRows + metadata.dialect.headerRowCount)}
 
       # SPEC SUGGESTION:
       # Create columns if no columns were ever set; this would be the case when headerRowCount is zero, and nothing was set from explicit metadata
@@ -1338,8 +1338,12 @@ module RDF::Tabular
       end
 
       # Map URLs for row
-      @values.each do |cell|
-        mapped_values = map_values.merge("_name" => URI.decode(cell[:column].name))
+      @values.each_with_index do |cell, index|
+        mapped_values = map_values.merge(
+          "_name" => URI.decode(cell[:column].name),
+          "_column" => (index + 1),
+          "_sourceColumn" => (index + 1 + skipColumns)
+        )
         cell.set_urls(metadata.url, mapped_values)
 
         # Row resource set from first cell, or a new Blank Node

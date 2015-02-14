@@ -8,39 +8,39 @@
       "row": [
         {
           "url": "http://example.org/senior-roles.csv#post-90115",
-          "rownum": 2,
+          "rownum": 1,
           "ref": "90115",
           "name": "Steve Egan",
           "grade": "SCS1A",
           "job": "Deputy Chief Executive",
-          "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}"
+          "reportsTo": "http://example.org/senior-roles.csv#post-90334"
         },
         {
           "url": "http://example.org/senior-roles.csv#post-90250",
-          "rownum": 3,
+          "rownum": 2,
           "ref": "90250",
           "name": "David Sweeney",
           "grade": "SCS1A",
           "job": "Director",
-          "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}"
+          "reportsTo": "http://example.org/senior-roles.csv#post-90334"
         },
         {
           "url": "http://example.org/senior-roles.csv#post-90284",
-          "rownum": 4,
+          "rownum": 3,
           "ref": "90284",
           "name": "Heather Fry",
           "grade": "SCS1A",
           "job": "Director",
-          "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}"
+          "reportsTo": "http://example.org/senior-roles.csv#post-90334"
         },
         {
           "url": "http://example.org/senior-roles.csv#post-90334",
-          "rownum": 5,
+          "rownum": 4,
           "ref": "90334",
           "name": "Sir Alan Langlands",
           "grade": "SCS4",
           "job": "Chief Executive",
-          "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}"
+          "reportsTo": "http://example.org/senior-roles.csv#post-xx"
         }
       ]
     },
@@ -51,8 +51,8 @@
       },
       "row": [
         {
-          "rownum": 2,
-          "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}",
+          "rownum": 1,
+          "reportsTo": "http://example.org/senior-roles.csv#post-90284",
           "Grade": "4",
           "Payscale%20Minimum%20%28%C2%A3%29": "17426",
           "Payscale%20Maximum%20%28%C2%A3%29": "20002",
@@ -61,8 +61,8 @@
           "Profession": "Operational Delivery"
         },
         {
-          "rownum": 3,
-          "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}",
+          "rownum": 2,
+          "reportsTo": "http://example.org/senior-roles.csv#post-90284",
           "Grade": "5",
           "Payscale%20Minimum%20%28%C2%A3%29": "19546",
           "Payscale%20Maximum%20%28%C2%A3%29": "22478",
@@ -71,8 +71,8 @@
           "Profession": "Operational Delivery"
         },
         {
-          "rownum": 4,
-          "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}",
+          "rownum": 3,
+          "reportsTo": "http://example.org/senior-roles.csv#post-90115",
           "Grade": "4",
           "Payscale%20Minimum%20%28%C2%A3%29": "17426",
           "Payscale%20Maximum%20%28%C2%A3%29": "20002",
@@ -81,8 +81,8 @@
           "Profession": "Operational Delivery"
         },
         {
-          "rownum": 5,
-          "reportsTo": "http://example.org/senior-roles.csv#post-{reportsTo}",
+          "rownum": 4,
+          "reportsTo": "http://example.org/senior-roles.csv#post-90115",
           "Grade": "5",
           "Payscale%20Minimum%20%28%C2%A3%29": "19546",
           "Payscale%20Maximum%20%28%C2%A3%29": "22478",

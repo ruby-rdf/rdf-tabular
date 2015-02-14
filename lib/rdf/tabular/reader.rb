@@ -399,9 +399,9 @@ module RDF::Tabular
           r["url"] = row.resource.to_s if row.resource.is_a?(RDF::URI)
           r["rownum"] = row.rownum
 
-          row.values.each_with_index do |value, index|
+          row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]
-            r[column.name] = column.valueUrl || value
+            r[column.name] = cell.valueUrl || cell.value
           end
           rows << r
         end

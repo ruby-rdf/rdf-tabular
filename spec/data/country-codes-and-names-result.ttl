@@ -8,19 +8,19 @@
 [  csvw:row [
      :country "AD";
      :name "Andorra";
-     csvw:rownum 2
+     csvw:rownum 1
    ],  [
      :country "AF";
      :name "Afghanistan";
-     csvw:rownum 3
+     csvw:rownum 2
    ],  [
      :country "AI";
      :name "Anguilla";
-     csvw:rownum 4
+     csvw:rownum 3
    ],  [
      :country "AL";
      :name "Albania";
-     csvw:rownum 5
+     csvw:rownum 4
    ];
    dcat:distribution [
      a dcat:Distribution;

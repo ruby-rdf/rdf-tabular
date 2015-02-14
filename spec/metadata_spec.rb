@@ -571,7 +571,7 @@ describe RDF::Tabular::Metadata do
 
     it "returns consecutive row numbers" do
       nums = subject.to_enum(:each_row, input).map(&:rownum)
-      expect(nums).to eql([2, 3, 4])
+      expect(nums).to eql([1, 2, 3])
     end
 
     it "returns BNode resources" do
