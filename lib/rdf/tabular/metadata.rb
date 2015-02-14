@@ -755,7 +755,7 @@ module RDF::Tabular
         [self, metadata].each do |md|
           md.each do |key, value|
             md[key] = case @properties[key]
-            when :link, :url_template
+            when :link
               md.base.join(value)
             when :object
               case key
@@ -867,11 +867,7 @@ module RDF::Tabular
                   # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
                   self[key] = self[key] + (metadata[key] - self[key])
                 end
-              when :link
-                # If the property is a link property, then if the property only accepts single values, the value from A overrides that from B, otherwise the result is an array of links: those from A followed by those from B that were not already a value in A.
-                # SPEC CONFUSION: What is an example of such a property?
-                self[key] ||= value
-              when :uri_template, :column_reference then self[key] ||= value
+              when :link, :uri_template, :column_reference then self[key] ||= value
               when :object
                 case key
                 when :notes
