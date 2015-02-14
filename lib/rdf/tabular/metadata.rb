@@ -421,6 +421,20 @@ module RDF::Tabular
       end
     end
 
+    # Set new dialect
+    # @return [Dialect]
+    def dialect=(value)
+      # Clear cached dialect information from children
+      self.values.each do |v|
+        case v
+        when Metadata then v.dialect = nil
+        when Array then v.each {|vv| vv.dialect = nil if vv.is_a?(Metadata)}
+        end
+      end
+
+      @dialect = self[:dialect] = value ? Dialect.new(value) : nil
+    end
+
     # Type of this Metadata
     # @return [:TableGroup, :Table, :Template, :Schema, :Column]
     def type; self.class.name.split('::').last.to_sym; end
@@ -542,6 +556,7 @@ module RDF::Tabular
         when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
         when :urlTemplate then value.is_a?(String)
         when :url then @url.valid?
+        when :virtual then %w(true false 1 0).include?(value.to_s.downcase)
         when :@type then value.to_sym == type
         else
           raise "?!?! shouldn't get here for key #{key}"
@@ -637,7 +652,7 @@ module RDF::Tabular
       (1..skipped).each {csv.shift}
       csv.each do |row|
         rownum += 1
-        yield(Row.new(row, self, rownum))
+        yield(Row.new(row, self, rownum, rownum + skipped))
       end
     end
 
@@ -982,6 +997,7 @@ module RDF::Tabular
 
     # Setters
     PROPERTIES.each do |a, type|
+      next if a == :dialect
       define_method("#{a}=".to_sym) do |value|
         case type
         when :natural_language
@@ -1033,6 +1049,7 @@ module RDF::Tabular
 
     # Setters
     PROPERTIES.each do |a, type|
+      next if a == :dialect
       define_method("#{a}=".to_sym) do |value|
         case type
         when :natural_language
@@ -1127,6 +1144,7 @@ module RDF::Tabular
       name:         :atomic,
       title:        :natural_language,
       required:     :atomic,
+      virtual:      :atomic,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1259,10 +1277,10 @@ module RDF::Tabular
   # Wraps each resulting row
   class Row
     # Class for returning values
-    Cell = Struct.new(:column, :raw, :aboutUrl, :propertyUrl, :valueUrl, :value) do
+    Cell = Struct.new(:metadata, :raw, :column, :sourceColumn, :aboutUrl, :propertyUrl, :valueUrl, :value) do
       def set_urls(url, mapped_values)
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
-          if v = column.send(prop.to_sym)
+          if v = metadata.send(prop.to_sym)
             t = Addressable::Template.new(v)
             self.send("#{prop}=".to_sym, url.join(t.expand(mapped_values)))
           end
@@ -1281,15 +1299,20 @@ module RDF::Tabular
 
     # Row number of this row
     # @return [Integer]
-    attr_reader :rownum
+    attr_reader :row
+
+    # Row number of this row from the original source
+    # @return [Integer]
+    attr_reader :sourceRow
 
     ##
     # @param [Array<Array<String>>] row
     # @param [Metadata] metadata for Table
     # @param [Integer] rownum 1-based row number
     # @return [Row]
-    def initialize(row, metadata, rownum)
-      @rownum = rownum
+    def initialize(row, metadata, rownum, source_rownum)
+      @row = rownum
+      @sourceRow = source_rownum
       @values = []
       skipColumns = metadata.dialect.skipColumns.to_i + metadata.dialect.headerColumnCount.to_i
 
@@ -1301,6 +1324,9 @@ module RDF::Tabular
       # Create columns if no columns were ever set; this would be the case when headerRowCount is zero, and nothing was set from explicit metadata
       create_columns = metadata.tableSchema.columns.nil?
       columns = metadata.tableSchema.columns ||= []
+
+      # Make sure that the row length is at least as long as the number of column definitions, to implicitly include virtual columns
+      columns.each_with_index {|c, index| row[index] ||= metadata.dialect.null}
       row.each_with_index do |value, index|
         next if index < skipColumns
 
@@ -1311,7 +1337,7 @@ module RDF::Tabular
 
         column = columns[index - skipColumns]
 
-        @values << cell = Cell.new(column, value)
+        @values << cell = Cell.new(column, value, index + 1 - skipColumns, index + 1)
 
         # Trim value
         value.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
@@ -1340,9 +1366,9 @@ module RDF::Tabular
       # Map URLs for row
       @values.each_with_index do |cell, index|
         mapped_values = map_values.merge(
-          "_name" => URI.decode(cell[:column].name),
-          "_column" => (index + 1),
-          "_sourceColumn" => (index + 1 + skipColumns)
+          "_name" => URI.decode(cell.metadata.name),
+          "_column" => cell.column,
+          "_sourceColumn" => cell.sourceColumn
         )
         cell.set_urls(metadata.url, mapped_values)
 

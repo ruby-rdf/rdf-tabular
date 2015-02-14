@@ -178,11 +178,11 @@ module RDF::Tabular
         # Output ROW-Level statements
         metadata.each_row(input) do |row|
           # Output row-level metadata
-          add_statement(row.rownum, table_resource, CSVW.row, row.resource)
-          add_statement(row.rownum, row.resource, CSVW.rownum, row.rownum)
+          add_statement(row.row, table_resource, CSVW.row, row.resource)
+          add_statement(row.row, row.resource, CSVW.rownum, row.row)
           row.values.each_with_index do |cell, index|
             Array(cell.valueUrl || cell.value).each do |v|
-              add_statement(row.rownum, cell.aboutUrl, cell.propertyUrl, v)
+              add_statement(row.row, cell.aboutUrl, cell.propertyUrl, v)
             end
           end
         end
@@ -397,7 +397,7 @@ module RDF::Tabular
           # Output row-level metadata
           r = {}
           r["url"] = row.resource.to_s if row.resource.is_a?(RDF::URI)
-          r["rownum"] = row.rownum
+          r["rownum"] = row.row
 
           row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]

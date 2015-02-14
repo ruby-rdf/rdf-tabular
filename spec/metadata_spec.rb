@@ -194,6 +194,10 @@ describe RDF::Tabular::Metadata do
         valid: [true, false, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
         invalid: [nil, "foo"],
       },
+      virtual: {
+        valid: [true, false, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+        invalid: [nil, "foo"],
+      },
     }.each do |prop, params|
       context prop.to_s do
         it "validates" do
@@ -224,7 +228,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Schema do
-    subject {described_class.new({}, base: RDF::URI("http://example.org/base", debug: @debug))}
+    subject {described_class.new({}, base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -232,7 +236,7 @@ describe RDF::Tabular::Metadata do
 
     describe "columns" do
       let(:column) {{"name" => "foo"}}
-      subject {described_class.new({"columns" => []}, base: RDF::URI("http://example.org/base", debug: @debug))}
+      subject {described_class.new({"columns" => []}, base: RDF::URI("http://example.org/base"), debug: @debug)}
       specify {is_expected.to be_valid}
 
       its(:type) {is_expected.to eql :Schema}
@@ -242,17 +246,17 @@ describe RDF::Tabular::Metadata do
       end
 
       it "allows a valid column" do
-        v = described_class.new({"columns" => [column]}, base: RDF::URI("http://example.org/base", debug: @debug))
+        v = described_class.new({"columns" => [column]}, base: RDF::URI("http://example.org/base"), debug: @debug)
         expect(v).to be_valid
       end
 
       it "is invalid with an invalid column" do
-        v = described_class.new({"columns" => [{"name" => nil}]}, base: RDF::URI("http://example.org/base", debug: @debug))
+        v = described_class.new({"columns" => [{"name" => nil}]}, base: RDF::URI("http://example.org/base"), debug: @debug)
         expect(v).not_to be_valid
       end
 
       it "is invalid with an non-unique columns" do
-        v = described_class.new({"columns" => [column, column]}, base: RDF::URI("http://example.org/base", debug: @debug))
+        v = described_class.new({"columns" => [column, column]}, base: RDF::URI("http://example.org/base"), debug: @debug)
         expect(v).not_to be_valid
       end
     end
@@ -260,7 +264,7 @@ describe RDF::Tabular::Metadata do
     describe "primaryKey" do
       let(:column) {{"name" => "foo"}}
       let(:column2) {{"name" => "bar"}}
-      subject {described_class.new({"columns" => [column], "primaryKey" => column["name"]}, base: RDF::URI("http://example.org/base", debug: @debug))}
+      subject {described_class.new({"columns" => [column], "primaryKey" => column["name"]}, base: RDF::URI("http://example.org/base"), debug: @debug)}
       specify {is_expected.to be_valid}
 
       its(:type) {is_expected.to eql :Schema}
@@ -318,7 +322,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Dialect do
-    subject {described_class.new({}, base: RDF::URI("http://example.org/base", debug: @debug))}
+    subject {described_class.new({}, debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties", false)
@@ -570,7 +574,7 @@ describe RDF::Tabular::Metadata do
     specify {expect {|b| subject.each_row(input, &b)}.to yield_control.exactly(3)}
 
     it "returns consecutive row numbers" do
-      nums = subject.to_enum(:each_row, input).map(&:rownum)
+      nums = subject.to_enum(:each_row, input).map(&:row)
       expect(nums).to eql([1, 2, 3])
     end
 
@@ -682,6 +686,44 @@ describe RDF::Tabular::Metadata do
       end
     end
     it "expands aboutUrl in cells" do
+    end
+
+    context "variations" do
+      {
+        "skipRows" => {dialect: {skipRows: 1}},
+        "headerRowCount" => {dialect: {headerRowCount: 0}},
+        "skipRows + headerRowCount" => {dialect: {skipRows: 1, headerRowCount: 0}},
+        "skipColumns" => {dialect: {skipColumns: 1}},
+        "headerColumnCount" => {dialect: {headerColumnCount: 0}},
+        "skipColumns + headerColumnCount" => {dialect: {skipColumns: 1, headerColumnCount: 0}},
+      }.each do |name, props|
+        context name do
+          before(:each) { subject.dialect = props[:dialect]}
+          let(:rows) {subject.to_enum(:each_row, input).to_a}
+          let(:rowOffset) {props[:dialect].fetch(:skipRows, 0) + props[:dialect].fetch(:headerRowCount, 1)}
+          let(:columnOffset) {props[:dialect].fetch(:skipColumns, 0) + props[:dialect].fetch(:headerColumnCount, 0)}
+          it "has expected row attributes" do
+            nums = [1, 2, 3, 4]
+            nums = nums.first(nums.length - rowOffset)
+            expect(rows.map(&:row)).to eql nums
+          end
+          it "has expected sourceRow attributes" do
+            nums = [1, 2, 3, 4].map {|n| n + rowOffset}
+            nums = nums.first(nums.length - rowOffset)
+            expect(rows.map(&:sourceRow)).to eql nums
+          end
+          it "has expected column attributes" do
+            nums = [1, 2, 3, 4]
+            nums = nums.first(nums.length - columnOffset)
+            expect(rows.first.values.map(&:column)).to eql nums
+          end
+          it "has expected sourceColumn attributes" do
+            nums = [1, 2, 3, 4].map {|n| n + columnOffset}
+            nums = nums.first(nums.length - columnOffset)
+            expect(rows.first.values.map(&:sourceColumn)).to eql nums
+          end
+        end
+      end
     end
   end
 
