@@ -24,11 +24,11 @@ module RDF::Util
       when /^file:/
         path = filename_or_url[5..-1]
         Kernel.open(path.to_s, &block)
-      when %r{^(#{REMOTE_PATH}|http://www.w3.org/ns/csvw)}
+      when %r{^(#{REMOTE_PATH}|http://www.w3.org/ns/csvw/?)}
         begin
           #puts "attempt to open #{filename_or_url} locally"
           localpath = case filename_or_url.to_s
-          when 'http://www.w3.org/ns/csvw' then ::File.join(LOCAL_PATH, "ns/csvw.jsonld")
+          when %r{http://www.w3.org/ns/csvw/?} then ::File.join(LOCAL_PATH, "ns/csvw.jsonld")
           else filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)
           end
           response = begin

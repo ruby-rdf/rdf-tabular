@@ -7,6 +7,8 @@ describe RDF::Tabular::Reader do
     require 'suite_helper'
     MANIFEST = Fixtures::SuiteTest::BASE + "manifest.ttl"
 
+    before(:all) {WebMock.allow_net_connect!(net_http_connect_on_start: true)}
+    after(:all) {WebMock.allow_net_connect!(net_http_connect_on_start: false)}
     Fixtures::SuiteTest::Manifest.open(MANIFEST) do |m|
       describe m.comment do
         m.entries.each do |t|
