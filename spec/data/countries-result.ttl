@@ -5,15 +5,14 @@
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 [
+   a csvw:TableGroup;
    csvw:table [
+     a csvw:Table;
      csvw:row <http://example.org/countries.csv#AD>,
        <http://example.org/countries.csv#AE>,
-       <http://example.org/countries.csv#AF>;
-     dcat:distribution [
-       a dcat:Distribution;
-       dcat:downloadURL <http://example.org/countries.csv>
-     ]
-  ], [
+       <http://example.org/countries.csv#AF>
+   ], [
+     a csvw:Table;
      csvw:row [
        <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
        <http://example.org/country_slice.csv#population> 9616353;
@@ -29,10 +28,6 @@
        <http://example.org/country_slice.csv#population> 9989846;
        <http://example.org/country_slice.csv#year> "1962"^^xsd:gYear;
        csvw:rownum 3
-     ];
-     dcat:distribution [
-       a dcat:Distribution;
-       dcat:downloadURL <http://example.org/country_slice.csv>
      ]
   ]
 ] .

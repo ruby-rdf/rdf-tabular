@@ -5,7 +5,9 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-[  csvw:row [
+[
+   a csvw:Table;
+   csvw:row [
      :country "AD";
      :name "Andorra";
      csvw:rownum 1
@@ -21,9 +23,5 @@
      :country "AL";
      :name "Albania";
      csvw:rownum 4
-   ];
-   dcat:distribution [
-     a dcat:Distribution;
-     dcat:downloadURL <http://example.org/country-codes-and-names.csv>
    ]
 ].

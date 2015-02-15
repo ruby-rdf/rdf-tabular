@@ -1,8 +1,5 @@
 {
   "url": "http://example.org/country-codes-and-names.csv",
-  "distribution": {
-    "downloadURL": "http://example.org/country-codes-and-names.csv"
-  },
   "row": [
     {
       "rownum": 1,

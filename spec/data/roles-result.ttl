@@ -31,16 +31,16 @@
    <http://example.org/senior-roles.csv#ref> "90334";
    csvw:rownum 4 .
 
- [ csvw:table [
+[
+   a csvw:TableGroup;
+   csvw:table [
+      a csvw:Table;
       csvw:row <http://example.org/senior-roles.csv#post-90115>,
         <http://example.org/senior-roles.csv#post-90250>,
         <http://example.org/senior-roles.csv#post-90284>,
-        <http://example.org/senior-roles.csv#post-90334>;
-      dcat:distribution [
-        a dcat:Distribution;
-        dcat:downloadURL <http://example.org/senior-roles.csv>
-      ]
-    ],  [
+        <http://example.org/senior-roles.csv#post-90334>
+   ], [
+      a csvw:Table;
       csvw:row [
         <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
         <http://example.org/junior-roles.csv#Grade> "4";
@@ -77,9 +77,6 @@
         <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
         <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90115>;
         csvw:rownum 4
-      ];
-      dcat:distribution [
-        a dcat:Distribution;
-        dcat:downloadURL <http://example.org/junior-roles.csv>
       ]
-    ]] .
+   ]
+] .

@@ -1,8 +1,5 @@
 {
   "url": "http://example.org/tree-ops.csv",
-  "distribution": {
-    "downloadURL": "http://example.org/tree-ops.csv"
-  },
   "dc:title": "Tree Operations",
   "dc:keywords": [
     "tree",

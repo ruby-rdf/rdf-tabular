@@ -89,6 +89,7 @@ describe RDF::Tabular::Reader do
                                                          id: about,
                                                          action: about,
                                                          result: expected,
+                                                         noProv: true,
                                                          metadata: reader.metadata)
           end
         end

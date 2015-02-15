@@ -28,6 +28,7 @@ module RDF::Tabular
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Reader#initialize`)
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
+    # @option options [Boolean] :noProv do not output optional provenance information
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored
@@ -91,9 +92,9 @@ module RDF::Tabular
             # Get Metadata to invoke and open referenced files
             case input.type
             when :TableGroup
-              # SPEC SUGGESTION: Use resolved @id of TableGroup, if available
-              table_group = RDF::Node.new
-              #add_statement(0, table_group, RDF.type, CSVW.TableGroup)
+              # Use resolved @id of TableGroup, if available
+              table_group = input.id || RDF::Node.new
+              add_statement(0, table_group, RDF.type, CSVW.TableGroup)
 
               # Common Properties
               input.common_properties(table_group) do |statement|
@@ -101,7 +102,7 @@ module RDF::Tabular
               end
 
               input.resources.each do |table|
-                table_resource = RDF::Node.new
+                table_resource = table.id || RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource)
                 Reader.open(table.url, options.merge(
                     format: :tabular,
@@ -127,51 +128,11 @@ module RDF::Tabular
         # Output Table-Level RDF triples
         # SPEC CONFUSION: Would we ever use the resolved @id of the Table metadata?
         table_resource = options.fetch(:table_resource, RDF::Node.new)
+        add_statement(0, table_resource, RDF.type, CSVW.Table)
 
-        # Distribution
-        distribution = RDF::Node.new
-        add_statement(0, table_resource, RDF::DCAT.distribution, distribution)
-        add_statement(0, distribution, RDF.type, RDF::DCAT.Distribution)
-        add_statement(0, distribution, RDF::DCAT.downloadURL, metadata.url)
-
-        # Output table common properties
+        # Output table notes and common properties
         metadata.common_properties(table_resource) do |statement|
           add_statement(0, statement)
-        end
-
-        # Schema
-        if metadata.tableSchema.has_annotations?
-          schema_resource = RDF::Node.new
-          add_statement(0, table_resource, CSVW.tableSchema, schema_resource)
-          metadata.tableSchema.common_properties(schema_resource) do |statement|
-            add_statement(0, statement)
-          end
-
-          # Columns
-          metadata.tableSchema.columns.each do |column|
-            next unless column.has_annotations?
-
-            column_resource = RDF::Node.new
-            add_statement(0, schema_resource, CSVW.column, column_resource)
-            add_statement(0, column_resource, CSVW.colnum, column.colnum)
-
-            # URI templates
-            #add_statement(0, column_resource, CSVW.aboutUrl, column.aboutUrl) if column.aboutUrl
-            #add_statement(0, column_resource, CSVW.propertyUrl, column.propertyUrl)
-            #add_statement(0, column_resource, CSVW.valueUrl, column.valueUrl) if column.valueUrl
-
-            # Titles
-            #column.rdf_values(column_resource, "title", column.title) do |statement|
-            #  # Make sure to use column language, not that from the context
-            #  statement.predicate = RDF::RDFS.label if statement.predicate == CSVW.title
-            #  add_statement(0, statement)
-            #end
-
-            # Common Properties
-            column.common_properties(column_resource) do |statement|
-              add_statement(0, statement)
-            end
-          end
         end
 
         # Input is file containing CSV data.
@@ -189,6 +150,12 @@ module RDF::Tabular
 
         # Provenance
         unless @options[:noProv]
+          # Distribution
+          distribution = RDF::Node.new
+          add_statement(0, table_resource, RDF::DCAT.distribution, distribution)
+          add_statement(0, distribution, RDF.type, RDF::DCAT.Distribution)
+          add_statement(0, distribution, RDF::DCAT.downloadURL, metadata.url)
+
           activity = RDF::Node.new
           add_statement(0, table_resource, RDF::PROV.activity, activity)
           add_statement(0, activity, RDF.type, RDF::PROV.Activity)
@@ -329,13 +296,9 @@ module RDF::Tabular
         end
       else
         rows = []
-        table = {
-          # SPEC CONFUSION: aren't these URIs the same?
-          "url" => metadata.url.to_s,
-          "distribution" => { "downloadURL" => metadata.url},
-        }
+        table = {"url" => metadata.url.to_s,}
 
-        # Use string values from common properties
+        # Use string values notes and common properties
         metadata.common_properties.each do |prop, value|
           value = [value] unless value.is_a?(Array)
           value = value.map do |v|
@@ -346,47 +309,6 @@ module RDF::Tabular
             end
           end
           table[prop] = value.length == 1 ? value.first : value
-        end
-
-        if metadata.tableSchema.has_annotations?
-          table["tableSchema"] = schema = {}
-          # Schema info
-          # Use string values from common properties
-          metadata.tableSchema.common_properties.each do |prop, value|
-            value = [value] unless value.is_a?(Array)
-            value = value.map do |v|
-              if v.is_a?(Hash) && !(v.keys & %w(@id @value)).empty?
-                v['@value'] || v['@id']
-              else
-                v
-              end
-            end
-            schema[prop] = value.length == 1 ? value.first : value
-          end
-
-          # Column info
-          # Use string values from common properties
-          metadata.tableSchema.columns.each do |column|
-            next unless column.has_annotations?
-
-            (schema["columns"] ||= []) << (col = {})
-            col["colnum"] = column.colnum
-            col["aboutUrl"] = column.aboutUrl if column.aboutUrl
-            col["propertyUrl"] = column.propertyUrl
-            col["valueUrl"] = column.valueUrl if column.valueUrl
-
-            column.common_properties.each do |prop, value|
-              value = [value] unless value.is_a?(Array)
-              value = value.map do |v|
-                if v.is_a?(Hash) && !(v.keys & %w(@id @value)).empty?
-                  v['@value'] || v['@id']
-                else
-                  v
-                end
-              end
-              col[prop] = value.length == 1 ? value.first : value
-            end
-          end
         end
 
         table.merge!("row" => rows)
@@ -406,10 +328,14 @@ module RDF::Tabular
           rows << r
         end
 
-        # Optional describedBy
         # Provenance
-        if Array(@metadata.filenames).length > 0 && !@options[:noProv]
-          table["describedBy"] = @metadata.filenames.length == 1 ? @metadata.filenames.first : @metadata.filenames
+        unless @options[:noProv]
+          table['distribution'] = { "downloadURL" => metadata.url}
+
+          # Optional describedBy
+          if Array(@metadata.filenames).length > 0
+            table["describedBy"] = @metadata.filenames.length == 1 ? @metadata.filenames.first : @metadata.filenames
+          end
         end
         table
       end

@@ -2,9 +2,6 @@
   "tables": [
     {
       "url": "http://example.org/senior-roles.csv",
-      "distribution": {
-        "downloadURL": "http://example.org/senior-roles.csv"
-      },
       "row": [
         {
           "url": "http://example.org/senior-roles.csv#post-90115",
@@ -46,9 +43,6 @@
     },
     {
       "url": "http://example.org/junior-roles.csv",
-      "distribution": {
-        "downloadURL": "http://example.org/junior-roles.csv"
-      },
       "row": [
         {
           "rownum": 1,
