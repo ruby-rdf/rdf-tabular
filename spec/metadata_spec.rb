@@ -37,7 +37,7 @@ describe RDF::Tabular::Metadata do
         valid: %w(en en-US),
         invalid: %w(1 foo)
       },
-      "text-direction" => {
+      "textDirection" => {
         valid: %w(rtl ltr),
         invalid: %w(foo default)
       },
@@ -943,10 +943,10 @@ describe RDF::Tabular::Metadata do
           "tableSchema": {"columns": [{"name": "foo"}]}
         }),
       },
-      "Table with table-direction always takes A" => {
-        A: %({"@type": "Table", "url": "http://example.com/foo", "table-direction": "ltr"}),
-        B: %({"@type": "Table", "url": "http://example.com/foo", "table-direction": "rtl"}),
-        R: %({"@type": "Table", "url": "http://example.com/foo", "table-direction": "ltr"}),
+      "Table with tableDirection always takes A" => {
+        A: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
+        B: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "rtl"}),
+        R: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
       },
       "Table with dialect merges A and B" => {
         A: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8"}}),

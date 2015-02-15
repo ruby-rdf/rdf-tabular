@@ -22,7 +22,7 @@ module RDF::Tabular
     INHERITED_PROPERTIES = {
       null:               :atomic,
       lang:               :atomic,
-      :"text-direction" =>:atomic,
+      textDirection:      :atomic,
       separator:          :atomic,
       default:            :atomic,
       format:             :atomic,
@@ -548,10 +548,10 @@ module RDF::Tabular
         when :skipColumns then value.is_a?(Numeric) && value.integer? && value >= 0
         when :skipRows then value.is_a?(Numeric) && value.integer? && value >= 0
         when :source then %w(json rdf).include?(value)
-        when :"table-direction" then %w(rtl ltr default).include?(value)
+        when :tableDirection then %w(rtl ltr default).include?(value)
         when :targetFormat, :templateFormat then RDF::URI(value).valid?
         when :templates then value.is_a?(Array) && value.all? {|v| v.is_a?(Template) && v.validate!}
-        when :"text-direction" then %w(rtl ltr).include?(value)
+        when :textDirection then %w(rtl ltr).include?(value)
         when :title then valid_natural_language_property?(value)
         when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
         when :urlTemplate then value.is_a?(String)
@@ -989,7 +989,7 @@ module RDF::Tabular
      :"@type"           => :atomic,
      resources:            :array,
      tableSchema:          :object,
-     :"table-direction" => :atomic,
+     tableDirection:       :atomic,
      dialect:              :object,
      templates:            :array,
     }.freeze
@@ -1040,7 +1040,7 @@ module RDF::Tabular
       :"@type"            => :atomic,
       tableSchema:           :object,
       notes:                 :object,
-      :"table-direction"  => :atomic,
+      tableDirection:        :atomic,
       templates:             :array,
       title:                 :natural_language,
       dialect:               :object,
