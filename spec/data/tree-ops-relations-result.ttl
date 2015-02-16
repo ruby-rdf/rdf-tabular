@@ -1,0 +1,45 @@
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix schema: <http://schema.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[
+   a csvw:Table;
+   csvw:row <http://example.org/tree-ops.csv#gid-1>,
+     <http://example.org/tree-ops.csv#gid-2>,
+     <http://example.org/tree-ops.csv#gid-3>
+] .
+
+<http://example.org/tree-ops.csv#gid-1> <http://example.org/tree-ops.csv#trim_cycle> "Large Tree Routine Prune";
+   csvw:rownum 1;
+   schema:event <http://example.org/tree-ops.csv#event-10%2F18%2F2010>;
+   schema:location <http://example.org/tree-ops.csv#location-1>;
+   schema:name "Celtis australis";
+   schema:url <http://example.org/tree-ops.csv#gid-1> .
+
+<http://example.org/tree-ops.csv#location-1> rdf:type schema:PostalAddress;
+   schema:streetAddress "ADDISON AV" .
+
+<http://example.org/tree-ops.csv#event-10%2F18%2F2010> schema:startDate "10/18/2010"^^xsd:date .
+
+<http://example.org/tree-ops.csv#gid-2> <http://example.org/tree-ops.csv#trim_cycle> "Large Tree Routine Prune";
+   csvw:rownum 2;
+   schema:event <http://example.org/tree-ops.csv#event-6%2F2%2F2010>;
+   schema:location <http://example.org/tree-ops.csv#location-2>;
+   schema:name "Liquidambar styraciflua";
+   schema:url <http://example.org/tree-ops.csv#gid-2> .
+
+<http://example.org/tree-ops.csv#location-2> rdf:type schema:PostalAddress;
+   schema:streetAddress "EMERSON ST" .
+
+<http://example.org/tree-ops.csv#event-6%2F2%2F2010> schema:startDate "6/2/2010"^^xsd:date .
+
+<http://example.org/tree-ops.csv#gid-3> <http://example.org/tree-ops.csv#trim_cycle> "Large Tree Routine Prune";
+   csvw:rownum 3;
+   schema:event <http://example.org/tree-ops.csv#event-6%2F2%2F2010>;
+   schema:location <http://example.org/tree-ops.csv#location-3>;
+   schema:name "Liquidambar styraciflua";
+   schema:url <http://example.org/tree-ops.csv#gid-3> .
+
+<http://example.org/tree-ops.csv#location-3> rdf:type schema:PostalAddress;
+   schema:streetAddress "EMERSON ST" .

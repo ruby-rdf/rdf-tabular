@@ -101,7 +101,7 @@ module RDF::Tabular
                 add_statement(0, statement)
               end
 
-              input.resources.each do |table|
+              input.each_resource do |table|
                 table_resource = table.id || RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource)
                 Reader.open(table.url, options.merge(
@@ -251,7 +251,7 @@ module RDF::Tabular
             # Common Properties
             table_group.merge!(input.common_properties)
 
-            input.resources.each do |table|
+            input.each_resource do |table|
               Reader.open(table.url, options.merge(
                 format:             :tabular,
                 metadata:           table,

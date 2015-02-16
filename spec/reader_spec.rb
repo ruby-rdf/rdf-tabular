@@ -51,6 +51,7 @@ describe RDF::Tabular::Reader do
     test_files = {
       "tree-ops.csv" => "tree-ops-result.ttl",
       "tree-ops.csv-metadata.json" => "tree-ops-result.ttl",
+      "tree-ops-relations.json" => "tree-ops-relations-result.ttl",
       "country-codes-and-names.csv" => "country-codes-and-names-result.ttl",
       "countries.json" => "countries-result.ttl",
       "roles.json" => "roles-result.ttl",
