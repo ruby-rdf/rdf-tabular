@@ -174,8 +174,14 @@ describe RDF::Tabular::Metadata do
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
 
+    it "allows valid name" do
+      %w(
+        name abc.123 _col.1
+      ).each {|v| expect(described_class.new("name" => v)).to be_valid}
+    end
+
     it "detects invalid names" do
-      [1, true, nil, "_foo"].each {|v| expect(described_class.new("name" => v)).not_to be_valid}
+      [1, true, nil, "_foo", "_col=1"].each {|v| expect(described_class.new("name" => v)).not_to be_valid}
     end
 
     it "allows absence of name" do
@@ -251,7 +257,7 @@ describe RDF::Tabular::Metadata do
       end
 
       it "is invalid with an invalid column" do
-        v = described_class.new({"columns" => [{"name" => nil}]}, base: RDF::URI("http://example.org/base"), debug: @debug)
+        v = described_class.new({"columns" => [{"name" => "_invalid"}]}, base: RDF::URI("http://example.org/base"), debug: @debug)
         expect(v).not_to be_valid
       end
 

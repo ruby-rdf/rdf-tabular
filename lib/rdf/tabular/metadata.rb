@@ -91,7 +91,7 @@ module RDF::Tabular
 
     # A name is restricted according to the following RegExp.
     # @return [RegExp]
-    NAME_SYNTAX = %r(\A[a-zA-Z0-9][a-zA-Z0-9\._]*\z)
+    NAME_SYNTAX = %r(\A(?:_col|[a-zA-Z0-9])[a-zA-Z0-9\._]*\z)
 
     # ID of this Metadata
     # @return [RDF::URI]
@@ -1018,7 +1018,15 @@ module RDF::Tabular
     def method_missing(method, *args)
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
         # Inherited properties
-        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
+        self.fetch(method.to_sym) do
+          return parent.send(method) if parent
+          case method.to_sym
+          when :null, :default then ''
+          when :textDirection then :ltr
+          when :propertyUrl then "{#_name}"
+          else nil
+          end
+        end
       else
         PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
       end
@@ -1167,13 +1175,6 @@ module RDF::Tabular
         else
           self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
         end
-      end
-    end
-
-    # Return the inherited, or default propertyUrl as a URI template
-    def propertyUrl
-      self.fetch(:propertyUrl) do
-        parent && parent.propertyUrl ? parent.propertyUrl : "{#_name}"
       end
     end
 
@@ -1326,7 +1327,7 @@ module RDF::Tabular
       columns = metadata.tableSchema.columns ||= []
 
       # Make sure that the row length is at least as long as the number of column definitions, to implicitly include virtual columns
-      columns.each_with_index {|c, index| row[index] ||= metadata.dialect.null}
+      columns.each_with_index {|c, index| row[index] ||= c.null}
       row.each_with_index do |value, index|
         next if index < skipColumns
 
