@@ -202,30 +202,33 @@ module RDF::Tabular
       context = options[:context]
       object = input
 
-      # Only define context if input is readable, or there's no parent
+      # Only define context if input is readable, and there's no parent
       if !options[:parent] || !input.is_a?(Hash) || input.has_key?('@context')
         # Open as JSON-LD to get context
         jsonld = ::JSON::LD::API.new(input, context)
 
-        context ||= ::JSON::LD::Context.new
-        # If we still haven't found 'csvw', load the default context
-        if !context.term_definitions.has_key?('csvw') &&
-           !jsonld.context.term_definitions.has_key?('csvw')
-          input.rewind if input.respond_to?(:rewind)
+        # Set the context unless we're called with a parent
+        unless options[:parent]
+          context ||= ::JSON::LD::Context.new
+          # If we still haven't found 'csvw', load the default context
+          if !context.term_definitions.has_key?('csvw') &&
+             !jsonld.context.term_definitions.has_key?('csvw')
+            input.rewind if input.respond_to?(:rewind)
 
-          # Also use context from jsonld value in addition to default
-          use_context = case jsonld.value['@context']
-          when Array  then %w(http://www.w3.org/ns/csvw) + jsonld.value['@context']
-          when Hash then ['http://www.w3.org/ns/csvw', jsonld.value['@context']]
-          else             'http://www.w3.org/ns/csvw'
-          end
+            # Also use context from jsonld value in addition to default
+            use_context = case jsonld.value['@context']
+            when Array  then %w(http://www.w3.org/ns/csvw) + jsonld.value['@context']
+            when Hash then ['http://www.w3.org/ns/csvw', jsonld.value['@context']]
+            else             'http://www.w3.org/ns/csvw'
+            end
           
-          jsonld = ::JSON::LD::API.new(input, use_context)
-        end
+            jsonld = ::JSON::LD::API.new(input, use_context)
+          end
 
-        # If we already have a context, merge in the context from this object, otherwise, set it to this object
-        context.merge!(jsonld.context)
-        options = options.merge(context: context)
+          # If we already have a context, merge in the context from this object, otherwise, set it to this object
+          context.merge!(jsonld.context)
+          options = options.merge(context: context)
+        end
 
         # Get both parsed JSON and context from jsonld
         object = jsonld.value
@@ -362,7 +365,6 @@ module RDF::Tabular
             end
           when :url
             # URL of CSV relative to metadata
-            # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
             self[:url] = value
             @url = base.join(value)
             @context.base = @url if @context # Use as base for expanding IRIs
@@ -961,7 +963,19 @@ module RDF::Tabular
       else value
       end
     end
-    
+
+    def inherited_property_value(method)
+      # Inherited properties
+      self.fetch(method.to_sym) do
+        return parent.send(method) if parent
+        case method.to_sym
+        when :null, :default then ''
+        when :textDirection then :ltr
+        when :propertyUrl then "{#_name}"
+        else nil
+        end
+      end
+    end
   private
     # Options passed to CSV.new based on dialect
     def csv_options
@@ -1018,18 +1032,18 @@ module RDF::Tabular
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
-        # Inherited properties
-        self.fetch(method.to_sym) do
-          return parent.send(method) if parent
-          case method.to_sym
-          when :null, :default then ''
-          when :textDirection then :ltr
-          when :propertyUrl then "{#_name}"
-          else nil
-          end
-        end
+        inherited_property_value(method.to_sym)
       else
         PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
+      end
+    end
+
+    ##
+    # Iterate over all resources
+    # @yield [Table]
+    def each_resource
+      resources.map(&:url).each do |url|
+        yield for_table(url)
       end
     end
 
@@ -1039,7 +1053,11 @@ module RDF::Tabular
     # @param [String] url of the table
     # @return [Table]
     def for_table(url)
-      resources.detect {|t| t.url == url}
+      table = resources.detect {|t| t.url == url}
+      # Set document base for this table for resolving URLs
+      table.instance_variable_set(:@context, context.dup)
+      table.context.base = url
+      table
     end
   end
 
@@ -1078,8 +1096,7 @@ module RDF::Tabular
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
-        # Inherited properties
-        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
+        inherited_property_value(method.to_sym)
       else
         PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
       end
@@ -1139,8 +1156,7 @@ module RDF::Tabular
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
-        # Inherited properties
-        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
+        inherited_property_value(method.to_sym)
       else
         PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
       end
@@ -1192,8 +1208,7 @@ module RDF::Tabular
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
-        # Inherited properties
-        self.fetch(method.to_sym, parent ? parent.send(method) : nil)
+        inherited_property_value(method.to_sym)
       else
         PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
       end
@@ -1280,7 +1295,7 @@ module RDF::Tabular
   class Row
     # Class for returning values
     Cell = Struct.new(:metadata, :raw, :column, :sourceColumn, :aboutUrl, :propertyUrl, :valueUrl, :value) do
-      def set_urls(url, mapped_values)
+      def set_urls(mapped_values)
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
           if v = metadata.send(prop.to_sym)
             t = Addressable::Template.new(v)
@@ -1374,7 +1389,7 @@ module RDF::Tabular
           "_column" => cell.column,
           "_sourceColumn" => cell.sourceColumn
         )
-        cell.set_urls(metadata.url, mapped_values)
+        cell.set_urls(mapped_values)
 
         # Row resource set from first cell, or a new Blank Node
         @resource ||= cell.aboutUrl || RDF::Node.new
