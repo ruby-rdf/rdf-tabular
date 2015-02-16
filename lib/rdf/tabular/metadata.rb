@@ -365,6 +365,7 @@ module RDF::Tabular
             # XXX: base from @context, or location of last loaded metadata, or CSV itself. Need to keep track of file base when loading and merging
             self[:url] = value
             @url = base.join(value)
+            @context.base = @url if @context # Use as base for expanding IRIs
           when :@id
             # metadata identifier
             self[:@id] = value
@@ -1283,7 +1284,9 @@ module RDF::Tabular
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
           if v = metadata.send(prop.to_sym)
             t = Addressable::Template.new(v)
-            self.send("#{prop}=".to_sym, url.join(t.expand(mapped_values)))
+            mapped = t.expand(mapped_values).to_s
+            url = metadata.context.expand_iri(mapped, documentRelative: true)
+            self.send("#{prop}=".to_sym, url)
           end
         end
       end

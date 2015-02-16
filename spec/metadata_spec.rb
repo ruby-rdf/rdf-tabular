@@ -637,7 +637,7 @@ describe RDF::Tabular::Metadata do
           "url": "https://example.org/countries.csv",
           "tableSchema": {
             "columns": [
-              {"title": "countryCode"},
+              {"title": "addressCountry"},
               {"title": "latitude"},
               {"title": "longitude"},
               {"title": "name"}
@@ -650,20 +650,34 @@ describe RDF::Tabular::Metadata do
       {
         "default title" => {
           aboutUrl: [RDF::Node, RDF::Node, RDF::Node, RDF::Node],
-          propertyUrl: %w(#countryCode #latitude #longitude #name),
+          propertyUrl: %w(#addressCountry #latitude #longitude #name),
           valueUrl: [nil, nil, nil, nil],
           md: {"url" => "https://example.org/countries.csv", "tableSchema" => {"columns" => []}}
         },
         "schema templates" => {
-          aboutUrl: %w(#countryCode #latitude #longitude #name),
-          propertyUrl: %w(?_name=countryCode ?_name=latitude ?_name=longitude ?_name=name),
-          valueUrl: %w(countryCode latitude longitude name),
+          aboutUrl: %w(#addressCountry #latitude #longitude #name),
+          propertyUrl: %w(?_name=addressCountry ?_name=latitude ?_name=longitude ?_name=name),
+          valueUrl: %w(addressCountry latitude longitude name),
           md: {
             "url" => "https://example.org/countries.csv",
             "tableSchema" => {
               "aboutUrl" => "{#_name}",
               "propertyUrl" => '{?_name}',
               "valueUrl" => '{_name}',
+              "columns" => []
+            }
+          }
+        },
+        "PNames" => {
+          aboutUrl: [RDF::SCHEMA.addressCountry, RDF::SCHEMA.latitude, RDF::SCHEMA.longitude, RDF::SCHEMA.name],
+          propertyUrl: [RDF::SCHEMA.addressCountry, RDF::SCHEMA.latitude, RDF::SCHEMA.longitude, RDF::SCHEMA.name],
+          valueUrl: [RDF::SCHEMA.addressCountry, RDF::SCHEMA.latitude, RDF::SCHEMA.longitude, RDF::SCHEMA.name],
+          md: {
+            "url" => "https://example.org/countries.csv",
+            "tableSchema" => {
+              "aboutUrl" => 'http://schema.org/{_name}',
+              "propertyUrl" => 'schema:{_name}',
+              "valueUrl" => 'schema:{_name}',
               "columns" => []
             }
           }
