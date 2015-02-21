@@ -1380,7 +1380,6 @@ module RDF::Tabular
         if %w(string anyAtomicType any).include?(column.datatype)
           value.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
           value.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
-          value.strip! if %w(string anySimpleType any).include?(column.datatype.to_s)
         else
           # unless the datatype is string or anyAtomicType or any, strip leading and trailing whitespace from the string value
           value.strip!
