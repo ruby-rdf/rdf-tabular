@@ -15,78 +15,89 @@ require 'addressable/template'
 #
 # @author [Gregg Kellogg](http://greggkellogg.net/)
 module RDF::Tabular
-  class Metadata < Hash
+  class Metadata
     include Utils
+
+    # Hash representation
+    attr_accessor :object
 
     # Inheritect properties, valid for all types
     INHERITED_PROPERTIES = {
-      null:               :atomic,
-      lang:               :atomic,
-      textDirection:      :atomic,
-      separator:          :atomic,
+      aboutUrl:           :uri_template,
+      datatype:           :atomic,
       default:            :atomic,
       format:             :atomic,
-      datatype:           :atomic,
-      aboutUrl:           :uri_template,
-      propertyUrl:        :uri_template,
-      valueUrl:           :uri_template,
+      fractionDigits:     :atomic,
+      lang:               :atomic,
       length:             :atomic,
-      minLength:          :atomic,
-      maxLength:          :atomic,
-      minimum:            :atomic,
-      maximum:            :atomic,
-      minInclusive:       :atomic,
-      maxInclusive:       :atomic,
-      minExclusive:       :atomic,
       maxExclusive:       :atomic,
+      maximum:            :atomic,
+      maxInclusive:       :atomic,
+      maxLength:          :atomic,
+      minExclusive:       :atomic,
+      minimum:            :atomic,
+      minInclusive:       :atomic,
+      minLength:          :atomic,
+      null:               :atomic,
+      propertyUrl:        :uri_template,
+      separator:          :atomic,
+      textDirection:      :atomic,
+      totalDigits:        :atomic,
+      valueUrl:           :uri_template,
     }.freeze
 
     # Valid datatypes
     DATATYPES = {
-      anySimpleType:      RDF::XSD.anySimpleType,
-      string:             RDF::XSD.string,
-      normalizedString:   RDF::XSD.normalizedString,
-      token:              RDF::XSD.token,
-      language:           RDF::XSD.language,
-      Name:               RDF::XSD.Name,
-      NCName:             RDF::XSD.NCName,
-      lang:               RDF::XSD.language,
+      anyAtomicType:      RDF::XSD.anySimpleType,
+      anyURI:             RDF::XSD.anyURI,
+      base64Binary:       RDF::XSD.basee65Binary,
       boolean:            RDF::XSD.boolean,
-      decimal:            RDF::XSD.decimal,
-      integer:            RDF::XSD.integer,
-      nonPositiveInteger: RDF::XSD.nonPositiveInteger,
-      negativeInteger:    RDF::XSD.negativeInteger,
-      long:               RDF::XSD.long,
-      int:                RDF::XSD.int,
-      short:              RDF::XSD.short,
       byte:               RDF::XSD.byte,
-      nonNegativeInteger: RDF::XSD.nonNegativeInteger,
-      unsignedLong:       RDF::XSD.unsignedLong,
-      unsignedInt:        RDF::XSD.unsignedInt,
-      unsignedShort:      RDF::XSD.unsignedShort,
-      unsignedByte:       RDF::XSD.unsignedByte,
-      positiveInteger:    RDF::XSD.positiveInteger,
-      float:              RDF::XSD.float,
-      double:             RDF::XSD.double,
-      dateTime:           RDF::XSD.dateTime,
-      time:               RDF::XSD.time,
       date:               RDF::XSD.date,
-      gYearMonth:         RDF::XSD.gYearMonth,
-      gYear:              RDF::XSD.gYear,
-      gMonthDay:          RDF::XSD.gMonthDay,
+      dateTime:           RDF::XSD.dateTime,
+      dateTimeDuration:   RDF::XSD.dateTimeDuration,
+      dateTimeStamp:      RDF::XSD.dateTimeStamp,
+      decimal:            RDF::XSD.decimal,
+      double:             RDF::XSD.double,
+      float:              RDF::XSD.float,
+      ENTITY:             RDF::XSD.ENTITY,
       gDay:               RDF::XSD.gDay,
       gMonth:             RDF::XSD.gMonth,
+      gMonthDay:          RDF::XSD.gMonthDay,
+      gYear:              RDF::XSD.gYear,
+      gYearMonth:         RDF::XSD.gYearMonth,
       hexBinary:          RDF::XSD.hexBinary,
-      base64Binary:       RDF::XSD.basee65Binary,
-      anyURI:             RDF::XSD.anyURI,
+      int:                RDF::XSD.int,
+      integer:            RDF::XSD.integer,
+      lang:               RDF::XSD.language,
+      language:           RDF::XSD.language,
+      long:               RDF::XSD.long,
+      Name:               RDF::XSD.Name,
+      NCName:             RDF::XSD.NCName,
+      negativeInteger:    RDF::XSD.negativeInteger,
+      nonNegativeInteger: RDF::XSD.nonNegativeInteger,
+      nonPositiveInteger: RDF::XSD.nonPositiveInteger,
+      normalizedString:   RDF::XSD.normalizedString,
+      NOTATION:           RDF::XSD.NOTATION,
+      positiveInteger:    RDF::XSD.positiveInteger,
+      QName:              RDF::XSD.Qname,
+      short:              RDF::XSD.short,
+      string:             RDF::XSD.string,
+      time:               RDF::XSD.time,
+      token:              RDF::XSD.token,
+      unsignedByte:       RDF::XSD.unsignedByte,
+      unsignedInt:        RDF::XSD.unsignedInt,
+      unsignedLong:       RDF::XSD.unsignedLong,
+      unsignedShort:      RDF::XSD.unsignedShort,
+      yearMonthDuration:  RDF::XSD.yearMonthDuration,
 
-      number:             RDF::XSD.double,
+      any:                RDF::XSD.anySimpleType,
       binary:             RDF::XSD.base64Binary,
       datetime:           RDF::XSD.dateTime,
-      any:                RDF::XSD.anySimpleType,
-      xml:                RDF.XMLLiteral,
       html:               RDF.HTML,
-      json:               RDF::Tabular::CSVW.json,
+      json:               RDF::Tabular::CSVW.JSON,
+      number:             RDF::XSD.double,
+      xml:                RDF.XMLLiteral,
     }
 
     # A name is restricted according to the following RegExp.
@@ -306,20 +317,20 @@ module RDF::Tabular
       @properties = self.class.const_get(:PROPERTIES)
       @required = self.class.const_get(:REQUIRED)
 
-      # Input was parsed in .new
-      object = input
+      @object = {}
 
       # Parent of this Metadata, if any
       @parent = @options[:parent]
 
       depth do
+        # Input was parsed in .new
         # Metadata is object with symbolic keys
-        object.each do |key, value|
+        input.each do |key, value|
           key = key.to_sym
           case key
           when :columns
             # An array of template specifications that provide mechanisms to transform the tabular data into other formats
-            self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
+            object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
               colnum = parent ? dialect.skipColumns : 0  # Get dialect from Table, not Schema
               value.map do |v|
                 colnum += 1
@@ -331,7 +342,7 @@ module RDF::Tabular
             end
           when :dialect
             # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
-            self[key] = case value
+            object[key] = case value
             when Hash   then Dialect.new(value, @options.merge(parent: self, context: nil))
             else
               # Invalid, but preserve value
@@ -340,7 +351,7 @@ module RDF::Tabular
             @type ||= :Table
           when :resources
             # An array of table descriptions for the tables in the group.
-            self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
+            object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
               value.map {|v| Table.new(v, @options.merge(parent: self, context: nil))}
             else
               # Invalid, but preserve value
@@ -348,7 +359,7 @@ module RDF::Tabular
             end
           when :tableSchema
             # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
-            self[key] = case value
+            object[key] = case value
             when String then Schema.open(value, @options.merge(parent: self, context: nil))
             when Hash   then Schema.new(value, @options.merge(parent: self, context: nil))
             else
@@ -357,7 +368,7 @@ module RDF::Tabular
             end
           when :templates
             # An array of template specifications that provide mechanisms to transform the tabular data into other formats
-            self[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
+            object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
               value.map {|v| Template.new(v, @options.merge(parent: self, context: nil))}
             else
               # Invalid, but preserve value
@@ -365,25 +376,25 @@ module RDF::Tabular
             end
           when :url
             # URL of CSV relative to metadata
-            self[:url] = value
+            object[:url] = value
             @url = base.join(value)
             @context.base = @url if @context # Use as base for expanding IRIs
           when :@id
             # metadata identifier
-            self[:@id] = value
+            object[:@id] = value
             @id = base.join(value)
           else
             if @properties.has_key?(key)
               self.send("#{key}=".to_sym, value)
             else
-              self[key] = value
+              object[key] = value
             end
           end
         end
       end
 
       # Set type from @type, if present and not otherwise defined
-      @type ||= self[:@type].to_sym if self[:@type]
+      @type ||= object[:@type].to_sym if object[:@type]
       if reason
         debug("md#initialize") {reason}
         debug("md#initialize") {"filenames: #{filenames}"}
@@ -396,7 +407,7 @@ module RDF::Tabular
     # Setters
     INHERITED_PROPERTIES.keys.each do |a|
       define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
       end
     end
 
@@ -410,12 +421,7 @@ module RDF::Tabular
     # @return [Dialect]
     def dialect
       @dialect ||= case
-      when self[:dialect]
-        if is_a?(Table) && parent && parent[:dialect]
-          self[:dialect].merge(parent[:dialect]) # Prioritize self
-        else
-          self[:dialect]
-        end
+      when object[:dialect] then object[:dialect]
       when parent then parent.dialect
       when is_a?(Table) || is_a?(TableGroup)
         Dialect.new({}, @options.merge(parent: self, context: nil))
@@ -428,14 +434,14 @@ module RDF::Tabular
     # @return [Dialect]
     def dialect=(value)
       # Clear cached dialect information from children
-      self.values.each do |v|
+      object.values.each do |v|
         case v
         when Metadata then v.dialect = nil
         when Array then v.each {|vv| vv.dialect = nil if vv.is_a?(Metadata)}
         end
       end
 
-      @dialect = self[:dialect] = value ? Dialect.new(value) : nil
+      @dialect = object[:dialect] = value ? Dialect.new(value) : nil
     end
 
     # Type of this Metadata
@@ -466,7 +472,7 @@ module RDF::Tabular
       end
 
       # It has only expected properties (exclude metadata)
-      keys = self.keys - [:"@id", :"@context"]
+      keys = object.keys - [:"@id", :"@context"]
       keys = keys.reject {|k| k.to_s.include?(':')} unless is_a?(Dialect)
       raise "#{type} has unexpected keys: #{keys - expected_props}" unless keys.all? {|k| expected_props.include?(k)}
 
@@ -475,7 +481,7 @@ module RDF::Tabular
 
       # Every property is valid
       keys.each do |key|
-        value = self[key]
+        value = object[key]
         is_valid = case key
         when :columns
           column_names = value.map(&:name)
@@ -519,9 +525,9 @@ module RDF::Tabular
           value.is_a?(Numeric) && value.integer? && value > 0
         when :length
           # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
-          raise "Use if minLength or maxLength with length requires separator" if self[:minLength] || self[:maxLength] && !self[:separator]
-          raise "Use of both length and minLength requires they be equal" unless self.fetch(:minLength, value) == value
-          raise "Use of both length and maxLength requires they be equal" unless self.fetch(:maxLength, value) == value
+          raise "Use if minLength or maxLength with length requires separator" if object[:minLength] || object[:maxLength] && !object[:separator]
+          raise "Use of both length and minLength requires they be equal" unless object.fetch(:minLength, value) == value
+          raise "Use of both length and maxLength requires they be equal" unless object.fetch(:maxLength, value) == value
           value.is_a?(Numeric) && value.integer? && value > 0
         when :lang then BCP47::Language.identify(value)
         when :lineTerminator then value.is_a?(String)
@@ -534,7 +540,7 @@ module RDF::Tabular
           value.is_a?(Numeric) && value.integer? && value > 0
         when :name then value.is_a?(String) && name.match(NAME_SYNTAX)
         when :notes then value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-        when :null then value.is_a?(String)
+        when :null then !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
         when :aboutUrl, :propertyUrl, :valueUrl then value.is_a?(String)
         when :primaryKey
           # A column reference property that holds either a single reference to a column description object or an array of references.
@@ -684,14 +690,14 @@ module RDF::Tabular
           yield statement
         end
       else
-        self.dup.keep_if {|key, value| key.to_s.include?(':')}
+        object.dup.keep_if {|key, value| key.to_s.include?(':')}
       end
     end
 
     # Does the Metadata have any common properties?
     # @return [Boolean]
     def has_annotations?
-      self.keys.any? {|k| k.to_s.include?(':')}
+      object.keys.any? {|k| k.to_s.include?(':')}
     end
 
     # Yield RDF statements after expanding property values
@@ -723,7 +729,7 @@ module RDF::Tabular
           self.parent
         else
           content = {"@type" => "TableGroup", "resources" => [self]}
-          content['@context'] = self.delete(:@context) if self[:@context]
+          content['@context'] = object.delete(:@context) if object[:@context]
           ctx = @context
           self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context) 
           tg = TableGroup.new(content, context: ctx, filenames: @filenames)
@@ -743,7 +749,7 @@ module RDF::Tabular
           else
             content = {"@type" => "TableGroup", "resources" => [md]}
             ctx = md.context
-            content['@context'] = md.delete(:@context) if md[:@context]
+            content['@context'] = md.object.delete(:@context) if md.object[:@context]
             md.remove_instance_variable(:@context) if md.instance_variables.include?(:@context) 
             tg = TableGroup.new(content, context: ctx, filenames: md.filenames)
             md.instance_variable_set(:@parent, tg)  # Link from parent
@@ -802,7 +808,7 @@ module RDF::Tabular
             @context = @context ? metadata.context.merge(@context) : metadata.context
 
             # Use defined representation
-            this_ctx = self[key].is_a?(Array) ? self[key] : [self[key]].compact
+            this_ctx = object[key].is_a?(Array) ? object[key] : [object[key]].compact
             metadata_ctx = metadata[key].is_a?(Array) ? metadata[key] : [metadata[key]].compact
             this_object = this_ctx.detect {|v| v.is_a?(Hash)} || {}
             this_uri = this_ctx.select {|v| v.is_a?(String)}
@@ -810,18 +816,18 @@ module RDF::Tabular
             metadata_uri = metadata_ctx.select {|v| v.is_a?(String)}
             merged_object = metadata_object.merge(this_object)
             merged_object = nil if merged_object.empty?
-            self[key] = this_uri + (metadata_uri - this_uri) + ([merged_object].compact)
-            self[key] = self[key].first if self[key].length == 1
-          when :@id, :@type then self[key] ||= value
+            object[key] = this_uri + (metadata_uri - this_uri) + ([merged_object].compact)
+            object[key] = object[key].first if object[key].length == 1
+          when :@id, :@type then object[key] ||= value
           else
             begin
               case @properties[key]
               when :array
                 # If the property is an array property, the way in which values are merged depends on the property; see the relevant property for this definition.
-                self[key] = case self[key]
+                object[key] = case object[key]
                 when nil then []
-                when Hash then [self[key]]  # Shouldn't happen if well formed
-                else self[key]
+                when Hash then [object[key]]  # Shouldn't happen if well formed
+                else object[key]
                 end
 
                 value = [value] if value.is_a?(Hash)
@@ -829,34 +835,34 @@ module RDF::Tabular
                 when :resources
                   # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
                   value.each do |t|
-                    if ta = self[key].detect {|e| e.url == t.url}
+                    if ta = object[key].detect {|e| e.url == t.url}
                       # if there is a table description with the same url in A, the table description from B is imported into the matching table description in A
                       ta.merge!(t)
                     else
                       # otherwise, the table description from B is appended to the array of table descriptions A
                       t = t.dup
                       t.instance_variable_set(:@parent, self)
-                      self[key] << t
+                      object[key] << t
                     end
                   end
                 when :templates
                   # SPEC CONFUSION: differing templates with same @id?
                   # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
                   value.each do |t|
-                    if ta = self[key].detect {|e| e.targetFormat == t.targetFormat && e.templateFormat == t.templateFormat}
+                    if ta = object[key].detect {|e| e.targetFormat == t.targetFormat && e.templateFormat == t.templateFormat}
                       # if there is a template specification with the same targetFormat and templateFormat in A, the template specification from B is imported into the matching template specification in A
                       ta.merge!(t)
                     else
                       # otherwise, the template specification from B is appended to the array of template specifications A
                       t = t.dup
                       t.instance_variable_set(:@parent, self) if self
-                      self[key] << t
+                      object[key] << t
                     end
                   end
                 when :columns
                   # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
                   Array(value).each_with_index do |t, index|
-                    ta = self[key][index]
+                    ta = object[key][index]
                     if ta && ta[:name] && ta[:name] == t[:name] 
                       debug("merge!: columns") {"index: #{index}, name=#{t[:name] }"}
                       # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
@@ -874,7 +880,7 @@ module RDF::Tabular
                       # If there is no column description at the same index within A, then the column description is taken from that index of B.
                       t = t.dup
                       t.instance_variable_set(:@parent, self) if self
-                      self[key][index] = t
+                      object[key][index] = t
                     else
                       debug("merge!: columns") {"index: #{index}, ignore"}
                       # otherwise, the column description is ignored
@@ -883,32 +889,35 @@ module RDF::Tabular
                 when :foreignKeys
                   # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
                   # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
-                  self[key] = self[key] + (metadata[key] - self[key])
+                  object[key] = object[key] + (metadata[key] - object[key])
                 end
-              when :link, :uri_template, :column_reference then self[key] ||= value
+              when :link, :uri_template, :column_reference then object[key] ||= value
               when :object
                 case key
                 when :notes
                   # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
-                  a = self[key] || []
-                  self[key] = (a + value).uniq
+                  a = object[key] || []
+                  object[key] = (a + value).uniq
                 else
                   # if the property only accepts single objects
-                  if self[key].is_a?(String) || value.is_a?(String)
+                  if object[key].is_a?(String) || value.is_a?(String)
                     # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
-                    self[key] ||= value
-                  elsif self[key].is_a?(Hash)
+                    object[key] ||= value
+                  elsif object[key].is_a?(Metadata)
                     # otherwise (if both values as objects) the objects are merged as described here
-                    self[key].merge!(value)
+                    object[key].merge!(value)
+                  elsif object[key].is_a?(Hash)
+                    # otherwise (if both values as objects) the objects are merged as described here
+                    object[key].merge!(value)
                   else
                     value = value.dup
                     value.instance_variable_set(:@parent, self) if self
-                    self[key] = value
+                    object[key] = value
                   end
                 end
               when :natural_language
                 # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
-                a = self[key] || {}
+                a = object[key] || {}
                 b = value
                 debug("merge!: natural_language") {
                   "A: #{a.inspect}, B: #{b.inspect}"
@@ -923,18 +932,18 @@ module RDF::Tabular
                   end
                   a.delete("und") if a["und"].empty?
                 end
-                self[key] = a
+                object[key] = a
               else
                 # If the property is an atomic property, then
                 case key.to_s
                 when "null"
                   # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
-                  self[key] = Array(self[key]) + (Array[value] - Array[self[key]])
+                  object[key] = Array(object[key]) + (Array[value] - Array[object[key]])
                 when /:/
-                  self[key] = (Array(self[key]) + value).uniq
+                  object[key] = (Array(object[key]) + value).uniq
                 else
                   # if the property only accepts single values, the value from A overrides that from B;
-                  self[key] ||= value
+                  object[key] ||= value
                 end
               end
             end
@@ -947,8 +956,17 @@ module RDF::Tabular
     end
 
     def inspect
-      self.class.name + super
+      self.class.name + object.inspect
     end
+
+    # Proxy to @object
+    def [](key); object[key]; end
+    def []=(key, value); object[key] = value; end
+    def each(&block); object.each(&block); end
+    def ==(other)
+      object == (other.is_a?(Hash) ? other : other.object)
+    end
+    def to_json(args=nil); object.to_json(args); end
 
   protected
 
@@ -957,7 +975,7 @@ module RDF::Tabular
     # @param [Hash{String => String, Array<String>}, Array<String>, String] value
     # @return [Hash{String => Array<String>}]
     def set_nl(prop, value)
-      self[prop] = case value
+      object[prop] = case value
       when String then {(context.default_language || 'und') => [value]}
       when Array then {(context.default_language || 'und') => value}
       else value
@@ -966,7 +984,7 @@ module RDF::Tabular
 
     def inherited_property_value(method)
       # Inherited properties
-      self.fetch(method.to_sym) do
+      object.fetch(method.to_sym) do
         return parent.send(method) if parent
         case method.to_sym
         when :null, :default then ''
@@ -1018,7 +1036,7 @@ module RDF::Tabular
         when :natural_language
           set_nl(a, value)
         else
-          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
         end
       end
     end
@@ -1034,7 +1052,7 @@ module RDF::Tabular
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
         inherited_property_value(method.to_sym)
       else
-        PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
+        PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
       end
     end
 
@@ -1082,7 +1100,7 @@ module RDF::Tabular
         when :natural_language
           set_nl(a, value)
         else
-          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
         end
       end
     end
@@ -1098,7 +1116,7 @@ module RDF::Tabular
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
         inherited_property_value(method.to_sym)
       else
-        PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
+        PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
       end
     end
   end
@@ -1121,14 +1139,14 @@ module RDF::Tabular
         when :natural_language
           set_nl(a, value)
         else
-          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
         end
       end
     end
 
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
-      PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
+      PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
     end
   end
 
@@ -1148,7 +1166,7 @@ module RDF::Tabular
         when :natural_language
           set_nl(a, value)
         else
-          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
         end
       end
     end
@@ -1158,7 +1176,7 @@ module RDF::Tabular
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
         inherited_property_value(method.to_sym)
       else
-        PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
+        PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
       end
     end
   end
@@ -1190,14 +1208,14 @@ module RDF::Tabular
         when :natural_language
           set_nl(a, value)
         else
-          self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
         end
       end
     end
 
     # Return or create a name for the column from title, if it exists
     def name
-      self[:name] ||= if title && (ts = title[context.default_language || 'und'])
+      object[:name] ||= if title && (ts = title[context.default_language || 'und'])
         n = Array(ts).first
         n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
         n1 = URI.encode(n[1..-1], /[^\w\.]/)
@@ -1210,7 +1228,7 @@ module RDF::Tabular
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
         inherited_property_value(method.to_sym)
       else
-        PROPERTIES.has_key?(method.to_sym) ? self[method.to_sym] : super
+        PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
       end
     end
   end
@@ -1258,7 +1276,7 @@ module RDF::Tabular
     # Setters
     PROPERTIES.keys.each do |a|
       define_method("#{a}=".to_sym) do |value|
-        self[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
       end
     end
 
@@ -1271,20 +1289,20 @@ module RDF::Tabular
     # default for headerRowCount is zero if header is false
     # @return [Integer]
     def headerRowCount
-      self.fetch(:headerRowCount, self.header ? 1 : 0)
+      object.fetch(:headerRowCount, self.header ? 1 : 0)
     end
 
     # default for trim comes from skipInitialSpace
     # @return [Boolean, String]
     def trim
-      self.fetch(:trim, self.skipInitialSpace ? 'start' : false)
+      object.fetch(:trim, self.skipInitialSpace ? 'start' : false)
     end
 
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if DIALECT_DEFAULTS.has_key?(method.to_sym)
         # As set, or with default
-        self.fetch(method.to_sym, DIALECT_DEFAULTS[method.to_sym])
+        object.fetch(method.to_sym, DIALECT_DEFAULTS[method.to_sym])
       else
         super
       end
@@ -1359,18 +1377,27 @@ module RDF::Tabular
         @values << cell = Cell.new(column, value, index + 1 - skipColumns, index + 1)
 
         # Trim value
-        value.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
-        value.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
-        value.strip! if %w(string anySimpleType any).include?(column.datatype.to_s)
+        if %w(string anyAtomicType any).include?(column.datatype)
+          value.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
+          value.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
+          value.strip! if %w(string anySimpleType any).include?(column.datatype.to_s)
+        else
+          # unless the datatype is string or anyAtomicType or any, strip leading and trailing whitespace from the string value
+          value.strip!
+        end
+
+        # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
+        value = column.default if value.empty?
 
         cell_values = column.separator ? value.split(column.separator) : [value]
 
         cell_values = cell_values.map do |v|
+          v.strip! unless %w(string anyAtomicType any).include?(column.datatype)
           case
           when v == column.null then nil
-          when v.to_s.empty? then metadata.dialect.default
+          when v.to_s.empty? then metadata.default
           when column.datatype
-            # FIXME: use of format in extracting information
+            # XXX validate the string based on the datatype, using the format property if one is specified, as described below, and then against the constraints described in section 3.11 Datatypes; if there are any errors, add them to the list of errors for the cell; the resulting value is typed as a string with the language provided by the lang property
             RDF::Literal(v, datatype: metadata.context.expand_iri(column.datatype, vocab: true))
           else
             RDF::Literal(v, language: column.lang)

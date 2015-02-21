@@ -31,7 +31,7 @@ describe RDF::Tabular::Metadata do
     {
       null: {
         valid: ["foo"],
-        invalid: [1, true, nil]
+        invalid: [1, true, {}]
       },
       lang: {
         valid: %w(en en-US),
@@ -54,8 +54,8 @@ describe RDF::Tabular::Metadata do
         invalid: [nil]
       },
       datatype: {
-        valid: %w(anySimpleType string token language Name NCName boolean gYear number binary datetime any xml html json),
-        invalid: [nil, 1, true, "foo"]
+        valid: %w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json),
+        invalid: [nil, 1, true, "foo", "anySimpleType", "IDREFS"]
       },
       aboutUrl: {
         valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row.{_row}"],
