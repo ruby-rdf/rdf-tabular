@@ -323,6 +323,10 @@ module RDF::Tabular
 
           row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]
+
+            # Ignore vitual columns
+            next if column.virtual
+
             r[column.name] = cell.valueUrl || cell.value
           end
           rows << r

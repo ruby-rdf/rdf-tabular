@@ -958,7 +958,7 @@ describe RDF::Tabular::Metadata do
         "html is alias for rdf:HTML" => {base: "html", value: "<foo></foo>", result: RDF::Literal("<foo></foo>", datatype: RDF.HTML)},
         #"json is alias for csvw:JSON" => {base: "json", value: %({""foo"": ""bar""}), result: RDF::Literal(%({"foo": "bar"}), datatype: RDF::Tabular::CSVW.json)},
       }.each do |name, props|
-        context name do
+        context name, focus: true do
           let(:value) {props[:value]}
           let(:result) {
             if props[:errors]
@@ -974,7 +974,7 @@ describe RDF::Tabular::Metadata do
               tableSchema: {
                 columns: [{
                   name: "name",
-                  datatype: props.dup.delete_if {|k, v| [:value, :valid, :result].include?(k)}
+                  datatype: [props.dup.delete_if {|k, v| [:value, :valid, :result].include?(k)}]
                 }]
               }
             }, debug: @debug)

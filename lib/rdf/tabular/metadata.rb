@@ -341,6 +341,14 @@ module RDF::Tabular
               # Invalid, but preserve value
               value
             end
+          when :datatype
+            # If in object form, normalize keys to symbols
+            object[key] = case value
+            when Hash
+              value.inject({}) {|memo, (k,v)| memo[k.to_sym] = v; memo}
+            else
+              value
+            end
           when :dialect
             # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
             object[key] = case value
@@ -782,16 +790,14 @@ module RDF::Tabular
         # Expand A (this) and B (metadata) values into normal form
         [self, metadata].each do |md|
           md.each do |key, value|
-            md[key] = case @properties[key]
+            md[key] = case @properties[key] || INHERITED_PROPERTIES[key]
             when :link
               md.base.join(value)
             when :object
               case key
               when :notes then Array(value)
               when :datatype
-                # Normalize datatype to object form
-                dt = [value] unless value.is_a?(Array)
-                dt.map! {|v| v.is_a?(Hash) ? (v[:base] ||= 'string'; v) : {base: v}}
+                normalize_datatype(value)
               else value
               end
             when :natural_language
@@ -976,6 +982,16 @@ module RDF::Tabular
     end
     def to_json(args=nil); object.to_json(args); end
 
+
+    ##
+    # Normalize datatype to Object/Hash representation
+    # @param [String, Hash{Symbol => String}, Array<String, Hash{Symbol => String}>] value
+    # @return [Hash{Symbol => String}]
+    def normalize_datatype(value)
+      # Normalize datatype to array of object form
+      value = [value] unless value.is_a?(Array)
+      value.map! {|v| v.is_a?(Hash) ? (v[:base] ||= 'string'; v) : {base: v}}
+    end
   protected
 
     # When setting a natural language property, always put in language-map form
@@ -1387,201 +1403,49 @@ module RDF::Tabular
 
         @values << cell = Cell.new(column, value, index + 1 - skipColumns, index + 1)
 
-        # Trim value
-        if column.datatype && %w(string anyAtomicType any).include?(column.datatype[:base])
-          value.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
-          value.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
-        else
-          # unless the datatype is string or anyAtomicType or any, strip leading and trailing whitespace from the string value
-          value.strip!
-        end
-
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
         value = column.default if value.empty?
 
         cell_values = column.separator ? value.split(column.separator) : [value]
 
         cell_values = cell_values.map do |v|
-          value_errors = []
-          v.strip! unless column.datatype && %w(string anyAtomicType any).include?(column.datatype[:base])
+          # If no datatype, always strip value
+          v.strip! unless column.datatype
 
           case
           when v == column.null then nil
           when v.to_s.empty? then metadata.default
           when column.datatype
-            orig_val, lit = v.dup, nil
-
-            # Check constraints
-            if column.datatype[:length] && v.length != column.datatype[:length]
-              value_errors << "#{v} does not have length #{column.datatype[:length]}"
-            end
-            if column.datatype[:minLength] && v.length < column.datatype[:minLength]
-              value_errors << "#{v} does not have length >= #{column.datatype[:minLength]}"
-            end
-            if column.datatype[:maxLength] && v.length > column.datatype[:maxLength]
-              value_errors << "#{v} does not have length <= #{column.datatype[:maxLength]}"
-            end
-
-            format = column.datatype[:format]
-            expanded_dt = metadata.context.expand_iri(column.datatype[:base], vocab: true) if column.datatype[:base]
-            # Datatype specific constraints and conversions
-            case column.datatype[:base].to_sym
-            when :decimal, :integer, :long, :int, :short, :byte,
-                 :nonNegativeInteger, :positiveInteger,
-                 :unsignedLong, :unsignedInt, :unsignedShort, :unsignedByte,
-                 :nonPositiveInteger, :negativeInteger,
-                 :double, :float
-              # Normalize representation based on numeric-specific facets
-              groupChar = column.datatype.fetch(:groupChar, ',')
-              if column.datatype[:pattern] && !v.match(Regexp.new(column.datatype[:pattern]))
-                # pattern facet failed
-                value_errors << "#{v} does not match pattern #{column.datatype[:pattern]}"
-              end
-              if v.include?(groupChar*2)
-                # pattern facet failed
-                value_errors << "#{v} has repeating #{groupChar.inspect}"
-              end
-              v.gsub!(groupChar, '')
-              v.sub!(column.datatype.fetch(:decimalChar, '.'), '.')
-
-              # Extract percent or per-mille sign
-              percent = permille = false
-              case v
-              when /%$/
-                v = v[0..-2]
-                percent = true
-              when /‰$/
-                v = v[0..-2]
-                permille = true
-              end
-
-              lit = RDF::Literal(v, datatype: expanded_dt)
-              if percent || permille
-                o = lit.object
-                o = o / 100 if percent
-                o = o / 1000 if permille
-                lit = RDF::Literal(o, datatype: expanded_dt)
-              end
-            when :boolean
-              lit = if format
-                # True/False determined by Y|N values
-                t, f = format.to_s.split('|', 2)
-                case
-                when v == t
-                  v = RDF::Literal::TRUE
-                when v == f
-                  v = RDF::Literal::FALSE
+            datatypes = metadata.normalize_datatype(column.datatype)
+            # Find first matching datatype, otherwise, use orig_val as a plain literal
+            datatypes.inject(nil) do |memo, datatype|
+              memo ||= begin
+                # Trim value
+                if %w(string anyAtomicType any).include?(datatype[:base])
+                  v.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
+                  v.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
                 else
-                  value_errors << "#{v} does not match boolean format #{format}"
-                  RDF::Literal::Boolean.new(v)
+                  # unless the datatype is string or anyAtomicType or any, strip leading and trailing whitespace from the string value
+                  v.strip!
                 end
-              else
-                if %w(1 true).include?(v.downcase)
-                  RDF::Literal::TRUE
-                elsif %w(0 false).include?(v.downcase)
-                  RDF::Literal::FALSE
+
+                expanded_dt = metadata.context.expand_iri(datatype[:base], vocab: true)
+                if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt)).is_a?(RDF::Literal)
+                  lit_or_errors
+                else
+                  cell_errors += lit_or_errors
+                  nil
                 end
               end
-            when :date, :time, :dateTime, :dateTimeStamp
-              # Match values
-              tz, date_format, time_format = nil, nil, nil
-
-              # Extract tz info
-              if format && (md = format.match(/^(.*[dyms])+(\s*[xX]{1,5})$/))
-                format, tz = md[1], md[2]
-              end
-
-              if format
-                date_format, time_format = format.split(' ')
-                if column.datatype[:base].to_sym == :time
-                  date_format, time_format = nil, date_format
-                end
-
-                # Extract date, of specified
-                date_part = case date_format
-                when 'yyyy-MM-dd' then v.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})/)
-                when 'yyyyMMdd'   then v.match(/^(?<yr>\d{4})(?<mo>\d{2})(?<da>\d{2})/)
-                when 'dd-MM-yyyy' then v.match(/^(?<da>\d{2})-(?<mo>\d{2})-(?<yr>\d{4})/)
-                when 'd-M-yyyy'   then v.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{4})/)
-                when 'MM-dd-yyyy' then v.match(/^(?<mo>\d{2})-(?<da>\d{2})-(?<yr>\d{4})/)
-                when 'M-d-yyyy'   then v.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{4})/)
-                when 'dd/MM/yyyy' then v.match(/^(?<da>\d{2})\/(?<mo>\d{2})\/(?<yr>\d{4})/)
-                when 'd/M/yyyy'   then v.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{4})/)
-                when 'MM/dd/yyyy' then v.match(/^(?<mo>\d{2})\/(?<da>\d{2})\/(?<yr>\d{4})/)
-                when 'M/d/yyyy'   then v.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{4})/)
-                when 'dd.MM.yyyy' then v.match(/^(?<da>\d{2})\.(?<mo>\d{2})\.(?<yr>\d{4})/)
-                when 'd.M.yyyy'   then v.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{4})/)
-                when 'MM.dd.yyyy' then v.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
-                when 'M.d.yyyy'   then v.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
-                end
-
-                # Forward past date part
-                if date_part
-                  v = v[date_part.to_s.length..-1]
-                  v = v.lstrip if date_part && v.start_with?(' ')
-                end
-
-                # Extract time, of specified
-                time_part = case time_format
-                when 'HH:mm:ss' then v.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
-                when 'HHmmss'   then v.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})/)
-                when 'HH:mm'    then v.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
-                when 'HHmm'     then v.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)/)
-                end
-
-                # Forward past time part
-                v = v[time_part.to_s.length..-1] if time_part
-
-                # Extract dateTime, of specified
-                datetime_part = case format
-                when 'yyyy-MM-ddTHH:mm:ss' then v.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
-                end
-
-                # Forward past datetime part
-                if datetime_part
-                  date_part = time_part = datetime_part
-                  v = v[datetime_part.to_s.length..-1]
-                end
-
-                # If there's a timezone, it may optionally start with whitespace
-                v = v.lstrip if tz.to_s.start_with?(' ')
-                tz_part = v if tz
-
-                # Compose normalized value
-                vd = ("%04d-%02d-%02d" % [date_part[:yr], date_part[:mo], date_part[:da]]) if date_part
-                vt = ("%02d:%02d:%02d" % [time_part[:hr], time_part[:mi], time_part[:se].to_i]) if time_part
-                v = [vd, vt].compact.join('T')
-                v += tz_part.to_s
-              end
-
-              lit = RDF::Literal(v, datatype: expanded_dt)
-            when :duration, :dayTimeDuration, :yearMonthDuration
-              # SPEC CONFUSION: surely format also includes that for other duration types?
-              lit = RDF::Literal(v, datatype: expanded_dt)
-            when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,
-                 :ENTITY, :ID, :IDREF, :NOTATION
-              value_errors << "#{v} uses unsupported datatype: #{column.datatype[:base]}"
-            else
-              # For other types, format is a regexp
-              unless format.nil? || v.match(Regexp.new(format))
-                value_errors << "#{v} does not match format #{format}"
-              end
-              lit = RDF::Literal(v, datatype: expanded_dt) if value_errors.empty?
-            end
-
-            # Final value is a valid literal, or a plain literal otherwise
-            value_errors << "#{v} is not a valid #{column.datatype[:base]}" if lit && !lit.valid?
-            cell_errors += value_errors
-            value_errors.empty? ? lit : RDF::Literal(orig_val)
+            end || RDF::Literal(v)
           else
             RDF::Literal(v, language: column.lang)
           end
         end.compact
 
-        # FIXME Value constraints
-
         cell.value = (column.separator ? cell_values : cell_values.first)
         cell.errors = cell_errors
+        metadata.send(:debug, "#{self.row}: each_cell ##{sourceRow},#{cell.sourceColumn}", cell.errors.join("\n")) unless cell_errors.empty?
 
         map_values[columns[index].name] =  (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
@@ -1599,6 +1463,177 @@ module RDF::Tabular
         @resource ||= cell.aboutUrl || RDF::Node.new
         cell.aboutUrl ||= @resource # Use default
       end
+    end
+
+  private
+    #
+    # given a datatype specification, return a literal matching that specififcation, if found, otherwise nil
+    # @return [RDF::Literal]
+    def value_matching_datatype(value, datatype, expanded_dt)
+      value_errors = []
+
+      # Check constraints
+      if datatype[:length] && value.length != datatype[:length]
+        value_errors << "#{value} does not have length #{datatype[:length]}"
+      end
+      if datatype[:minLength] && value.length < datatype[:minLength]
+        value_errors << "#{value} does not have length >= #{datatype[:minLength]}"
+      end
+      if datatype[:maxLength] && value.length > datatype[:maxLength]
+        value_errors << "#{value} does not have length <= #{datatype[:maxLength]}"
+      end
+
+      format = datatype[:format]
+      # Datatype specific constraints and conversions
+      case datatype[:base].to_sym
+      when :decimal, :integer, :long, :int, :short, :byte,
+           :nonNegativeInteger, :positiveInteger,
+           :unsignedLong, :unsignedInt, :unsignedShort, :unsignedByte,
+           :nonPositiveInteger, :negativeInteger,
+           :double, :float
+        # Normalize representation based on numeric-specific facets
+        groupChar = datatype.fetch(:groupChar, ',')
+        if datatype[:pattern] && !value.match(Regexp.new(datatype[:pattern]))
+          # pattern facet failed
+          value_errors << "#{value} does not match pattern #{datatype[:pattern]}"
+        end
+        if value.include?(groupChar*2)
+          # pattern facet failed
+          value_errors << "#{value} has repeating #{groupChar.inspect}"
+        end
+        value.gsub!(groupChar, '')
+        value.sub!(datatype.fetch(:decimalChar, '.'), '.')
+
+        # Extract percent or per-mille sign
+        percent = permille = false
+        case value
+        when /%$/
+          value = value[0..-2]
+          percent = true
+        when /‰$/
+          value = value[0..-2]
+          permille = true
+        end
+
+        lit = RDF::Literal(value, datatype: expanded_dt)
+        if percent || permille
+          o = lit.object
+          o = o / 100 if percent
+          o = o / 1000 if permille
+          lit = RDF::Literal(o, datatype: expanded_dt)
+        end
+      when :boolean
+        lit = if format
+          # True/False determined by Y|N values
+          t, f = format.to_s.split('|', 2)
+          case
+          when value == t
+            value = RDF::Literal::TRUE
+          when value == f
+            value = RDF::Literal::FALSE
+          else
+            value_errors << "#{value} does not match boolean format #{format}"
+            RDF::Literal::Boolean.new(value)
+          end
+        else
+          if %w(1 true).include?(value.downcase)
+            RDF::Literal::TRUE
+          elsif %w(0 false).include?(value.downcase)
+            RDF::Literal::FALSE
+          end
+        end
+      when :date, :time, :dateTime, :dateTimeStamp
+        # Match values
+        tz, date_format, time_format = nil, nil, nil
+
+        # Extract tz info
+        if format && (md = format.match(/^(.*[dyms])+(\s*[xX]{1,5})$/))
+          format, tz = md[1], md[2]
+        end
+
+        if format
+          date_format, time_format = format.split(' ')
+          if datatype[:base].to_sym == :time
+            date_format, time_format = nil, date_format
+          end
+
+          # Extract date, of specified
+          date_part = case date_format
+          when 'yyyy-MM-dd' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})/)
+          when 'yyyyMMdd'   then value.match(/^(?<yr>\d{4})(?<mo>\d{2})(?<da>\d{2})/)
+          when 'dd-MM-yyyy' then value.match(/^(?<da>\d{2})-(?<mo>\d{2})-(?<yr>\d{4})/)
+          when 'd-M-yyyy'   then value.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{4})/)
+          when 'MM-dd-yyyy' then value.match(/^(?<mo>\d{2})-(?<da>\d{2})-(?<yr>\d{4})/)
+          when 'M-d-yyyy'   then value.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{4})/)
+          when 'dd/MM/yyyy' then value.match(/^(?<da>\d{2})\/(?<mo>\d{2})\/(?<yr>\d{4})/)
+          when 'd/M/yyyy'   then value.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{4})/)
+          when 'MM/dd/yyyy' then value.match(/^(?<mo>\d{2})\/(?<da>\d{2})\/(?<yr>\d{4})/)
+          when 'M/d/yyyy'   then value.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{4})/)
+          when 'dd.MM.yyyy' then value.match(/^(?<da>\d{2})\.(?<mo>\d{2})\.(?<yr>\d{4})/)
+          when 'd.M.yyyy'   then value.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{4})/)
+          when 'MM.dd.yyyy' then value.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
+          when 'M.d.yyyy'   then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
+          when 'yyyy-MM-ddTHH:mm:ss' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
+          else
+            value_errors << "unrecognized date/time format #{date_format}" if date_format
+            nil
+          end
+
+          # Forward past date part
+          if date_part
+            value = value[date_part.to_s.length..-1]
+            value = value.lstrip if date_part && value.start_with?(' ')
+          end
+
+          # Extract time, of specified
+          time_part = case time_format
+          when 'HH:mm:ss' then value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
+          when 'HHmmss'   then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})/)
+          when 'HH:mm'    then value.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
+          when 'HHmm'     then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)/)
+          else
+            value_errors << "unrecognized date/time format #{time_format}" if time_format
+            nil
+          end
+
+          # Forward past time part
+          value = value[time_part.to_s.length..-1] if time_part
+
+          # Use datetime match for time
+          time_part = date_part if date_part && date_part.names.include?("hr")
+
+          # If there's a timezone, it may optionally start with whitespace
+          value = value.lstrip if tz.to_s.start_with?(' ')
+          tz_part = value if tz
+
+          # Compose normalized value
+          vd = ("%04d-%02d-%02d" % [date_part[:yr], date_part[:mo], date_part[:da]]) if date_part
+          vt = ("%02d:%02d:%02d" % [time_part[:hr], time_part[:mi], time_part[:se].to_i]) if time_part
+          value = [vd, vt].compact.join('T')
+          value += tz_part.to_s
+        end
+
+        lit = RDF::Literal(value, datatype: expanded_dt)
+      when :duration, :dayTimeDuration, :yearMonthDuration
+        # SPEC CONFUSION: surely format also includes that for other duration types?
+        lit = RDF::Literal(value, datatype: expanded_dt)
+      when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,
+           :ENTITY, :ID, :IDREF, :NOTATION
+        value_errors << "#{value} uses unsupported datatype: #{datatype[:base]}"
+      else
+        # For other types, format is a regexp
+        unless format.nil? || value.match(Regexp.new(format))
+          value_errors << "#{value} does not match format #{format}"
+        end
+        lit = RDF::Literal(value, datatype: expanded_dt) if value_errors.empty?
+      end
+
+      # Final value is a valid literal, or a plain literal otherwise
+      value_errors << "#{value} is not a valid #{datatype[:base]}" if lit && !lit.valid?
+
+      # FIXME Value constraints
+
+      value_errors.empty? ? lit : value_errors
     end
   end
 end
