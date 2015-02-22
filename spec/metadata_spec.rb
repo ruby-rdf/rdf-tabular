@@ -54,7 +54,10 @@ describe RDF::Tabular::Metadata do
         invalid: [nil]
       },
       datatype: {
-        valid: %w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json),
+        valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
+               [
+                 {"base" => "string"} #, FIXME ...
+               ]),
         invalid: [nil, 1, true, "foo", "anySimpleType", "IDREFS"]
       },
       aboutUrl: {
@@ -742,6 +745,257 @@ describe RDF::Tabular::Metadata do
             nums = nums.first(nums.length - columnOffset)
             expect(rows.first.values.map(&:sourceColumn)).to eql nums
           end
+        end
+      end
+    end
+
+    context "datatypes", focus: true do
+      {
+        # Strings
+        "string with no constraints" => {base: "string", value: "foo", result: "foo"},
+        "string with matching length" => {base: "string", value: "foo", length: 3, result: "foo"},
+        "string with wrong length" => {
+          base: "string",
+          value: "foo",
+          length: 4,
+          errors: ["foo does not have length 4"]
+        },
+        "string with wrong maxLength" => {
+          base: "string",
+          value: "foo",
+          maxLength: 2,
+          errors: ["foo does not have length <= 2"]
+        },
+        "string with wrong minLength" => {
+          base: "string",
+          value: "foo",
+          minLength: 4,
+          errors: ["foo does not have length >= 4"]
+        },
+
+        # Numbers
+        "decimal with no constraints" => {
+          base: "decimal",
+          value: "4"
+        },
+        "decimal with matching pattern" => {
+          base: "decimal",
+          pattern: '\d{3}',
+          value: "123"
+        },
+        "decimal with wrong pattern" => {
+          base: "decimal",
+          pattern: '\d{4}',
+          value: "123",
+          errors: [/123 does not match pattern/]
+        },
+        "decimal with implicit groupChar" => {
+          base: "decimal",
+          value: %("123,456.789"),
+          result: "123456.789"
+        },
+        "decimal with explicit groupChar" => {
+          base: "decimal",
+          groupChar: ";",
+          value: "123;456.789",
+          result: "123456.789"
+        },
+        "decimal with repeated groupChar" => {
+          base: "decimal",
+          groupChar: ";",
+          value: "123;;456.789",
+          result: "123;;456.789",
+          errors: [/has repeating/]
+        },
+        "decimal with explicit decimalChar" => {
+          base: "decimal",
+          decimalChar: ";",
+          value: "123456;789",
+          result: "123456.789"
+        },
+        "invalid decimal" => {
+          base: "decimal",
+          value: "123456.789e10",
+          result: "123456.789e10",
+          errors: ["123456.789e10 is not a valid decimal"]
+        },
+        "decimal with percent" => {
+          base: "decimal",
+          value: "123456.789%",
+          result: "1234.56789"
+        },
+        "decimal with per-mille" => {
+          base: "decimal",
+          value: "123456.789‰",
+          result: "123.456789"
+        },
+        "valid integer" => {base: "integer", value: "1234"},
+        "invalid integer" => {base: "integer", value: "1234.56", errors: ["1234.56 is not a valid integer"]},
+        "valid long" => {base: "long", value: "1234"},
+        "invalid long" => {base: "long", value: "1234.56", errors: ["1234.56 is not a valid long"]},
+        "valid short" => {base: "short", value: "1234"},
+        "invalid short" => {base: "short", value: "1234.56", errors: ["1234.56 is not a valid short"]},
+        "valid byte" => {base: "byte", value: "123"},
+        "invalid byte" => {base: "byte", value: "1234", errors: ["1234 is not a valid byte"]},
+        "valid unsignedLong" => {base: "unsignedLong", value: "1234"},
+        "invalid unsignedLong" => {base: "unsignedLong", value: "-1234", errors: ["-1234 is not a valid unsignedLong"]},
+        "valid unsignedShort" => {base: "unsignedShort", value: "1234"},
+        "invalid unsignedShort" => {base: "unsignedShort", value: "-1234", errors: ["-1234 is not a valid unsignedShort"]},
+        "valid unsignedByte" => {base: "unsignedByte", value: "123"},
+        "invalid unsignedByte" => {base: "unsignedByte", value: "-123", errors: ["-123 is not a valid unsignedByte"]},
+        "valid positiveInteger" => {base: "positiveInteger", value: "123"},
+        "invalid positiveInteger" => {base: "positiveInteger", value: "-123", errors: ["-123 is not a valid positiveInteger"]},
+        "valid negativeInteger" => {base: "negativeInteger", value: "-123"},
+        "invalid negativeInteger" => {base: "negativeInteger", value: "123", errors: ["123 is not a valid negativeInteger"]},
+        "valid nonPositiveInteger" => {base: "nonPositiveInteger", value: "0"},
+        "invalid nonPositiveInteger" => {base: "nonPositiveInteger", value: "1", errors: ["1 is not a valid nonPositiveInteger"]},
+        "valid nonNegativeInteger" => {base: "nonNegativeInteger", value: "0"},
+        "invalid nonNegativeInteger" => {base: "nonNegativeInteger", value: "-1", errors: ["-1 is not a valid nonNegativeInteger"]},
+        "valid double" => {base: "double", value: "1234.456E789"},
+        "invalid double" => {base: "double", value: "1z", errors: ["1z is not a valid double"]},
+        "NaN double" => {base: "double", value: "NaN"},
+        "INF double" => {base: "double", value: "INF"},
+        "-INF double" => {base: "double", value: "-INF"},
+        "valid float" => {base: "float", value: "1234.456E789"},
+        "invalid float" => {base: "float", value: "1z", errors: ["1z is not a valid float"]},
+        "NaN float" => {base: "float", value: "NaN"},
+        "INF float" => {base: "float", value: "INF"},
+        "-INF float" => {base: "float", value: "-INF"},
+
+        # Booleans
+        "valid boolean true" => {base: "boolean", value: "true"},
+        "valid boolean false" => {base: "boolean", value: "false"},
+        "valid boolean 1" => {base: "boolean", value: "1", result: "true"},
+        "valid boolean 0" => {base: "boolean", value: "0", result: "false"},
+        "valid boolean Y|N Y" => {base: "boolean", value: "Y", format: "Y|N", result: "true"},
+        "valid boolean Y|N N" => {base: "boolean", value: "N", format: "Y|N", result: "false"},
+
+        # Dates
+        "validate date yyyy-MM-dd" => {base: "date", value: "2015-03-22", format: "yyyy-MM-dd", result: "2015-03-22"},
+        "validate date yyyyMMdd" => {base: "date", value: "20150322", format: "yyyyMMdd", result: "2015-03-22"},
+        "validate date dd-MM-yyyy" => {base: "date", value: "22-03-2015", format: "dd-MM-yyyy", result: "2015-03-22"},
+        "validate date d-M-yyyy" => {base: "date", value: "22-3-2015", format: "d-M-yyyy", result: "2015-03-22"},
+        "validate date MM-dd-yyyy" => {base: "date", value: "03-22-2015", format: "MM-dd-yyyy", result: "2015-03-22"},
+        "validate date M/d/yyyy" => {base: "date", value: "3/22/2015", format: "M-d-yyyy", result: "2015-03-22"},
+        "validate date dd/MM/yyyy" => {base: "date", value: "22/03/2015", format: "dd/MM/yyyy", result: "2015-03-22"},
+        "validate date d/M/yyyy" => {base: "date", value: "22/3/2015", format: "d/M/yyyy", result: "2015-03-22"},
+        "validate date MM/dd/yyyy" => {base: "date", value: "03/22/2015", format: "MM/dd/yyyy", result: "2015-03-22"},
+        "validate date M/d/yyyy" => {base: "date", value: "3/22/2015", format: "M/d/yyyy", result: "2015-03-22"},
+        "validate date dd.MM.yyyy" => {base: "date", value: "22.03.2015", format: "dd.MM.yyyy", result: "2015-03-22"},
+        "validate date d.M.yyyy" => {base: "date", value: "22.3.2015", format: "d.M.yyyy", result: "2015-03-22"},
+        "validate date MM.dd.yyyy" => {base: "date", value: "03.22.2015", format: "MM.dd.yyyy", result: "2015-03-22"},
+        "validate date M.d.yyyy" => {base: "date", value: "3.22.2015", format: "M.d.yyyy", result: "2015-03-22"},
+
+        # Times
+        "valid time HH:mm:ss" => {base: "time", value: "15:02:37", format: "HH:mm:ss", result: "15:02:37"},
+        "valid time HHmmss" => {base: "time", value: "150237", format: "HHmmss", result: "15:02:37"},
+        "valid time HH:mm" => {base: "time", value: "15:02", format: "HH:mm", result: "15:02:00"},
+        "valid time HHmm" => {base: "time", value: "1502", format: "HHmm", result: "15:02:00"},
+
+        # DateTimes
+        "valid dateTime yyyy-MM-ddTHH:mm:ss" => {base: "dateTime", value: "2015-03-15T15:02:37", format: "yyyy-MM-ddTHH:mm:ss", result: "2015-03-15T15:02:37"},
+        "valid dateTime yyyy-MM-dd HH:mm:ss" => {base: "dateTime", value: "2015-03-15 15:02:37", format: "yyyy-MM-dd HH:mm:ss", result: "2015-03-15T15:02:37"},
+        "valid dateTime yyyyMMdd HHmmss"   => {base: "dateTime", value: "20150315 150237",   format: "yyyyMMdd HHmmss",   result: "2015-03-15T15:02:37"},
+        "valid dateTime dd-MM-yyyy HH:mm" => {base: "dateTime", value: "15-03-2015 15:02", format: "dd-MM-yyyy HH:mm", result: "2015-03-15T15:02:00"},
+        "valid dateTime d-M-yyyy HHmm"   => {base: "dateTime", value: "15-3-2015 1502",  format: "d-M-yyyy HHmm",   result: "2015-03-15T15:02:00"},
+        "valid dateTimeStamp d-M-yyyy HHmm X"   => {base: "dateTimeStamp", value: "15-3-2015 1502 Z",  format: "d-M-yyyy HHmm X",   result: "2015-03-15T15:02:00Z"},
+
+        # Timezones
+        "valid w/TZ yyyy-MM-ddX" => {base: "date", value: "2015-03-22Z", format: "yyyy-MM-ddX", result: "2015-03-22Z"},
+        "valid w/TZ dd.MM.yyyy XXXXX" => {base: "date", value: "22.03.2015 Z", format: "dd.MM.yyyy XXXXX", result: "2015-03-22Z"},
+        "valid w/TZ HH:mm:ssX" => {base: "time", value: "15:02:37-05:00", format: "HH:mm:ssX", result: "15:02:37-05:00"},
+        "valid w/TZ HHmm XX" => {base: "time", value: "1502 +08:00", format: "HHmm XX", result: "15:02:00+08:00"},
+        "valid w/TZ yyyy-MM-ddTHH:mm:ssXXX" => {base: "dateTime", value: "2015-03-15T15:02:37-05:00", format: "yyyy-MM-ddTHH:mm:ssXXX", result: "2015-03-15T15:02:37-05:00"},
+        "valid w/TZ yyyy-MM-dd HH:mm:ss X" => {base: "dateTimeStamp", value: "2015-03-15 15:02:37 +08:00", format: "yyyy-MM-dd HH:mm:ss X", result: "2015-03-15T15:02:37+08:00"},
+        "valid gDay" => {base: "gDay", value: "---31"},
+        "valid gMonth" => {base: "gMonth", value: "--02"},
+        "valid gMonthDay" => {base: "gMonthDay", value: "--02-21"},
+        "valid gYear" => {base: "gYear", value: "9999"},
+        "valid gYearMonth" => {base: "gYearMonth", value: "1999-05"},
+
+        # Durations
+        "valid duration PT130S"    => {base: "duration", value: "PT130S"},
+        "valid duration PT130M"    => {base: "duration", value: "PT130M"},
+        "valid duration PT130H"    => {base: "duration", value: "PT130H"},
+        "valid duration P130D"     => {base: "duration", value: "P130D"},
+        "valid duration P130M"     => {base: "duration", value: "P130M"},
+        "valid duration P130Y"     => {base: "duration", value: "P130Y"},
+        "valid duration PT2M10S"   => {base: "duration", value: "PT2M10S"},
+        "valid duration P0Y20M0D"  => {base: "duration", value: "P0Y20M0D"},
+        "valid duration -P60D"     => {base: "duration", value: "-P60D"},
+        "valid dayTimeDuration P1DT2H"    => {base: "dayTimeDuration", value: "P1DT2H"},
+        "valid yearMonthDuration P0Y20M"  => {base: "yearMonthDuration", value: "P0Y20M"},
+
+        # Other datatypes
+        "valid anyAtomicType" => {base: "anyAtomicType", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.anyAtomicType)},
+        "valid anyURI" => {base: "anyURI", value: "http://example.com/", result: RDF::Literal("http://example.com/", datatype: RDF::XSD.anyURI)},
+        "valid base64Binary" => {base: "base64Binary", value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)},
+        "valid hexBinary" => {base: "hexBinary", value: "0FB7", result: RDF::Literal("0FB7", datatype: RDF::XSD.hexBinary)},
+        "valid QName" => {base: "QName", value: "foo:bar", result: RDF::Literal("foo:bar", datatype: RDF::XSD.QName)},
+        "valid normalizedString" => {base: "normalizedString", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.normalizedString)},
+        "valid token" => {base: "token", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.token)},
+        "valid language" => {base: "lang", value: "en", result: RDF::Literal("en", datatype: RDF::XSD.language)},
+        "valid Name" => {base: "Name", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.Name)},
+        "valid NMTOKEN" => {base: "NMTOKEN", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.NMTOKEN)},
+
+        # Unsupported datatypes
+        "anyType not allowed" => {base: "anyType", value: "some thing", errors: [/unsupported datatype/]},
+        "anySimpleType not allowed" => {base: "anySimpleType", value: "some thing", errors: [/unsupported datatype/]},
+        "ENTITIES not allowed" => {base: "ENTITIES", value: "some thing", errors: [/unsupported datatype/]},
+        "IDREFS not allowed" => {base: "IDREFS", value: "some thing", errors: [/unsupported datatype/]},
+        "NMTOKENS not allowed" => {base: "NMTOKENS", value: "some thing", errors: [/unsupported datatype/]},
+        "ENTITY not allowed" => {base: "ENTITY", value: "something", errors: [/unsupported datatype/]},
+        "ID not allowed" => {base: "ID", value: "something", errors: [/unsupported datatype/]},
+        "IDREF not allowed" => {base: "IDREF", value: "something", errors: [/unsupported datatype/]},
+        "NOTATION not allowed" => {base: "NOTATION", value: "some:thing", errors: [/unsupported datatype/]},
+
+        # Aliases
+        "number is alias for double" => {base: "number", value: "1234.456E789", result: RDF::Literal("1234.456E789", datatype: RDF::XSD.double)},
+        "binary is alias for base64Binary" => {base: "binary", value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)},
+        "datetime is alias for dateTime" => {base: "dateTime", value: "15-3-2015 1502",  format: "d-M-yyyy HHmm", result: RDF::Literal("2015-03-15T15:02:00", datatype: RDF::XSD.dateTime)},
+        "any is alias for anyAtomicType" => {base: "any", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.anyAtomicType)},
+        "xml is alias for rdf:XMLLiteral" => {base: "xml", value: "<foo></foo>", result: RDF::Literal("<foo></foo>", datatype: RDF.XMLLiteral)},
+        "html is alias for rdf:HTML" => {base: "html", value: "<foo></foo>", result: RDF::Literal("<foo></foo>", datatype: RDF.HTML)},
+        #"json is alias for csvw:JSON" => {base: "json", value: %({""foo"": ""bar""}), result: RDF::Literal(%({"foo": "bar"}), datatype: RDF::Tabular::CSVW.json)},
+      }.each do |name, props|
+        context name do
+          let(:value) {props[:value]}
+          let(:result) {
+            if props[:errors]
+              RDF::Literal(props.fetch(:result, value))
+            else
+              RDF::Literal(props.fetch(:result, value), datatype: md.context.expand_iri(props[:base], vocab: true))
+            end
+          }
+          let(:md) {
+            RDF::Tabular::Table.new({
+             url: "http://example.com/table.csv",
+              dialect: {header: false},
+              tableSchema: {
+                columns: [{
+                  name: "name",
+                  datatype: props.dup.delete_if {|k, v| [:value, :valid, :result].include?(k)}
+                }]
+              }
+            }, debug: @debug)
+          }
+          subject {md.to_enum(:each_row, "#{value}\n").to_a.first.values.first}
+
+          if props[:errors]
+            it {is_expected.not_to be_valid}
+            it "has expected errors" do
+              props[:errors].each do |e|
+                expect(subject.errors.to_s).to match(e)
+              end
+            end
+          else
+            it {is_expected.to be_valid}
+            it "has no errors" do
+              expect(subject.errors).to be_empty
+            end
+          end
+
+          specify {expect(subject.value).to eql result}
         end
       end
     end

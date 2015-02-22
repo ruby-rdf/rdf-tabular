@@ -2,6 +2,7 @@ require 'json'
 require 'json/ld'
 require 'bcp47'
 require 'addressable/template'
+require 'rdf/xsd'
 
 ##
 # CSVM Metadata processor
@@ -24,7 +25,7 @@ module RDF::Tabular
     # Inheritect properties, valid for all types
     INHERITED_PROPERTIES = {
       aboutUrl:           :uri_template,
-      datatype:           :atomic,
+      datatype:           :object,
       default:            :atomic,
       format:             :atomic,
       fractionDigits:     :atomic,
@@ -494,7 +495,10 @@ module RDF::Tabular
             true
           end
         when :commentPrefix then value.is_a?(String) && value.length == 1
-        when :datatype then value.is_a?(String) && DATATYPES.keys.map(&:to_s).include?(value)
+        when :datatype
+          dt = [value] unless value.is_a?(Array)
+          dt.map! {|v| v.is_a?(Hash) ? (v[:base] ||= 'string'; v) : {base: v}}
+          dt.all? {|v| DATATYPES.keys.map(&:to_s).include?(v[:base])}
         when :default then value.is_a?(String)
         when :delimiter then value.is_a?(String) && value.length == 1
         when :dialect then value.is_a?(Dialect) && value.validate!
@@ -784,6 +788,10 @@ module RDF::Tabular
             when :object
               case key
               when :notes then Array(value)
+              when :datatype
+                # Normalize datatype to object form
+                dt = [value] unless value.is_a?(Array)
+                dt.map! {|v| v.is_a?(Hash) ? (v[:base] ||= 'string'; v) : {base: v}}
               else value
               end
             when :natural_language
@@ -1312,7 +1320,7 @@ module RDF::Tabular
   # Wraps each resulting row
   class Row
     # Class for returning values
-    Cell = Struct.new(:metadata, :raw, :column, :sourceColumn, :aboutUrl, :propertyUrl, :valueUrl, :value) do
+    Cell = Struct.new(:metadata, :raw, :column, :sourceColumn, :aboutUrl, :propertyUrl, :valueUrl, :value, :errors) do
       def set_urls(mapped_values)
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
           if v = metadata.send(prop.to_sym)
@@ -1324,6 +1332,7 @@ module RDF::Tabular
         end
       end
 
+      def valid?; Array(errors).empty?; end
       def to_s; value.to_s; end
     end
 
@@ -1367,6 +1376,8 @@ module RDF::Tabular
       row.each_with_index do |value, index|
         next if index < skipColumns
 
+        cell_errors = []
+
         # create column if necessary
         if create_columns && !columns[index - skipColumns]
           columns[index - skipColumns] = Column.new({}, parent: metadata.tableSchema, context: nil, colnum: index + 1)
@@ -1377,7 +1388,7 @@ module RDF::Tabular
         @values << cell = Cell.new(column, value, index + 1 - skipColumns, index + 1)
 
         # Trim value
-        if %w(string anyAtomicType any).include?(column.datatype)
+        if column.datatype && %w(string anyAtomicType any).include?(column.datatype[:base])
           value.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
           value.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
         else
@@ -1391,19 +1402,186 @@ module RDF::Tabular
         cell_values = column.separator ? value.split(column.separator) : [value]
 
         cell_values = cell_values.map do |v|
-          v.strip! unless %w(string anyAtomicType any).include?(column.datatype)
+          value_errors = []
+          v.strip! unless column.datatype && %w(string anyAtomicType any).include?(column.datatype[:base])
+
           case
           when v == column.null then nil
           when v.to_s.empty? then metadata.default
           when column.datatype
-            # XXX validate the string based on the datatype, using the format property if one is specified, as described below, and then against the constraints described in section 3.11 Datatypes; if there are any errors, add them to the list of errors for the cell; the resulting value is typed as a string with the language provided by the lang property
-            RDF::Literal(v, datatype: metadata.context.expand_iri(column.datatype, vocab: true))
+            orig_val, lit = v.dup, nil
+
+            # Check constraints
+            if column.datatype[:length] && v.length != column.datatype[:length]
+              value_errors << "#{v} does not have length #{column.datatype[:length]}"
+            end
+            if column.datatype[:minLength] && v.length < column.datatype[:minLength]
+              value_errors << "#{v} does not have length >= #{column.datatype[:minLength]}"
+            end
+            if column.datatype[:maxLength] && v.length > column.datatype[:maxLength]
+              value_errors << "#{v} does not have length <= #{column.datatype[:maxLength]}"
+            end
+
+            format = column.datatype[:format]
+            expanded_dt = metadata.context.expand_iri(column.datatype[:base], vocab: true) if column.datatype[:base]
+            # Datatype specific constraints and conversions
+            case column.datatype[:base].to_sym
+            when :decimal, :integer, :long, :int, :short, :byte,
+                 :nonNegativeInteger, :positiveInteger,
+                 :unsignedLong, :unsignedInt, :unsignedShort, :unsignedByte,
+                 :nonPositiveInteger, :negativeInteger,
+                 :double, :float
+              # Normalize representation based on numeric-specific facets
+              groupChar = column.datatype.fetch(:groupChar, ',')
+              if column.datatype[:pattern] && !v.match(Regexp.new(column.datatype[:pattern]))
+                # pattern facet failed
+                value_errors << "#{v} does not match pattern #{column.datatype[:pattern]}"
+              end
+              if v.include?(groupChar*2)
+                # pattern facet failed
+                value_errors << "#{v} has repeating #{groupChar.inspect}"
+              end
+              v.gsub!(groupChar, '')
+              v.sub!(column.datatype.fetch(:decimalChar, '.'), '.')
+
+              # Extract percent or per-mille sign
+              percent = permille = false
+              case v
+              when /%$/
+                v = v[0..-2]
+                percent = true
+              when /‰$/
+                v = v[0..-2]
+                permille = true
+              end
+
+              lit = RDF::Literal(v, datatype: expanded_dt)
+              if percent || permille
+                o = lit.object
+                o = o / 100 if percent
+                o = o / 1000 if permille
+                lit = RDF::Literal(o, datatype: expanded_dt)
+              end
+            when :boolean
+              lit = if format
+                # True/False determined by Y|N values
+                t, f = format.to_s.split('|', 2)
+                case
+                when v == t
+                  v = RDF::Literal::TRUE
+                when v == f
+                  v = RDF::Literal::FALSE
+                else
+                  value_errors << "#{v} does not match boolean format #{format}"
+                  RDF::Literal::Boolean.new(v)
+                end
+              else
+                if %w(1 true).include?(v.downcase)
+                  RDF::Literal::TRUE
+                elsif %w(0 false).include?(v.downcase)
+                  RDF::Literal::FALSE
+                end
+              end
+            when :date, :time, :dateTime, :dateTimeStamp
+              # Match values
+              tz, date_format, time_format = nil, nil, nil
+
+              # Extract tz info
+              if format && (md = format.match(/^(.*[dyms])+(\s*[xX]{1,5})$/))
+                format, tz = md[1], md[2]
+              end
+
+              if format
+                date_format, time_format = format.split(' ')
+                if column.datatype[:base].to_sym == :time
+                  date_format, time_format = nil, date_format
+                end
+
+                # Extract date, of specified
+                date_part = case date_format
+                when 'yyyy-MM-dd' then v.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})/)
+                when 'yyyyMMdd'   then v.match(/^(?<yr>\d{4})(?<mo>\d{2})(?<da>\d{2})/)
+                when 'dd-MM-yyyy' then v.match(/^(?<da>\d{2})-(?<mo>\d{2})-(?<yr>\d{4})/)
+                when 'd-M-yyyy'   then v.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{4})/)
+                when 'MM-dd-yyyy' then v.match(/^(?<mo>\d{2})-(?<da>\d{2})-(?<yr>\d{4})/)
+                when 'M-d-yyyy'   then v.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{4})/)
+                when 'dd/MM/yyyy' then v.match(/^(?<da>\d{2})\/(?<mo>\d{2})\/(?<yr>\d{4})/)
+                when 'd/M/yyyy'   then v.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{4})/)
+                when 'MM/dd/yyyy' then v.match(/^(?<mo>\d{2})\/(?<da>\d{2})\/(?<yr>\d{4})/)
+                when 'M/d/yyyy'   then v.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{4})/)
+                when 'dd.MM.yyyy' then v.match(/^(?<da>\d{2})\.(?<mo>\d{2})\.(?<yr>\d{4})/)
+                when 'd.M.yyyy'   then v.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{4})/)
+                when 'MM.dd.yyyy' then v.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
+                when 'M.d.yyyy'   then v.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
+                end
+
+                # Forward past date part
+                if date_part
+                  v = v[date_part.to_s.length..-1]
+                  v = v.lstrip if date_part && v.start_with?(' ')
+                end
+
+                # Extract time, of specified
+                time_part = case time_format
+                when 'HH:mm:ss' then v.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
+                when 'HHmmss'   then v.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})/)
+                when 'HH:mm'    then v.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
+                when 'HHmm'     then v.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)/)
+                end
+
+                # Forward past time part
+                v = v[time_part.to_s.length..-1] if time_part
+
+                # Extract dateTime, of specified
+                datetime_part = case format
+                when 'yyyy-MM-ddTHH:mm:ss' then v.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
+                end
+
+                # Forward past datetime part
+                if datetime_part
+                  date_part = time_part = datetime_part
+                  v = v[datetime_part.to_s.length..-1]
+                end
+
+                # If there's a timezone, it may optionally start with whitespace
+                v = v.lstrip if tz.to_s.start_with?(' ')
+                tz_part = v if tz
+
+                # Compose normalized value
+                vd = ("%04d-%02d-%02d" % [date_part[:yr], date_part[:mo], date_part[:da]]) if date_part
+                vt = ("%02d:%02d:%02d" % [time_part[:hr], time_part[:mi], time_part[:se].to_i]) if time_part
+                v = [vd, vt].compact.join('T')
+                v += tz_part.to_s
+              end
+
+              lit = RDF::Literal(v, datatype: expanded_dt)
+            when :duration, :dayTimeDuration, :yearMonthDuration
+              # SPEC CONFUSION: surely format also includes that for other duration types?
+              lit = RDF::Literal(v, datatype: expanded_dt)
+            when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,
+                 :ENTITY, :ID, :IDREF, :NOTATION
+              value_errors << "#{v} uses unsupported datatype: #{column.datatype[:base]}"
+            else
+              # For other types, format is a regexp
+              unless format.nil? || v.match(Regexp.new(format))
+                value_errors << "#{v} does not match format #{format}"
+              end
+              lit = RDF::Literal(v, datatype: expanded_dt) if value_errors.empty?
+            end
+
+            # Final value is a valid literal, or a plain literal otherwise
+            value_errors << "#{v} is not a valid #{column.datatype[:base]}" if lit && !lit.valid?
+            cell_errors += value_errors
+            value_errors.empty? ? lit : RDF::Literal(orig_val)
           else
             RDF::Literal(v, language: column.lang)
           end
         end.compact
 
+        # FIXME Value constraints
+
         cell.value = (column.separator ? cell_values : cell_values.first)
+        cell.errors = cell_errors
 
         map_values[columns[index].name] =  (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
