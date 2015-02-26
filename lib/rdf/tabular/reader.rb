@@ -139,11 +139,11 @@ module RDF::Tabular
         # Output ROW-Level statements
         metadata.each_row(input) do |row|
           # Output row-level metadata
-          add_statement(row.row, table_resource, CSVW.row, row.resource)
-          add_statement(row.row, row.resource, CSVW.rownum, row.row)
+          add_statement(row.sourceNumber, table_resource, CSVW.row, row.resource)
+          add_statement(row.sourceNumber, row.resource, CSVW.rownum, row.number)
           row.values.each_with_index do |cell, index|
             Array(cell.valueUrl || cell.value).each do |v|
-              add_statement(row.row, cell.aboutUrl, cell.propertyUrl, v)
+              add_statement(row.sourceNumber, cell.aboutUrl, cell.propertyUrl, v)
             end
           end
         end
@@ -221,13 +221,15 @@ module RDF::Tabular
     # @param [Hash{Symbol => Object}] options may also be a JSON state
     # @option options [IO, StringIO] io to output to file
     # @option options [::JSON::State] :state used when dumping
+    # @option options [Boolean] :atd output Abstract Table representation instead
     # @return [String]
     def to_json(options = {})
+      hash_fn = options[:atd] ? :to_atd : :to_hash
       if options[:io]
         ::JSON::dump_default_options = options.fetch(:state, ::JSON::LD::JSON_STATE)
-        ::JSON.dump(self.to_hash(options), options[:io])
+        ::JSON.dump(self.send(hash_fn, options), options[:io])
       else
-        hash = self.to_hash(options.is_a?(Hash) ? options : {})
+        hash = self.send(hash_fn, options.is_a?(Hash) ? options : {})
         state = (options[:state] if options.is_a?(Hash)) || options
         ::JSON.generate(hash, state)
       end
@@ -319,7 +321,7 @@ module RDF::Tabular
           # Output row-level metadata
           r = {}
           r["url"] = row.resource.to_s if row.resource.is_a?(RDF::URI)
-          r["rownum"] = row.row
+          r["rownum"] = row.number
 
           row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]
@@ -339,6 +341,72 @@ module RDF::Tabular
           # Optional describedBy
           if Array(@metadata.filenames).length > 0
             table["describedBy"] = @metadata.filenames.length == 1 ? @metadata.filenames.first : @metadata.filenames
+          end
+        end
+        table
+      end
+    end
+
+    # Return a hash representation of the annotated tabular data model for JSON serialization
+    # @param [Hash{Symbol => Object}] options
+    # @return [Hash]
+    def to_atd(options = {})
+      # Construct metadata from that passed from file open, along with information from the file.
+      if input.is_a?(Metadata)
+        debug("each_statement: metadata") {input.inspect}
+        depth do
+          # Get Metadata to invoke and open referenced files
+          case input.type
+          when :TableGroup
+            table_group = input.to_atd
+
+            input.each_resource do |table|
+              Reader.open(table.url, options.merge(
+                format:             :tabular,
+                metadata:           table,
+                base:               table.url,
+                no_found_metadata:  true, # FIXME: remove
+                noProv:             true
+              )) do |r|
+                table = r.to_atd(options)
+                
+                # Fill in columns and rows in table_group entry from returned table
+                t = table_group[:resources].detect {|tab| tab["url"] == table["url"]}
+                t["columns"] = table["columns"]
+                t["rows"] = table["rows"]
+              end
+            end
+
+            # Result is table_group
+            table_group
+          when :Table
+            table = nil
+            Reader.open(input.url, options.merge(
+              format:             :tabular,
+              metadata:           input,
+              base:               input.url,
+              no_found_metadata:  true,
+              noProv:             true
+            )) do |r|
+              table = r.to_atd(options)
+            end
+
+            table
+          else
+            raise "Opened inappropriate metadata type: #{input.type}"
+          end
+        end
+      else
+        rows = []
+        table = metadata.to_atd
+        rows, columns = table["rows"], table["columns"]
+
+        # Input is file containing CSV data.
+        # Output ROW-Level statements
+        metadata.each_row(input) do |row|
+          rows << row.to_atd
+          row.values.each_with_index do |cell, colndx|
+            columns[colndx]["cells"] << cell.id
           end
         end
         table

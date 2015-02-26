@@ -583,7 +583,7 @@ describe RDF::Tabular::Metadata do
     specify {expect {|b| subject.each_row(input, &b)}.to yield_control.exactly(3)}
 
     it "returns consecutive row numbers" do
-      nums = subject.to_enum(:each_row, input).map(&:row)
+      nums = subject.to_enum(:each_row, input).map(&:number)
       expect(nums).to eql([1, 2, 3])
     end
 
@@ -721,35 +721,62 @@ describe RDF::Tabular::Metadata do
         "skipColumns + headerColumnCount" => {dialect: {skipColumns: 1, headerColumnCount: 0}},
       }.each do |name, props|
         context name do
-          before(:each) { subject.dialect = props[:dialect]}
+          subject {
+            raw = JSON.parse(%({
+              "url": "https://example.org/countries.csv",
+              "@type": "Table",
+              "tableSchema": {
+                "@type": "Schema",
+                "columns": [{
+                  "name": "countryCode",
+                  "title": "countryCode",
+                  "propertyUrl": "https://example.org/countries.csv#countryCode"
+                }, {
+                  "name": "latitude",
+                  "title": "latitude",
+                  "propertyUrl": "https://example.org/countries.csv#latitude"
+                }, {
+                  "name": "longitude",
+                  "title": "longitude",
+                  "propertyUrl": "https://example.org/countries.csv#longitude"
+                }, {
+                  "name": "name",
+                  "title": "name",
+                  "propertyUrl": "https://example.org/countries.csv#name"
+                }]
+              }
+            }))
+            raw["dialect"] = props[:dialect]
+            described_class.new(raw, base: RDF::URI("http://example.org/base"), debug: @debug)
+          }
           let(:rows) {subject.to_enum(:each_row, input).to_a}
           let(:rowOffset) {props[:dialect].fetch(:skipRows, 0) + props[:dialect].fetch(:headerRowCount, 1)}
           let(:columnOffset) {props[:dialect].fetch(:skipColumns, 0) + props[:dialect].fetch(:headerColumnCount, 0)}
-          it "has expected row attributes" do
+          it "has expected number attributes" do
             nums = [1, 2, 3, 4]
             nums = nums.first(nums.length - rowOffset)
-            expect(rows.map(&:row)).to eql nums
+            expect(rows.map(&:number)).to eql nums
           end
-          it "has expected sourceRow attributes" do
+          it "has expected sourceNumber attributes" do
             nums = [1, 2, 3, 4].map {|n| n + rowOffset}
             nums = nums.first(nums.length - rowOffset)
-            expect(rows.map(&:sourceRow)).to eql nums
+            expect(rows.map(&:sourceNumber)).to eql nums
           end
-          it "has expected column attributes" do
+          it "has expected column.number attributes" do
             nums = [1, 2, 3, 4]
             nums = nums.first(nums.length - columnOffset)
-            expect(rows.first.values.map(&:column)).to eql nums
+            expect(rows.first.values.map {|c| c.column.number}).to eql nums
           end
-          it "has expected sourceColumn attributes" do
+          it "has expected column.sourceNumber attributes" do
             nums = [1, 2, 3, 4].map {|n| n + columnOffset}
             nums = nums.first(nums.length - columnOffset)
-            expect(rows.first.values.map(&:sourceColumn)).to eql nums
+            expect(rows.first.values.map {|c| c.column.sourceNumber}).to eql nums
           end
         end
       end
     end
 
-    context "datatypes", focus: true do
+    context "datatypes" do
       {
         # Strings
         "string with no constraints" => {base: "string", value: "foo", result: "foo"},
@@ -958,7 +985,7 @@ describe RDF::Tabular::Metadata do
         "html is alias for rdf:HTML" => {base: "html", value: "<foo></foo>", result: RDF::Literal("<foo></foo>", datatype: RDF.HTML)},
         #"json is alias for csvw:JSON" => {base: "json", value: %({""foo"": ""bar""}), result: RDF::Literal(%({"foo": "bar"}), datatype: RDF::Tabular::CSVW.json)},
       }.each do |name, props|
-        context name, focus: true do
+        context name do
           let(:value) {props[:value]}
           let(:result) {
             if props[:errors]

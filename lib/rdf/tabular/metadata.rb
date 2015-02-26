@@ -332,10 +332,10 @@ module RDF::Tabular
           when :columns
             # An array of template specifications that provide mechanisms to transform the tabular data into other formats
             object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              colnum = parent ? dialect.skipColumns : 0  # Get dialect from Table, not Schema
+              number = 0
               value.map do |v|
-                colnum += 1
-                Column.new(v, @options.merge(parent: self, context: nil, colnum: colnum))
+                number += 1
+                Column.new(v, @options.merge(table: (parent if parent.is_a?(Table)), parent: self, context: nil, number: number))
               end
             else
               # Invalid, but preserve value
@@ -669,11 +669,11 @@ module RDF::Tabular
     def each_row(input)
       csv = ::CSV.new(input, csv_options)
       # Skip skipRows and headerRowCount
-      rownum, skipped = 0, (dialect.skipRows.to_i + dialect.headerRowCount)
+      number, skipped = 0, (dialect.skipRows.to_i + dialect.headerRowCount)
       (1..skipped).each {csv.shift}
-      csv.each do |row|
-        rownum += 1
-        yield(Row.new(row, self, rownum, rownum + skipped))
+      csv.each do |data|
+        number += 1
+        yield(Row.new(data, self, number, number + skipped))
       end
     end
 
@@ -1101,6 +1101,15 @@ module RDF::Tabular
       table.context.base = url
       table
     end
+
+    # Return Annotated Table Group representation
+    def to_atd
+      {
+        "@id" => id,
+        "@type" => "AnnotatedTableGroup",
+        "resources" => resources.map(&:to_atd)
+      }
+    end
   end
 
   class Table < Metadata
@@ -1133,6 +1142,17 @@ module RDF::Tabular
     # @return [Boolean]
     def has_annotations?
       super || tableSchema && tableSchema.has_annotations?
+    end
+
+    # Return Annotated Table representation
+    def to_atd
+      {
+        "@id" => id,
+        "@type" => "AnnotatedTable",
+        "columns" => tableSchema.columns.map(&:to_atd),
+        "rows" => [],
+        "url" => self.url.to_s
+      }
     end
 
     # Logic for accessing elements as accessors
@@ -1215,9 +1235,25 @@ module RDF::Tabular
     }.freeze
     REQUIRED = [].freeze
 
+    ##
+    # Table containing this column (if any)
+    # @return [Table]
+    def table; @options[:table]; end
+
     # Column number set on initialization
     # @return [Integer] 1-based colnum number
-    def colnum; @options.fetch(:colnum, 0); end
+    def number
+      @options.fetch(:number, 0)
+    end
+
+    # Source Column number set on initialization
+    #
+    # @note this is lazy evaluated to avoid dependencies on setting dialect vs. initializing columns
+    # @return [Integer] 1-based colnum number
+    def sourceNumber
+      skipColumns = table ? (dialect.skipColumns.to_i + dialect.headerColumnCount.to_i) : 0
+      number + skipColumns
+    end
 
     # Does the Metadata or any descendant have any common properties
     # @return [Boolean]
@@ -1244,7 +1280,29 @@ module RDF::Tabular
         n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
         n1 = URI.encode(n[1..-1], /[^\w\.]/)
         "#{n0}#{n1}"
-      end || "_col.#{colnum}"
+      end || "_col.#{number}"
+    end
+
+    # Identifier for this Column, as an RFC7111 fragment 
+    # @return [RDF::URI]
+    def id;
+      url = table ? table.url : RDF::URI("")
+      url + "#col=#{self.sourceNumber}";
+    end
+
+    # Return Annotated Column representation
+    def to_atd
+      {
+        "@id" => id,
+        "@type" => "Column",
+        "table" => (table.id if table),
+        "number" => self.number,
+        "sourceNumber" => self.sourceNumber,
+        "cells" => [],
+        "virtual" => self.virtual,
+        "name" => self.name,
+        "title" => self.title
+      }
     end
 
     # Logic for accessing elements as accessors
@@ -1336,13 +1394,13 @@ module RDF::Tabular
   # Wraps each resulting row
   class Row
     # Class for returning values
-    Cell = Struct.new(:metadata, :raw, :column, :sourceColumn, :aboutUrl, :propertyUrl, :valueUrl, :value, :errors) do
+    Cell = Struct.new(:table, :column, :row, :stringValue, :aboutUrl, :propertyUrl, :valueUrl, :value, :errors) do
       def set_urls(mapped_values)
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
-          if v = metadata.send(prop.to_sym)
+          if v = column.send(prop.to_sym)
             t = Addressable::Template.new(v)
             mapped = t.expand(mapped_values).to_s
-            url = metadata.context.expand_iri(mapped, documentRelative: true)
+            url = column.context.expand_iri(mapped, documentRelative: true)
             self.send("#{prop}=".to_sym, url)
           end
         end
@@ -1350,6 +1408,23 @@ module RDF::Tabular
 
       def valid?; Array(errors).empty?; end
       def to_s; value.to_s; end
+
+      # Identifier for this Cell, as an RFC7111 fragment 
+      # @return [RDF::URI]
+      def id; table.url + "#cell=#{self.row.sourceNumber},#{self.column.sourceNumber}"; end
+
+      # Return Annotated Cell representation
+      def to_atd
+        {
+          "@id" => self.id,
+          "@type" => "Cell",
+          "column" => column.id,
+          "row" => row.id,
+          "stringValue" => self.stringValue,
+          "value" => self.value,
+          "errors" => self.errors
+        }
+      end
     end
 
     # URI or BNode of this row, after expanding `uriTemplate`
@@ -1361,26 +1436,33 @@ module RDF::Tabular
 
     # Row number of this row
     # @return [Integer]
-    attr_reader :row
+    attr_reader :number
 
     # Row number of this row from the original source
     # @return [Integer]
-    attr_reader :sourceRow
+    attr_reader :sourceNumber
+
+    #
+    # Table containing this row
+    # @return [Table]
+    attr_reader :table
 
     ##
     # @param [Array<Array<String>>] row
     # @param [Metadata] metadata for Table
-    # @param [Integer] rownum 1-based row number
+    # @param [Integer] number 1-based row number after skipped/header rows
+    # @param [Integer] source_number 1-based row number from source
     # @return [Row]
-    def initialize(row, metadata, rownum, source_rownum)
-      @row = rownum
-      @sourceRow = source_rownum
+    def initialize(row, metadata, number, source_number)
+      @table = metadata
+      @number = number
+      @sourceNumber = source_number
       @values = []
       skipColumns = metadata.dialect.skipColumns.to_i + metadata.dialect.headerColumnCount.to_i
 
       # Create values hash
       # SPEC CONFUSION: are values pre-or-post conversion?
-      map_values = {"_row" => rownum, "_sourceRow" => (metadata.dialect.skipRows + metadata.dialect.headerRowCount)}
+      map_values = {"_row" => number, "_sourceRow" => source_number}
 
       # SPEC SUGGESTION:
       # Create columns if no columns were ever set; this would be the case when headerRowCount is zero, and nothing was set from explicit metadata
@@ -1396,12 +1478,12 @@ module RDF::Tabular
 
         # create column if necessary
         if create_columns && !columns[index - skipColumns]
-          columns[index - skipColumns] = Column.new({}, parent: metadata.tableSchema, context: nil, colnum: index + 1)
+          columns[index - skipColumns] = Column.new({}, table: metadata, parent: metadata.tableSchema, context: nil, number: index + 1 - skipColumns)
         end
 
         column = columns[index - skipColumns]
 
-        @values << cell = Cell.new(column, value, index + 1 - skipColumns, index + 1)
+        @values << cell = Cell.new(metadata, column, self, value)
 
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
         value = column.default if value.empty?
@@ -1445,7 +1527,7 @@ module RDF::Tabular
 
         cell.value = (column.separator ? cell_values : cell_values.first)
         cell.errors = cell_errors
-        metadata.send(:debug, "#{self.row}: each_cell ##{sourceRow},#{cell.sourceColumn}", cell.errors.join("\n")) unless cell_errors.empty?
+        metadata.send(:debug, "#{self.number}: each_cell ##{self.sourceNumber},#{cell.column.sourceNumber}", cell.errors.join("\n")) unless cell_errors.empty?
 
         map_values[columns[index].name] =  (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
@@ -1453,9 +1535,9 @@ module RDF::Tabular
       # Map URLs for row
       @values.each_with_index do |cell, index|
         mapped_values = map_values.merge(
-          "_name" => URI.decode(cell.metadata.name),
-          "_column" => cell.column,
-          "_sourceColumn" => cell.sourceColumn
+          "_name" => URI.decode(cell.column.name),
+          "_column" => cell.column.number,
+          "_sourceColumn" => cell.column.sourceNumber
         )
         cell.set_urls(mapped_values)
 
@@ -1463,6 +1545,22 @@ module RDF::Tabular
         @resource ||= cell.aboutUrl || RDF::Node.new
         cell.aboutUrl ||= @resource # Use default
       end
+    end
+
+    # Identifier for this row, as an RFC7111 fragment 
+    # @return [RDF::URI]
+    def id; table.url + "#row=#{self.sourceNumber}"; end
+
+    # Return Annotated Row representation
+    def to_atd
+      {
+        "@id" => self.id,
+        "@type" => "Row",
+        "table" => table.id,
+        "number" => self.number,
+        "sourceNumber" => self.sourceNumber,
+        "cells" => @values.map(&:to_atd)
+      }
     end
 
   private

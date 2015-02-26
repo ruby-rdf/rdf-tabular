@@ -78,20 +78,41 @@ describe RDF::Tabular::Reader do
 
     describe "#to_json" do
       test_files.each do |csv, ttl|
-        it csv do
-          json = ttl.sub(".ttl", ".json")
-          about = RDF::URI("http://example.org").join(csv)
-          input = File.expand_path("../data/#{csv}", __FILE__)
-          expected = File.expand_path("../data/#{json}", __FILE__)
+        context csv do
+          let(:about) {RDF::URI("http://example.org").join(csv)}
+          let(:input) {File.expand_path("../data/#{csv}", __FILE__)}
+          it "JSON" do
+            json = ttl.sub(".ttl", ".json")
+            expected = File.expand_path("../data/#{json}", __FILE__)
 
-          RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
-            expect(JSON.parse(reader.to_json)).to produce(JSON.parse(File.read(expected)),
-                                                         debug: @debug,
-                                                         id: about,
-                                                         action: about,
-                                                         result: expected,
-                                                         noProv: true,
-                                                         metadata: reader.metadata)
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+              expect(JSON.parse(reader.to_json)).to produce(
+                JSON.parse(File.read(expected)),
+                debug: @debug,
+                id: about,
+                action: about,
+                result: expected,
+                noProv: true,
+                metadata: reader.metadata
+              )
+            end
+          end
+
+          it "ADT", pending: true do
+            json = ttl.sub(".ttl", ".atd")
+            expected = File.expand_path("../data/#{json}", __FILE__)
+
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+              expect(JSON.parse(reader.to_json(atd: true))).to produce(
+                JSON.parse(File.read(expected)),
+                debug: @debug,
+                id: about,
+                action: about,
+                result: expected,
+                noProv: true,
+                metadata: reader.metadata
+              )
+            end
           end
         end
       end
