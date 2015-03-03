@@ -64,7 +64,7 @@ module RDF::Tabular
             @metadata = @metadata.for_table(@options[:base]) if @metadata.is_a?(TableGroup)
           end
 
-          debug("Reader#initialize") {"input: #{input}, metadata: #{metadata}"}
+          debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
 
           if block_given?
             case block.arity

@@ -369,7 +369,7 @@ module RDF::Tabular
           when :tableSchema
             # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
             object[key] = case value
-            when String then Schema.open(value, @options.merge(parent: self, context: nil))
+            when String then Schema.open(base.join(value), @options.merge(parent: self, context: nil))
             when Hash   then Schema.new(value, @options.merge(parent: self, context: nil))
             else
               # Invalid, but preserve value
@@ -1464,9 +1464,6 @@ module RDF::Tabular
       # SPEC CONFUSION: are values pre-or-post conversion?
       map_values = {"_row" => number, "_sourceRow" => source_number}
 
-      # SPEC SUGGESTION:
-      # Create columns if no columns were ever set; this would be the case when headerRowCount is zero, and nothing was set from explicit metadata
-      create_columns = metadata.tableSchema.columns.nil?
       columns = metadata.tableSchema.columns ||= []
 
       # Make sure that the row length is at least as long as the number of column definitions, to implicitly include virtual columns
@@ -1477,9 +1474,8 @@ module RDF::Tabular
         cell_errors = []
 
         # create column if necessary
-        if create_columns && !columns[index - skipColumns]
-          columns[index - skipColumns] = Column.new({}, table: metadata, parent: metadata.tableSchema, context: nil, number: index + 1 - skipColumns)
-        end
+        columns[index - skipColumns] ||=
+          Column.new({}, table: metadata, parent: metadata.tableSchema, context: nil, number: index + 1 - skipColumns)
 
         column = columns[index - skipColumns]
 

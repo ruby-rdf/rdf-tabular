@@ -3,9 +3,9 @@
   "dialect": {"trim": true},
   "resources": [{
     "url": "senior-roles.csv",
-    "tableSchema": "http://example.org/senior-roles.json"
+    "tableSchema": "senior-roles.json"
   }, {
     "url": "junior-roles.csv",
-    "tableSchema": "http://example.org/junior-roles.json"
+    "tableSchema": "junior-roles.json"
   }]
 }

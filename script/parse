@@ -25,7 +25,7 @@ def run(input, options)
   end
 rescue
   fname = input.respond_to?(:path) ? input.path : (input.is_a?(String) ? input : "-stdin-")
-  STDERR.puts("Error in #{fname}")
+  STDERR.puts("Error in #{fname}: #{$!}")
   raise
 end
 
