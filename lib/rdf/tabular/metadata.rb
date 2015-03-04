@@ -352,6 +352,7 @@ module RDF::Tabular
           when :dialect
             # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
             object[key] = case value
+            when String then Dialect.open(base.join(value), @options.merge(parent: self, context: nil))
             when Hash   then Dialect.new(value, @options.merge(parent: self, context: nil))
             else
               # Invalid, but preserve value
@@ -740,7 +741,7 @@ module RDF::Tabular
       end
 
       # Merge all passed metadata into this
-      metadata.reduce(this) do |memo, md|
+      merged = metadata.reduce(this) do |memo, md|
         md = case md
         when TableGroup then md
         when Table
@@ -763,6 +764,10 @@ module RDF::Tabular
 
         memo.merge!(md)
       end
+
+      # Set @context of merged
+      merged['@context'] = 'http://www.w3.org/ns/csvw'
+      merged
     end
 
     # Merge metadata into self
@@ -783,17 +788,26 @@ module RDF::Tabular
               md.base.join(value)
             when :object
               case key
-              when :notes then Array(value)
-              when :datatype
-                normalize_datatype(value)
+              when String
+                # Load referenced JSON document
+                # (This is done when objects are loaded in this implementation)
+                raise "unexpected String value of #{key}: #{value}"
               else value
               end
             when :natural_language
               value.is_a?(Hash) ? value : {(md.default_language || 'und') => Array(value)}
+            when :atomic
+              # If the property is an atomic property accepting strings or objects, normalize to the object form as described for that property.
+              case key
+              when :datatype
+                normalize_datatype(value)
+              else value
+              end
             else
-              if key.to_s.include?(':')
+              if key.to_s.include?(':') || key == 'notes'
                 # Expand value relative to context
-                ::JSON::LD::API.expand({key => value}, expandContext: md.context).first.values.first
+                res = ::JSON::LD::API.expand({key => value}, expandContext: md.context).first.values
+                value.is_a?(Array) ? res : res.first  # Return single, or multiple results based on input
               else
                 value
               end
@@ -804,151 +818,124 @@ module RDF::Tabular
         @dialect = nil  # So that it is re-built when needed
         # Merge each property from metadata into self
         metadata.each do |key, value|
-          case key
-          when :"@context"
-            # Merge contexts
-            @context = @context ? metadata.context.merge(@context) : metadata.context
+          case @properties[key]
+          when :array
+            # If the property is an array property, the way in which values are merged depends on the property; see the relevant property for this definition.
+            object[key] = case object[key]
+            when nil then []
+            when Hash then [object[key]]  # Shouldn't happen if well formed
+            else object[key]
+            end
 
-            # Use defined representation
-            this_ctx = object[key].is_a?(Array) ? object[key] : [object[key]].compact
-            metadata_ctx = metadata[key].is_a?(Array) ? metadata[key] : [metadata[key]].compact
-            this_object = this_ctx.detect {|v| v.is_a?(Hash)} || {}
-            this_uri = this_ctx.select {|v| v.is_a?(String)}
-            metadata_object = metadata_ctx.detect {|v| v.is_a?(Hash)} || {}
-            metadata_uri = metadata_ctx.select {|v| v.is_a?(String)}
-            merged_object = metadata_object.merge(this_object)
-            merged_object = nil if merged_object.empty?
-            object[key] = this_uri + (metadata_uri - this_uri) + ([merged_object].compact)
-            object[key] = object[key].first if object[key].length == 1
-          when :@type then object[key] ||= value
-          else
-            begin
-              case @properties[key]
-              when :array
-                # If the property is an array property, the way in which values are merged depends on the property; see the relevant property for this definition.
-                object[key] = case object[key]
-                when nil then []
-                when Hash then [object[key]]  # Shouldn't happen if well formed
-                else object[key]
-                end
-
-                value = [value] if value.is_a?(Hash)
-                case key
-                when :resources
-                  # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
-                  value.each do |t|
-                    if ta = object[key].detect {|e| e.url == t.url}
-                      # if there is a table description with the same url in A, the table description from B is imported into the matching table description in A
-                      ta.merge!(t)
-                    else
-                      # otherwise, the table description from B is appended to the array of table descriptions A
-                      t = t.dup
-                      t.instance_variable_set(:@parent, self)
-                      object[key] << t
-                    end
-                  end
-                when :templates
-                  # SPEC CONFUSION: differing templates with same @id?
-                  # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
-                  value.each do |t|
-                    if ta = object[key].detect {|e| e.targetFormat == t.targetFormat && e.scriptFormat == t.scriptFormat}
-                      # if there is a template specification with the same targetFormat and scriptFormat in A, the template specification from B is imported into the matching template specification in A
-                      ta.merge!(t)
-                    else
-                      # otherwise, the template specification from B is appended to the array of template specifications A
-                      t = t.dup
-                      t.instance_variable_set(:@parent, self) if self
-                      object[key] << t
-                    end
-                  end
-                when :columns
-                  # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
-                  Array(value).each_with_index do |t, index|
-                    ta = object[key][index]
-                    if ta && ta[:name] && ta[:name] == t[:name] 
-                      debug("merge!: columns") {"index: #{index}, name=#{t[:name] }"}
-                      # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
-                      ta.merge!(t)
-                    elsif ta && ta[:title] && t[:title] && (
-                      ta[:title].any? {|lang, values| !(Array(t[:title][lang]) & values).empty?} ||
-                      !(Array(ta[:title]['und']) & t[:title].values.flatten.compact).empty? ||
-                      !(Array(t[:title]['und']) & ta[:title].values.flatten.compact).empty?)
-                      debug("merge!: columns") {"index: #{index}, title=#{t.title}"}
-                      # otherwise, if there is a column description at the same index within A with a title that is also a title in A, considering the language of each title where und matches a value in any language, the column description from B is imported into the matching column description in A.
-                      ta.merge!(t)
-                    elsif ta.nil?
-                      debug("merge!: columns") {"index: #{index}, nil"}
-                      # SPEC SUGGESTION:
-                      # If there is no column description at the same index within A, then the column description is taken from that index of B.
-                      t = t.dup
-                      t.instance_variable_set(:@parent, self) if self
-                      object[key][index] = t
-                    else
-                      debug("merge!: columns") {"index: #{index}, ignore"}
-                      # otherwise, the column description is ignored
-                    end
-                  end
-                when :foreignKeys
-                  # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
-                  # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
-                  object[key] = object[key] + (metadata[key] - object[key])
-                end
-              when :link, :uri_template, :column_reference then object[key] ||= value
-              when :object
-                case key
-                when :notes
-                  # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
-                  a = object[key] || []
-                  object[key] = (a + value).uniq
+            value = [value] if value.is_a?(Hash)
+            case key
+            when :resources
+              # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
+              value.each do |t|
+                if ta = object[key].detect {|e| e.url == t.url}
+                  # if there is a table description with the same url in A, the table description from B is imported into the matching table description in A
+                  ta.merge!(t)
                 else
-                  # if the property only accepts single objects
-                  if object[key].is_a?(String) || value.is_a?(String)
-                    # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
-                    object[key] ||= value
-                  elsif object[key].is_a?(Metadata)
-                    # otherwise (if both values as objects) the objects are merged as described here
-                    object[key].merge!(value)
-                  elsif object[key].is_a?(Hash)
-                    # otherwise (if both values as objects) the objects are merged as described here
-                    object[key].merge!(value)
-                  else
-                    value = value.dup
-                    value.instance_variable_set(:@parent, self) if self
-                    object[key] = value
-                  end
-                end
-              when :natural_language
-                # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
-                a = object[key] || {}
-                b = value
-                debug("merge!: natural_language") {
-                  "A: #{a.inspect}, B: #{b.inspect}"
-                }
-                b.each do |k, v|
-                  a[k] = Array(a[k]) + (Array(b[k]) - Array(a[k]))
-                end
-                # eliminate titles with no language where the same string exists with a language
-                if a.has_key?("und")
-                  a["und"] = a["und"].reject do |v|
-                    a.any? {|lang, values| lang != 'und' && values.include?(v)}
-                  end
-                  a.delete("und") if a["und"].empty?
-                end
-                object[key] = a
-              else
-                # If the property is an atomic property, then
-                case key.to_s
-                when "null"
-                  # otherwise the result is an array of values: those from A followed by those from B that were not already a value in A.
-                  object[key] = Array(object[key]) + (Array[value] - Array[object[key]])
-                when /:/
-                  object[key] = (Array(object[key]) + value).uniq
-                else
-                  # if the property only accepts single values, the value from A overrides that from B;
-                  object[key] ||= value
+                  # otherwise, the table description from B is appended to the array of table descriptions A
+                  t = t.dup
+                  t.instance_variable_set(:@parent, self)
+                  object[key] << t
                 end
               end
+            when :templates
+              # SPEC CONFUSION: differing templates with same @id?
+              # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
+              value.each do |t|
+                if ta = object[key].detect {|e| e.targetFormat == t.targetFormat && e.scriptFormat == t.scriptFormat}
+                  # if there is a template specification with the same targetFormat and scriptFormat in A, the template specification from B is imported into the matching template specification in A
+                  ta.merge!(t)
+                else
+                  # otherwise, the template specification from B is appended to the array of template specifications A
+                  t = t.dup
+                  t.instance_variable_set(:@parent, self) if self
+                  object[key] << t
+                end
+              end
+            when :columns
+              # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
+              Array(value).each_with_index do |t, index|
+                ta = object[key][index]
+                if ta && ta[:name] && ta[:name] == t[:name] 
+                  debug("merge!: columns") {"index: #{index}, name=#{t[:name] }"}
+                  # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
+                  ta.merge!(t)
+                elsif ta && ta[:title] && t[:title] && (
+                  ta[:title].any? {|lang, values| !(Array(t[:title][lang]) & values).empty?} ||
+                  !(Array(ta[:title]['und']) & t[:title].values.flatten.compact).empty? ||
+                  !(Array(t[:title]['und']) & ta[:title].values.flatten.compact).empty?)
+                  debug("merge!: columns") {"index: #{index}, title=#{t.title}"}
+                  # otherwise, if there is a column description at the same index within A with a title that is also a title in A, considering the language of each title where und matches a value in any language, the column description from B is imported into the matching column description in A.
+                  ta.merge!(t)
+                elsif ta.nil?
+                  debug("merge!: columns") {"index: #{index}, nil"}
+                  # SPEC SUGGESTION:
+                  # If there is no column description at the same index within A, then the column description is taken from that index of B.
+                  t = t.dup
+                  t.instance_variable_set(:@parent, self) if self
+                  object[key][index] = t
+                else
+                  debug("merge!: columns") {"index: #{index}, ignore"}
+                  # otherwise, the column description is ignored
+                end
+              end
+            when :foreignKeys
+              # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
+              # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
+              object[key] = object[key] + (metadata[key] - object[key])
             end
+
+          when :object
+            case key
+            when :notes
+              # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
+              a = object[key] || []
+              object[key] = (a + value).uniq
+            else
+              # if the property only accepts single objects
+              if object[key].is_a?(String) || value.is_a?(String)
+                # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
+                object[key] ||= value
+              elsif object[key].is_a?(Metadata)
+                # otherwise (if both values as objects) the objects are merged as described here
+                object[key].merge!(value)
+              elsif object[key].is_a?(Hash)
+                # otherwise (if both values as objects) the objects are merged as described here
+                object[key].merge!(value)
+              else
+                value = value.dup
+                value.instance_variable_set(:@parent, self) if self
+                object[key] = value
+              end
+            end
+          when :natural_language
+            # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
+            a = object[key] || {}
+            b = value
+            debug("merge!: natural_language") {
+              "A: #{a.inspect}, B: #{b.inspect}"
+            }
+            b.each do |k, v|
+              a[k] = Array(a[k]) + (Array(b[k]) - Array(a[k]))
+            end
+            # eliminate titles with no language where the same string exists with a language
+            if a.has_key?("und")
+              a["und"] = a["und"].reject do |v|
+                a.any? {|lang, values| lang != 'und' && values.include?(v)}
+              end
+              a.delete("und") if a["und"].empty?
+            end
+            object[key] = a
+          when ->(k) {key == :notes || key.to_s.include?(':')}
+            # If the property is a common property, the result is an array containing values from A followed by values from B.
+            object[key] = (Array(object[key]) + value).uniq
+          else
+            # Otherwise, the value from A overrides that from B
+            object[key] ||= value
           end
         end
       end

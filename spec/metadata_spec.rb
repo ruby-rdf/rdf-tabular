@@ -393,6 +393,20 @@ describe RDF::Tabular::Metadata do
     end
   end
 
+  context "object properties" do
+    let(:table) {{"url" => "http://example.org/table.csv", "@type" => "Table"}}
+    it "loads referenced schema" do
+      table[:tableSchema] = "http://example.org/schema"
+      expect(described_class).to receive(:open).with(table[:tableSchema], kind_of(Hash)).and_return('{"@type": "Schema"}')
+      described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)
+    end
+    it "loads referenced dialect" do
+      table[:dialect] = "http://example.org/dialect"
+      expect(described_class).to receive(:open).with(table[:dialect], kind_of(Hash)).and_return('{"@type": "Dialect"}')
+      described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)
+    end
+  end
+
   context "inherited properties" do
     let(:table) {{"url" => "http://example.org/table.csv", "tableSchema" => {"@type" => "Schema"}, "@type" => "Table"}}
     subject {described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)}
@@ -1048,7 +1062,8 @@ describe RDF::Tabular::Metadata do
           "resources": [{
             "@type": "Table",
             "url": "http://example.org/table"
-          }]
+          }],
+          "@context": "http://www.w3.org/ns/csvw"
         })
       },
       "two tables with different id" => {
@@ -1068,7 +1083,8 @@ describe RDF::Tabular::Metadata do
           }, {
             "@type": "Table",
             "url": "http://example.org/table2"
-          }]
+          }],
+          "@context": "http://www.w3.org/ns/csvw"
         })
       },
       "table and table-group" => {
@@ -1091,7 +1107,8 @@ describe RDF::Tabular::Metadata do
           }, {
             "@type": "Table",
             "url": "http://example.org/table2"
-          }]
+          }],
+          "@context": "http://www.w3.org/ns/csvw"
         })
       },
       "table-group and table" => {
@@ -1114,7 +1131,8 @@ describe RDF::Tabular::Metadata do
           }, {
             "@type": "Table",
             "url": "http://example.org/table2"
-          }]
+          }],
+          "@context": "http://www.w3.org/ns/csvw"
         })
       },
       "table-group and two tables" => {
@@ -1146,7 +1164,8 @@ describe RDF::Tabular::Metadata do
               {"@value": "foo"},
               {"@value": "bar"}
             ]
-          }]
+          }],
+          "@context": "http://www.w3.org/ns/csvw"
         })
       },
     }.each do |name, props|
@@ -1175,30 +1194,6 @@ describe RDF::Tabular::Metadata do
 
   describe "#merge!" do
     {
-      "@context different language" => {
-        A: %({"@context": {"@language": "en"}, "@type": "Table"}),
-        B: %({"@context": {"@language": "de"}, "@type": "Table"}),
-        R: %({"@context": {"@language": "en"}, "@type": "Table"})
-      },
-      "@context different base" => {
-        A: %({"@context": {"@base": "http://example.org/foo"}, "@type": "Table"}),
-        B: %({"@context": {"@base": "http://example.org/bar"}, "@type": "Table"}),
-        R: %({"@context": {"@base": "http://example.org/foo"}, "@type": "Table"})
-      },
-      "@context mixed language and base" => {
-        A: %({"@context": {"@language": "en"}, "@type": "Table"}),
-        B: %({"@context": {"@base": "http://example.org/bar"}, "@type": "Table"}),
-        R: %({"@context": {"@language": "en", "@base": "http://example.org/bar"}, "@type": "Table"})
-      },
-      "@context with different URI and objects" => {
-        A: %({"@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}], "@type": "Table"}),
-        B: %({"@context": ["http://www.w3.org/ns/csvw/", {"@base": "http://example.org/foo"}], "@type": "Table"}),
-        R: %({"@context": [
-            "http://www.w3.org/ns/csvw",
-            "http://www.w3.org/ns/csvw/",
-            {"@language": "en", "@base": "http://example.org/foo"}
-          ], "@type": "Table"})
-      },
       "TableGroup with and without @id" => {
         A: %({"@id": "http://example.org/foo", "resources": [], "@type": "TableGroup"}),
         B: %({"resources": [], "@type": "TableGroup"}),
