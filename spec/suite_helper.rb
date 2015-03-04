@@ -22,7 +22,7 @@ module RDF::Util
     def self.open_file(filename_or_url, options = {}, &block)
       case filename_or_url.to_s
       when /^file:/
-        path = filename_or_url[5..-1]
+        path = filename_or_url.to_s[5..-1]
         Kernel.open(path.to_s, &block)
       when %r{^(#{REMOTE_PATH}|http://www.w3.org/ns/csvw/?)}
         begin

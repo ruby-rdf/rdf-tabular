@@ -265,7 +265,7 @@ module RDF::Tabular
           type ||= case
           when %w(resources).any? {|k| object_keys.include?(k)} then :TableGroup
           when %w(dialect tableSchema templates).any? {|k| object_keys.include?(k)} then :Table
-          when %w(targetFormat templateFormat source).any? {|k| object_keys.include?(k)} then :Template
+          when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Template
           when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
           when %w(name required).any? {|k| object_keys.include?(k)} then :Column
           when %w(commentPrefix delimiter doubleQuote encoding header headerColumnCount headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
@@ -492,6 +492,17 @@ module RDF::Tabular
       keys.each do |key|
         value = object[key]
         is_valid = case key
+        when :default, :format, :lineTerminator, :uriTemplate,
+             :aboutUrl, :propertyUrl, :valueUrl
+          value.is_a?(String)
+        when :commentPrefix, :delimiter, :quoteChar, :separator
+          value.is_a?(String) && value.length == 1
+        when :doubleQuote, :header, :required, :skipInitialSpace, :skipBlankRows, :virtual
+          %w(true false 1 0).include?(value.to_s.downcase)
+        when :headerColumnCount, :headerRowCount, :minLength, :maxLength, :skipColumns, :skipRows
+          value.is_a?(Numeric) && value.integer? && value > 0
+        when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
+        when :encoding then Encoding.find(value)
         when :columns
           column_names = value.map(&:name)
           value.is_a?(Array) &&
@@ -502,16 +513,11 @@ module RDF::Tabular
             raise "Columns must have unique names" if column_names.uniq != column_names
             true
           end
-        when :commentPrefix then value.is_a?(String) && value.length == 1
         when :datatype
           dt = [value] unless value.is_a?(Array)
           dt.map! {|v| v.is_a?(Hash) ? (v[:base] ||= 'string'; v) : {base: v}}
           dt.all? {|v| DATATYPES.keys.map(&:to_s).include?(v[:base])}
-        when :default then value.is_a?(String)
-        when :delimiter then value.is_a?(String) && value.length == 1
         when :dialect then value.is_a?(Dialect) && value.validate!
-        when :doubleQuote then %w(true false 1 0).include?(value.to_s.downcase)
-        when :encoding then Encoding.find(value)
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
           value.is_a?(Array) && value.all? do |fk|
@@ -531,10 +537,6 @@ module RDF::Tabular
             # FIXME: columns
             true
           end
-        when :format then value.is_a?(String)
-        when :header then %w(true false 1 0).include?(value.to_s.downcase)
-        when :headerColumnCount, :headerRowCount
-          value.is_a?(Numeric) && value.integer? && value > 0
         when :length
           # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
           raise "Use if minLength or maxLength with length requires separator" if object[:minLength] || object[:maxLength] && !object[:separator]
@@ -542,42 +544,28 @@ module RDF::Tabular
           raise "Use of both length and maxLength requires they be equal" unless object.fetch(:maxLength, value) == value
           value.is_a?(Numeric) && value.integer? && value > 0
         when :lang then BCP47::Language.identify(value)
-        when :lineTerminator then value.is_a?(String)
         when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
           value.is_a?(Numeric) ||
           RDF::Literal::Date.new(value).valid? ||
           RDF::Literal::Time.new(value).valid? ||
           RDF::Literal::DateTime.new(value).valid?
-        when :minLength, :maxLength
-          value.is_a?(Numeric) && value.integer? && value > 0
         when :name then value.is_a?(String) && name.match(NAME_SYNTAX)
         when :notes then value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
         when :null then !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
-        when :aboutUrl, :propertyUrl, :valueUrl then value.is_a?(String)
         when :primaryKey
           # A column reference property that holds either a single reference to a column description object or an array of references.
           Array(value).all? do |k|
             self.columns.any? {|c| c.name == k}
           end
-        when :quoteChar then value.is_a?(String) && value.length == 1
-        when :required then %w(true false 1 0).include?(value.to_s.downcase)
         when :resources then value.is_a?(Array) && value.all? {|v| v.is_a?(Table) && v.validate!}
         when :tableSchema then value.is_a?(Schema) && value.validate!
-        when :separator then value.nil? || value.is_a?(String) && value.length == 1
-        when :skipInitialSpace then %w(true false 1 0).include?(value.to_s.downcase)
-        when :skipBlankRows then %w(true false 1 0).include?(value.to_s.downcase)
-        when :skipColumns then value.is_a?(Numeric) && value.integer? && value >= 0
-        when :skipRows then value.is_a?(Numeric) && value.integer? && value >= 0
         when :source then %w(json rdf).include?(value)
         when :tableDirection then %w(rtl ltr default).include?(value)
-        when :targetFormat, :templateFormat then RDF::URI(value).valid?
+        when :targetFormat, :scriptFormat then RDF::URI(value).valid?
         when :templates then value.is_a?(Array) && value.all? {|v| v.is_a?(Template) && v.validate!}
         when :textDirection then %w(rtl ltr).include?(value)
         when :title then valid_natural_language_property?(value)
-        when :trim then %w(true false 1 0 start end).include?(value.to_s.downcase)
-        when :urlTemplate then value.is_a?(String)
         when :url then @url.valid?
-        when :virtual then %w(true false 1 0).include?(value.to_s.downcase)
         when :@type then value.to_sym == type
         else
           raise "?!?! shouldn't get here for key #{key}"
@@ -832,7 +820,7 @@ module RDF::Tabular
             merged_object = nil if merged_object.empty?
             object[key] = this_uri + (metadata_uri - this_uri) + ([merged_object].compact)
             object[key] = object[key].first if object[key].length == 1
-          when :@id, :@type then object[key] ||= value
+          when :@type then object[key] ||= value
           else
             begin
               case @properties[key]
@@ -863,8 +851,8 @@ module RDF::Tabular
                   # SPEC CONFUSION: differing templates with same @id?
                   # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
                   value.each do |t|
-                    if ta = object[key].detect {|e| e.targetFormat == t.targetFormat && e.templateFormat == t.templateFormat}
-                      # if there is a template specification with the same targetFormat and templateFormat in A, the template specification from B is imported into the matching template specification in A
+                    if ta = object[key].detect {|e| e.targetFormat == t.targetFormat && e.scriptFormat == t.scriptFormat}
+                      # if there is a template specification with the same targetFormat and scriptFormat in A, the template specification from B is imported into the matching template specification in A
                       ta.merge!(t)
                     else
                       # otherwise, the template specification from B is appended to the array of template specifications A
@@ -1043,12 +1031,13 @@ module RDF::Tabular
 
   class TableGroup < Metadata
     PROPERTIES = {
-     :"@type"           => :atomic,
-     resources:            :array,
-     tableSchema:          :object,
-     tableDirection:       :atomic,
-     dialect:              :object,
-     templates:            :array,
+      :@id              => :link,
+      :@type        => :atomic,
+      resources:           :array,
+      tableSchema:         :object,
+      tableDirection:      :atomic,
+      dialect:             :object,
+      templates:           :array,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1114,14 +1103,16 @@ module RDF::Tabular
 
   class Table < Metadata
     PROPERTIES = {
-      url:                   :link,
-      :"@type"            => :atomic,
-      tableSchema:           :object,
-      notes:                 :object,
-      tableDirection:        :atomic,
-      templates:             :array,
-      title:                 :natural_language,
-      dialect:               :object,
+      :@id              => :link,
+      :@type        => :atomic,
+      dialect:             :object,
+      notes:               :array,
+      supressOutput:       :atomic,
+      tableDirection:      :atomic,
+      tableSchema:         :object,
+      templates:           :array,
+      title:               :natural_language,
+      url:                 :link,
     }.freeze
     REQUIRED = [:url].freeze
 
@@ -1167,14 +1158,15 @@ module RDF::Tabular
 
   class Template < Metadata
     PROPERTIES = {
-      url:            :link,
-     :"@type"      => :atomic,
-      targetFormat:   :link,
-      templateFormat: :link,
-      title:          :natural_language,
+      :@id          => :link,
+      :@type    => :atomic,
       source:         :atomic,
+      targetFormat:   :link,
+      scriptFormat:   :link,
+      title:          :natural_language,
+      url:            :link,
     }.freeze
-    REQUIRED = %w(targetFormat templateFormat).map(&:to_sym).freeze
+    REQUIRED = %w(targetFormat scriptFormat).map(&:to_sym).freeze
 
     # Setters
     PROPERTIES.each do |a, type|
@@ -1196,10 +1188,11 @@ module RDF::Tabular
 
   class Schema < Metadata
     PROPERTIES = {
-      :"@type"   => :atomic,
+      :@id       => :link,
+      :@type => :atomic,
       columns:      :array,
-      primaryKey:   :column_reference,
       foreignKeys:  :array,
+      primaryKey:   :column_reference,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1227,7 +1220,8 @@ module RDF::Tabular
 
   class Column < Metadata
     PROPERTIES = {
-      :"@type"   => :atomic,
+      :@id       => :link,
+      :@type => :atomic,
       name:         :atomic,
       title:        :natural_language,
       required:     :atomic,
@@ -1336,7 +1330,7 @@ module RDF::Tabular
 
     PROPERTIES = {
       :@id             => :link,
-      :"@type"         => :atomic,
+      :@type       => :atomic,
       commentPrefix:      :atomic,
       delimiter:          :atomic,
       doubleQuote:        :atomic,

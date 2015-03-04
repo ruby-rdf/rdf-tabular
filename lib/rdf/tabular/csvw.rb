@@ -2,10 +2,6 @@
 # This file generated automatically using vocab-fetch from http://www.w3.org/ns/csvw#
 require 'rdf'
 module RDF::Tabular
-  # @!parse
-  #   # CSVW Vocabulary.
-  #   class CSVW < RDF::StrictVocabulary
-  #   end
   class CSVW < RDF::Vocabulary("http://www.w3.org/ns/csvw#")
 
     # Class definitions
@@ -286,7 +282,7 @@ module RDF::Tabular
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       subPropertyOf: "rdfs:member".freeze,
       type: "rdf:Property".freeze
-    property :tableDirection,
+    property :"table-direction",
       comment: %(One of csvw:rtl csvw:ltr or csvw:default. Indicates whether the tables in the group should be displayed with the first column on the right, on the left, or based on the first character in the table that has a specific direction. ).freeze,
       label: "table direction".freeze,
       range: "http://www.w3.org/ns/csvw#Direction".freeze,
@@ -310,7 +306,7 @@ module RDF::Tabular
       range: "http://www.w3.org/ns/csvw#Template".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
-    property :"textDirection",
+    property :"text-direction",
       comment: %(One of csvw:rtl or csvw:ltr. Indicates whether the text within cells should be displayed by default as left-to-right or right-to-left text. ).freeze,
       label: "text direction".freeze,
       range: "http://www.w3.org/ns/csvw#Direction".freeze,

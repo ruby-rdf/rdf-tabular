@@ -42,8 +42,8 @@ describe RDF::Tabular::Metadata do
         invalid: %w(foo default)
       },
       separator: {
-        valid: [nil] + %w(, a | :),
-        invalid: [1, false] + %w(foo ::)
+        valid: %w(, a | :),
+        invalid: [1, false, nil] + %w(foo ::)
       },
       default: {
         valid: ["foo"],
@@ -309,8 +309,8 @@ describe RDF::Tabular::Metadata do
 
   describe RDF::Tabular::Template do
     let(:targetFormat) {"http://example.org/targetFormat"}
-    let(:templateFormat) {"http://example.org/templateFormat"}
-    subject {described_class.new({"targetFormat" => targetFormat, "templateFormat" => templateFormat}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    let(:scriptFormat) {"http://example.org/scriptFormat"}
+    subject {described_class.new({"targetFormat" => targetFormat, "scriptFormat" => scriptFormat}, base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties")
@@ -448,7 +448,7 @@ describe RDF::Tabular::Metadata do
         "tableSchema Table" => [{"tableSchema" => {}}, RDF::Tabular::Table],
         "templates Table" => [{"templates" => []}, RDF::Tabular::Table],
         "targetFormat Template" => [{"targetFormat" => "foo"}, RDF::Tabular::Template],
-        "templateFormat Template" => [{"templateFormat" => "foo"}, RDF::Tabular::Template],
+        "scriptFormat Template" => [{"scriptFormat" => "foo"}, RDF::Tabular::Template],
         "source Template" => [{"source" => "foo"}, RDF::Tabular::Template],
         "columns Schema" => [{"columns" => []}, RDF::Tabular::Schema],
         "primaryKey Schema" => [{"primaryKey" => "foo"}, RDF::Tabular::Schema],
@@ -1261,7 +1261,7 @@ describe RDF::Tabular::Metadata do
           "templates": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
-            "templateFormat": "http://example.com/template",
+            "scriptFormat": "http://example.com/template",
             "source": "json"
           }]
         }),
@@ -1271,7 +1271,7 @@ describe RDF::Tabular::Metadata do
           "templates": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
-            "templateFormat": "http://example.com/template",
+            "scriptFormat": "http://example.com/template",
             "source": "html"
           }]
         }),
@@ -1281,7 +1281,7 @@ describe RDF::Tabular::Metadata do
           "templates": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
-            "templateFormat": "http://example.com/template",
+            "scriptFormat": "http://example.com/template",
             "source": "json"
           }]
         }),
@@ -1293,7 +1293,7 @@ describe RDF::Tabular::Metadata do
           "templates": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
-            "templateFormat": "http://example.com/template"
+            "scriptFormat": "http://example.com/template"
           }]
         }),
         B: %({
@@ -1302,7 +1302,7 @@ describe RDF::Tabular::Metadata do
           "templates": [{
             "url": "http://example.com/bar",
             "targetFormat": "http://example.com/targetb",
-            "templateFormat": "http://example.com/templateb"
+            "scriptFormat": "http://example.com/templateb"
           }]
         }),
         R: %({
@@ -1311,11 +1311,11 @@ describe RDF::Tabular::Metadata do
           "templates": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
-            "templateFormat": "http://example.com/template"
+            "scriptFormat": "http://example.com/template"
           }, {
             "url": "http://example.com/bar",
             "targetFormat": "http://example.com/targetb",
-            "templateFormat": "http://example.com/templateb"
+            "scriptFormat": "http://example.com/templateb"
           }]
         }),
       },
