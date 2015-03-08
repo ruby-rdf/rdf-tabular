@@ -1,0 +1,11 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "url": "incompatible_null.csv",
+  "null": ["null1", "null2"],
+  "tableSchema": {
+    "columns": [{
+      "name": "col",
+      "null": "null3"
+    }]
+  }
+}

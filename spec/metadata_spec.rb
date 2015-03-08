@@ -122,21 +122,21 @@ describe RDF::Tabular::Metadata do
           it "validates" do
             params[:valid].each do |v|
               subject.send("#{prop}=".to_sym, v)
-              expect(subject).to be_valid
+              expect(subject.errors).to be_empty
             end
           end
           it "invalidates" do
             params[:invalid].each do |v|
               subject.send("#{prop}=".to_sym, v)
               subject.valid?
-              expect(subject).not_to be_valid
+              expect(subject.errors).not_to be_empty
             end
           end
         else
           it "does not allow" do
             params[:valid].each do |v|
               subject.send("#{prop}=".to_sym, v)
-              expect(subject).not_to be_valid
+              expect(subject.errors).not_to be_empty
             end
           end
         end
@@ -151,21 +151,21 @@ describe RDF::Tabular::Metadata do
       it "allows defined prefixed names and absolute URIs" do
         valid.each do |v|
           subject[v.to_sym] = "foo"
-          expect(subject).to be_valid
+          expect(subject.errors).to be_empty
         end
       end
 
       it "Does not allow unknown prefxies or unprefixed names" do
         invalid.each do |v|
           subject[v.to_sym] = "foo"
-          expect(subject).not_to be_valid
+          expect(subject.errors).not_to be_empty
         end
       end
     else
       it "Does not allow defined prefixed names and absolute URIs" do
         (valid + invalid).each do |v|
           subject[v.to_sym] = "foo"
-          expect(subject).not_to be_valid
+          expect(subject.errors).not_to be_empty
         end
       end
     end
@@ -246,27 +246,23 @@ describe RDF::Tabular::Metadata do
     describe "columns" do
       let(:column) {{"name" => "foo"}}
       subject {described_class.new({"columns" => []}, base: RDF::URI("http://example.org/base"), debug: @debug)}
-      specify {is_expected.to be_valid}
+      its(:errors) {is_expected.to be_empty}
 
       its(:type) {is_expected.to eql :Schema}
 
-      it "allows empty columns" do
-        expect(subject).to be_valid
-      end
-
       it "allows a valid column" do
         v = described_class.new({"columns" => [column]}, base: RDF::URI("http://example.org/base"), debug: @debug)
-        expect(v).to be_valid
+        expect(v.errors).to be_empty
       end
 
       it "is invalid with an invalid column" do
         v = described_class.new({"columns" => [{"name" => "_invalid"}]}, base: RDF::URI("http://example.org/base"), debug: @debug)
-        expect(v).not_to be_valid
+        expect(v.errors).not_to be_empty
       end
 
       it "is invalid with an non-unique columns" do
         v = described_class.new({"columns" => [column, column]}, base: RDF::URI("http://example.org/base"), debug: @debug)
-        expect(v).not_to be_valid
+        expect(v.errors).not_to be_empty
       end
     end
 
@@ -388,7 +384,19 @@ describe RDF::Tabular::Metadata do
     Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
       next if filename =~ /-result.json/
       context filename do
-        specify {expect {RDF::Tabular::Metadata.open(filename)}.not_to raise_error}
+        subject {RDF::Tabular::Metadata.open(filename)}
+        its(:errors) {is_expected.to be_empty}
+      end
+    end
+  end
+
+  context "parses invalid metadata" do
+    Dir.glob(File.expand_path("../invalid_data/*.json", __FILE__)).each do |filename|
+      context filename do
+        subject {RDF::Tabular::Metadata.open(filename)}
+        File.foreach(filename.sub(".json", "-errors.txt")) do |err|
+          its(:errors) {is_expected.to include(err)}
+        end
       end
     end
   end
@@ -430,8 +438,7 @@ describe RDF::Tabular::Metadata do
         context filename do
           specify do
             md = RDF::Tabular::Metadata.open(filename, debug: @debug)
-            expect(md.valid?).to produce(true, @debug)
-            expect(md).to be_valid
+            expect(md.errors).to produce([], @debug)
           end
         end
       end

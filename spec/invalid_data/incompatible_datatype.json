@@ -1,0 +1,11 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "resources": [{
+    "url": "dt1.csv",
+    "datatype": "integer",
+    "columns": [{
+      "name": "col",
+      "datatype": "float"
+    }]
+  }]
+}

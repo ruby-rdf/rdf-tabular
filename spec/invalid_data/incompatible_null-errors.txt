@@ -1,0 +1,1 @@
+Column has invalid null(null3): expected subset of that defined on parent
