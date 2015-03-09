@@ -35,9 +35,9 @@ module RDF::Tabular
       label: "Table Group Description".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdfs:Class".freeze
-    term :Template,
-      comment: %(A Template Specification is a definition of how tabular data can be transformed into another format.).freeze,
-      label: "Template Specification".freeze,
+    term :Transformation,
+      comment: %(A Transformation Specification is a definition of how tabular data can be transformed into another format.).freeze,
+      label: "Transformation Specification".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdfs:Class".freeze
 
@@ -270,7 +270,7 @@ module RDF::Tabular
       type: "rdf:Property".freeze
     property :source,
       comment: %(The format to which the tabular data should be transformed prior to the transformation using the template. If the value is "json", the tabular data should first be transformed first to JSON based on the simple mapping defined in Generating JSON from Tabular Data on the Web. If the value is "rdf", it should similarly first be transformed to XML based on the simple mapping defined in Generating RDF from Tabular Data on the Web.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Template".freeze,
+      domain: "http://www.w3.org/ns/csvw#Transformation".freeze,
       label: "source".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
@@ -290,20 +290,20 @@ module RDF::Tabular
       type: "rdf:Property".freeze
     property :targetFormat,
       comment: %(A URL for the format that will be created through the transformation. If one has been defined, this should be a URL for a media type, in the form http://www.iana.org/assignments/media-types/media-type such as http://www.iana.org/assignments/media-types/text/calendar. Otherwise, it can be any URL that describes the target format.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Template".freeze,
+      domain: "http://www.w3.org/ns/csvw#Transformation".freeze,
       label: "target format".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :templateFormat,
       comment: %(A URL for the format that is used by the template. If one has been defined, this should be a URL for a media type, in the form http://www.iana.org/assignments/media-types/media-type such as http://www.iana.org/assignments/media-types/application/javascript. Otherwise, it can be any URL that describes the template format.).freeze,
-      domain: "http://www.w3.org/ns/csvw#Template".freeze,
+      domain: "http://www.w3.org/ns/csvw#Transformation".freeze,
       label: "template format".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
-    property :templates,
+    property :transformations,
       comment: %(An array of template specifications that provide mechanisms to transform the tabular data into other formats. ).freeze,
-      label: "templates".freeze,
-      range: "http://www.w3.org/ns/csvw#Template".freeze,
+      label: "transformations".freeze,
+      range: "http://www.w3.org/ns/csvw#Transformation".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :"text-direction",
@@ -313,7 +313,7 @@ module RDF::Tabular
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
     property :title,
-      comment: %(For a Template: A natural language property that describes the format that will be generated from the transformation. This is useful if the target format is a generic format \(such as application/json\) and the transformation is creating a specific profile of that format.
+      comment: %(For a Transformation: A natural language property that describes the format that will be generated from the transformation. This is useful if the target format is a generic format \(such as application/json\) and the transformation is creating a specific profile of that format.
 
 For a Column: A natural language property that provides possible alternative names for the column.).freeze,
       label: "title".freeze,
@@ -326,7 +326,7 @@ For a Column: A natural language property that provides possible alternative nam
       range: "xsd:boolean".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
-    property :uriTemplate,
+    property :uriTransformation,
       comment: %(A URI template property that may be used to create a unique identifier for each row when mapping data to other formats.).freeze,
       domain: "http://www.w3.org/ns/csvw#Schema".freeze,
       label: "uri template".freeze,

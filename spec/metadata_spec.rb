@@ -267,14 +267,14 @@ describe RDF::Tabular::Metadata do
     end
   end
 
-  describe RDF::Tabular::Template do
+  describe RDF::Tabular::Transformation do
     let(:targetFormat) {"http://example.org/targetFormat"}
     let(:scriptFormat) {"http://example.org/scriptFormat"}
     subject {described_class.new({"targetFormat" => targetFormat, "scriptFormat" => scriptFormat}, base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties")
-    its(:type) {is_expected.to eql :Template}
+    its(:type) {is_expected.to eql :Transformation}
 
     it "FIXME"
 
@@ -418,23 +418,23 @@ describe RDF::Tabular::Metadata do
       {
         ":type TableGroup" => [{}, {type: :TableGroup}, RDF::Tabular::TableGroup],
         ":type Table" => [{}, {type: :Table}, RDF::Tabular::Table],
-        ":type Template" => [{}, {type: :Template}, RDF::Tabular::Template],
+        ":type Transformation" => [{}, {type: :Transformation}, RDF::Tabular::Transformation],
         ":type Schema" => [{}, {type: :Schema}, RDF::Tabular::Schema],
         ":type Column" => [{}, {type: :Column}, RDF::Tabular::Column],
         ":type Dialect" => [{}, {type: :Dialect}, RDF::Tabular::Dialect],
         "@type TableGroup" => [{"@type" => "TableGroup"}, RDF::Tabular::TableGroup],
         "@type Table" => [{"@type" => "Table"}, RDF::Tabular::Table],
-        "@type Template" => [{"@type" => "Template"}, RDF::Tabular::Template],
+        "@type Transformation" => [{"@type" => "Transformation"}, RDF::Tabular::Transformation],
         "@type Schema" => [{"@type" => "Schema"}, RDF::Tabular::Schema],
         "@type Column" => [{"@type" => "Column"}, RDF::Tabular::Column],
         "@type Dialect" => [{"@type" => "Dialect"}, RDF::Tabular::Dialect],
         "resources TableGroup" => [{"resources" => []}, RDF::Tabular::TableGroup],
         "dialect Table" => [{"dialect" => {}}, RDF::Tabular::Table],
         "tableSchema Table" => [{"tableSchema" => {}}, RDF::Tabular::Table],
-        "templates Table" => [{"templates" => []}, RDF::Tabular::Table],
-        "targetFormat Template" => [{"targetFormat" => "foo"}, RDF::Tabular::Template],
-        "scriptFormat Template" => [{"scriptFormat" => "foo"}, RDF::Tabular::Template],
-        "source Template" => [{"source" => "foo"}, RDF::Tabular::Template],
+        "transformations Table" => [{"transformations" => []}, RDF::Tabular::Table],
+        "targetFormat Transformation" => [{"targetFormat" => "foo"}, RDF::Tabular::Transformation],
+        "scriptFormat Transformation" => [{"scriptFormat" => "foo"}, RDF::Tabular::Transformation],
+        "source Transformation" => [{"source" => "foo"}, RDF::Tabular::Transformation],
         "columns Schema" => [{"columns" => []}, RDF::Tabular::Schema],
         "primaryKey Schema" => [{"primaryKey" => "foo"}, RDF::Tabular::Schema],
         "foreignKeys Schema" => [{"foreignKeys" => []}, RDF::Tabular::Schema],
@@ -645,7 +645,7 @@ describe RDF::Tabular::Metadata do
           valueUrl: [nil, nil, nil, nil],
           md: {"url" => "https://example.org/countries.csv", "tableSchema" => {"columns" => []}}
         },
-        "schema templates" => {
+        "schema transformations" => {
           aboutUrl: %w(#addressCountry #latitude #longitude #name),
           propertyUrl: %w(?_name=addressCountry ?_name=latitude ?_name=longitude ?_name=name),
           valueUrl: %w(addressCountry latitude longitude name),
@@ -1150,7 +1150,7 @@ describe RDF::Tabular::Metadata do
       end
     end
 
-    %w(Template Schema Template Column Dialect).each do |t|
+    %w(Transformation Schema Transformation Column Dialect).each do |t|
       it "does not merge into a #{t}" do
         a = described_class.new({}, type: t.to_sym)
         b = described_class.new({}, type: :TableGroup)
@@ -1222,11 +1222,11 @@ describe RDF::Tabular::Metadata do
         B: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"skipRows": 0}}),
         R: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8", "skipRows": 0}}),
       },
-      "Table with equivalent templates uses A" => {
+      "Table with equivalent transformations uses A" => {
         A: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "templates": [{
+          "transformations": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "scriptFormat": "http://example.com/template",
@@ -1236,7 +1236,7 @@ describe RDF::Tabular::Metadata do
         B: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "templates": [{
+          "transformations": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "scriptFormat": "http://example.com/template",
@@ -1246,7 +1246,7 @@ describe RDF::Tabular::Metadata do
         R: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "templates": [{
+          "transformations": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "scriptFormat": "http://example.com/template",
@@ -1254,11 +1254,11 @@ describe RDF::Tabular::Metadata do
           }]
         }),
       },
-      "Table with differing templates appends B to A" => {
+      "Table with differing transformations appends B to A" => {
         A: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "templates": [{
+          "transformations": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "scriptFormat": "http://example.com/template"
@@ -1267,7 +1267,7 @@ describe RDF::Tabular::Metadata do
         B: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "templates": [{
+          "transformations": [{
             "url": "http://example.com/bar",
             "targetFormat": "http://example.com/targetb",
             "scriptFormat": "http://example.com/templateb"
@@ -1276,7 +1276,7 @@ describe RDF::Tabular::Metadata do
         R: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "templates": [{
+          "transformations": [{
             "url": "http://example.com/foo",
             "targetFormat": "http://example.com/target",
             "scriptFormat": "http://example.com/template"
@@ -1393,8 +1393,8 @@ describe RDF::Tabular::Metadata do
       end
     end
 
-    %w(TableGroup Table Template Schema Template Column Dialect).each do |ta|
-      %w(TableGroup Table Template Schema Template Column Dialect).each do |tb|
+    %w(TableGroup Table Transformation Schema Transformation Column Dialect).each do |ta|
+      %w(TableGroup Table Transformation Schema Transformation Column Dialect).each do |tb|
         next if ta == tb
         it "does not merge #{tb} into #{ta}" do
           a = described_class.new({}, type: ta.to_sym)

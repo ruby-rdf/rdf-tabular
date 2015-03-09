@@ -216,8 +216,8 @@ module RDF::Tabular
         else
           type = if options[:type]
             type = options[:type].to_sym
-            raise Error, "If provided, type must be one of :TableGroup, :Table, :Template, :Schema, :Column, :Dialect]" unless
-              [:TableGroup, :Table, :Template, :Schema, :Column, :Dialect].include?(type)
+            raise Error, "If provided, type must be one of :TableGroup, :Table, :Transformation, :Schema, :Column, :Dialect]" unless
+              [:TableGroup, :Table, :Transformation, :Schema, :Column, :Dialect].include?(type)
             type
           end
 
@@ -228,8 +228,8 @@ module RDF::Tabular
           object_keys = object.keys.map(&:to_s)
           type ||= case
           when %w(resources).any? {|k| object_keys.include?(k)} then :TableGroup
-          when %w(dialect tableSchema templates).any? {|k| object_keys.include?(k)} then :Table
-          when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Template
+          when %w(dialect tableSchema transformations).any? {|k| object_keys.include?(k)} then :Table
+          when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Transformation
           when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
           when %w(name required).any? {|k| object_keys.include?(k)} then :Column
           when %w(commentPrefix delimiter doubleQuote encoding header headerColumnCount headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
@@ -239,7 +239,7 @@ module RDF::Tabular
           case type.to_s.to_sym
           when :TableGroup then RDF::Tabular::TableGroup
           when :Table then RDF::Tabular::Table
-          when :Template then RDF::Tabular::Template
+          when :Transformation then RDF::Tabular::Transformation
           when :Schema then RDF::Tabular::Schema
           when :Column then RDF::Tabular::Column
           when :Dialect then RDF::Tabular::Dialect
@@ -258,7 +258,7 @@ module RDF::Tabular
     #
     # @param [Metadata, Hash, #read] input
     # @param [Hash{Symbol => Object}] options
-    # @option options [:TableGroup, :Table, :Template, :Schema, :Column, :Dialect] :type
+    # @option options [:TableGroup, :Table, :Transformation, :Schema, :Column, :Dialect] :type
     #   Type of schema, if not set, intuited from properties
     # @option options [JSON::LD::Context] context
     #   Context used for this metadata. Taken from input if not provided
@@ -345,10 +345,10 @@ module RDF::Tabular
               # Invalid, but preserve value
               value
             end
-          when :templates
+          when :transformations
             # An array of template specifications that provide mechanisms to transform the tabular data into other formats
             object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              value.map {|v| Template.new(v, @options.merge(parent: self, context: nil))}
+              value.map {|v| Transformation.new(v, @options.merge(parent: self, context: nil))}
             else
               # Invalid, but preserve value
               value
@@ -424,7 +424,7 @@ module RDF::Tabular
     end
 
     # Type of this Metadata
-    # @return [:TableGroup, :Table, :Template, :Schema, :Column]
+    # @return [:TableGroup, :Table, :Transformation, :Schema, :Column]
     def type; self.class.name.split('::').last.to_sym; end
 
     # Base URL of metadata
@@ -457,7 +457,7 @@ module RDF::Tabular
       expected_props, required_props = @properties.keys, @required
       errors = []
 
-      unless is_a?(Dialect) || is_a?(Template)
+      unless is_a?(Dialect) || is_a?(Transformation)
         expected_props = expected_props + INHERITED_PROPERTIES.keys
       end
 
@@ -603,8 +603,8 @@ module RDF::Tabular
           else
             errors << "#{type} has invalid #{key}: expected Schema"
           end
-        when :templates
-          if value.is_a?(Array) && value.all? {|v| v.is_a?(Template)}
+        when :transformations
+          if value.is_a?(Array) && value.all? {|v| v.is_a?(Transformation)}
             value.each do |t|
               begin
                 t.validate!
@@ -613,7 +613,7 @@ module RDF::Tabular
               end
             end
           else
-            errors << "#{type} has invalid #{key}: expected array of Templates"
+            errors << "#{type} has invalid #{key}: expected array of Transformations"
           end
         when :title
           valid_natural_language_property?(:title, value) {|m| errors << m}
@@ -970,8 +970,8 @@ module RDF::Tabular
                   object[key] << t
                 end
               end
-            when :templates
-              # SPEC CONFUSION: differing templates with same @id?
+            when :transformations
+              # SPEC CONFUSION: differing transformations with same @id?
               # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
               value.each do |t|
                 if ta = object[key].detect {|e| e.targetFormat == t.targetFormat && e.scriptFormat == t.scriptFormat}
@@ -1177,7 +1177,7 @@ module RDF::Tabular
       tableSchema:         :object,
       tableDirection:      :atomic,
       dialect:             :object,
-      templates:           :array,
+      transformations:           :array,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1250,7 +1250,7 @@ module RDF::Tabular
       supressOutput:       :atomic,
       tableDirection:      :atomic,
       tableSchema:         :object,
-      templates:           :array,
+      transformations:           :array,
       title:               :natural_language,
       url:                 :link,
     }.freeze
@@ -1296,7 +1296,7 @@ module RDF::Tabular
     end
   end
 
-  class Template < Metadata
+  class Transformation < Metadata
     PROPERTIES = {
       :@id          => :link,
       :@type    => :atomic,
