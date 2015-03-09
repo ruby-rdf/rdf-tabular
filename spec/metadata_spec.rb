@@ -1016,7 +1016,80 @@ describe RDF::Tabular::Metadata do
   end
 
   describe "#common_properties" do
-    it "FIXME"
+    describe "#normalize!" do
+      {
+        "string with no language" => [
+          %({
+            "dc:title": "foo"
+          }),
+          %({
+            "@context": "http://www.w3.org/ns/csvw",
+            "dc:title": {"@value": "foo"}
+          })
+        ],
+        "string with language" => [
+          %({
+            "@context": {"@language": "en"},
+            "dc:title": "foo"
+          }),
+          %({
+            "@context": "http://www.w3.org/ns/csvw",
+            "dc:title": {"@value": "foo", "@language": "en"}
+          })
+        ],
+        "relative URL" => [
+          %({
+            "dc:source": {"@id": "foo"}
+          }),
+          %({
+            "@context": "http://www.w3.org/ns/csvw",
+            "dc:source": {"@id": "http://example.com/foo"}
+          })
+        ],
+        "array of values" => [
+          %({
+            "@context": {"@language": "en"},
+            "dc:title": [
+              "foo",
+              {"@value": "bar"},
+              {"@value": "baz", "@language": "de"},
+              1,
+              true,
+              {"@value": 1},
+              {"@value": true},
+              {"@value": "1", "@type": "xsd:integer"},
+              {"@id": "foo"}
+            ]
+          }),
+          %({
+            "@context": "http://www.w3.org/ns/csvw",
+            "dc:title": [
+              {"@value": "foo", "@language": "en"},
+              {"@value": "bar"},
+              {"@value": "baz", "@language": "de"},
+              1,
+              true,
+              {"@value": 1},
+              {"@value": true},
+              {"@value": "1", "@type": "xsd:integer"},
+              {"@id": "http://example.com/foo"}
+            ]
+          })
+        ],
+      }.each do |name, (input, result)|
+        it name do
+          a = RDF::Tabular::Table.new(input, base: "http://example.com/A")
+          b = RDF::Tabular::Table.new(result, base: "http://example.com/A")
+          expect(a.normalize!).to eq b
+        end
+      end
+    end
+
+    context "validation" do
+    end
+
+    context "transformation" do
+    end
   end
 
   describe "#merge" do
@@ -1182,7 +1255,7 @@ describe RDF::Tabular::Metadata do
         B: %({"resources": [{"url": "http://example.org/foo", "dc:description": "bar"}]}),
         R: %({"resources": [{
           "url": "http://example.org/foo",
-          "dc:title": [{"@value": "foo"}],
+          "dc:title": {"@value": "foo"},
           "dc:description": [{"@value": "bar"}]
         }]})
       },

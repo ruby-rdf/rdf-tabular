@@ -908,40 +908,9 @@ module RDF::Tabular
           @filenames = Array(@filenames) | Array(metadata.filenames)
         end
 
-        # Expand A (this) and B (metadata) values into normal form
-        [self, metadata].each do |md|
-          md.each do |key, value|
-            md[key] = case @properties[key] || INHERITED_PROPERTIES[key]
-            when :link
-              md.base.join(value)
-            when :object
-              case key
-              when String
-                # Load referenced JSON document
-                # (This is done when objects are loaded in this implementation)
-                raise "unexpected String value of #{key}: #{value}"
-              else value
-              end
-            when :natural_language
-              value.is_a?(Hash) ? value : {(md.default_language || 'und') => Array(value)}
-            when :atomic
-              # If the property is an atomic property accepting strings or objects, normalize to the object form as described for that property.
-              case key
-              when :doubleQuote, :header, :ordered, :required, :skipBlankRows, :skipInitialSpace,
-                   :suppressOutput, :virtual
-                %w(true 1).include?(value.to_s.downcase)
-              when :skipRows, :headerRowCount, :skipColumns, :headerColumnCount
-                value.to_i
-              when :datatype then md.normalize_datatype(value)
-              else                value
-              end
-            when ->(k) {key.to_s.include?(':') || key == :notes}
-              md.normalize_jsonld(key, value)
-            else
-              value
-            end
-          end
-        end
+        # Normalize A (this) and B (metadata) values into normal form
+        self.normalize!
+        metadata = metadata.dup.normalize!
 
         @dialect = nil  # So that it is re-built when needed
         # Merge each property from metadata into self
@@ -1060,7 +1029,9 @@ module RDF::Tabular
             object[key] = a
           when ->(k) {key == :notes || key.to_s.include?(':')}
             # If the property is a common property, the result is an array containing values from A followed by values from B.
-            object[key] = (Array(object[key]) + value).uniq
+            a = object[key].is_a?(Array) ? object[key] : [object[key]].compact
+            b = value.is_a?(Array) ? value : [value]
+            object[key] = a + b
           else
             # Otherwise, the value from A overrides that from B
             object[key] ||= value
@@ -1085,6 +1056,46 @@ module RDF::Tabular
     end
     def to_json(args=nil); object.to_json(args); end
 
+    ##
+    # Normalize object
+    # @raise [Error]
+    # @return [self]
+    def normalize!
+      self.each do |key, value|
+        self[key] = case @properties[key] || INHERITED_PROPERTIES[key]
+        when :link
+          base.join(value)
+        when :object
+          case key
+          when String
+            # Load referenced JSON document
+            # (This is done when objects are loaded in this implementation)
+            raise "unexpected String value of #{key}: #{value}"
+          else value
+          end
+        when :natural_language
+          value.is_a?(Hash) ? value : {(context.default_language || 'und') => Array(value)}
+        when :atomic
+          # If the property is an atomic property accepting strings or objects, normalize to the object form as described for that property.
+          case key
+          when :doubleQuote, :header, :ordered, :required, :skipBlankRows, :skipInitialSpace,
+               :suppressOutput, :virtual
+            %w(true 1).include?(value.to_s.downcase)
+          when :skipRows, :headerRowCount, :skipColumns, :headerColumnCount
+            value.to_i
+          when :datatype then normalize_datatype(value)
+          else                value
+          end
+        when ->(k) {key.to_s.include?(':') || key == :notes}
+          normalize_jsonld(key, value)
+        when ->(k) {key.to_s == '@context'}
+          "http://www.w3.org/ns/csvw"
+        else
+          value
+        end
+      end
+      self
+    end
 
     ##
     # Normalize datatype to Object/Hash representation
@@ -1112,13 +1123,55 @@ module RDF::Tabular
 
     ##
     # Normalize JSON-LD
+    #
+    # Also, raise error if invalid JSON-LD dialect is detected
+    #
     # @param [Symbol, String] property
     # @param [String, Hash{String => Object}, Array<String, Hash{String => Object}>] value
     # @return [String, Hash{String => Object}, Array<String, Hash{String => Object}>]
     def normalize_jsonld(property, value)
-      # Expand value relative to context
-      res = ::JSON::LD::API.expand({property => value}, expandContext: context).first.values
-      value.is_a?(Array) ? res : res.first  # Return single, or multiple results based on input
+      case value
+      when Array
+        value.map {|v| normalize_jsonld(property, v)}
+      when String
+        v = {'@value' => value}
+        v['@language'] = context.default_language if context.default_language
+        v
+      when Hash
+        if value['@value']
+          if (value.keys.sort & %w(@language @type)) == %w(@language @type)
+            raise Error, "Value object may not contain both @type and @language: #{value.to_json}"
+          elsif value['@language'] && !BCP47::Language.identify(value['@language'])
+            raise Error, "Value object with @language must use valid language: #{value.to_json}"
+          elsif value['@type'] && !context.expand_iri(value['@type'], vocab: true).absolute?
+            raise Error, "Value object with @type must defined type: #{value.to_json}"
+          end
+          value
+        else
+          nv = {}
+          value.each do |k, v|
+            case k
+            when "@id"
+              nv[k] = context.expand_iri(v, documentRelative: true).to_s
+              raise Error, "Invalid use of explicit BNode on @id" if nv[k].start_with?('_:')
+            when "@type"
+              Array(v).each do |vv|
+                # Validate that all type values transform to absolute IRIs
+                resource = context.expand_iri(vv, vocab: true)
+                raise Error, "Invalid type #{vv} in JSON-LD context" unless resource.uri? && resource.absolute?
+              end
+              nv[k] = v
+            when /^(@|_:)/
+              raise Error, "Invalid use of #{k} in JSON-LD content"
+            else
+              nv[k] = normalize_jsonld(k, value)
+            end
+          end
+          nv
+        end
+      else
+        value
+      end
     end
   protected
 
