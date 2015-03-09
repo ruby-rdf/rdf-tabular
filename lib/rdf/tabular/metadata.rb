@@ -23,26 +23,15 @@ module RDF::Tabular
 
     # Inheritect properties, valid for all types
     INHERITED_PROPERTIES = {
-      aboutUrl:           :uri_template,
-      datatype:           :atomic,
-      default:            :atomic,
-      format:             :atomic,
-      fractionDigits:     :atomic,
-      lang:               :atomic,
-      length:             :atomic,
-      maxExclusive:       :atomic,
-      maximum:            :atomic,
-      maxInclusive:       :atomic,
-      maxLength:          :atomic,
-      minExclusive:       :atomic,
-      minimum:            :atomic,
-      minInclusive:       :atomic,
-      minLength:          :atomic,
       null:               :atomic,
-      propertyUrl:        :uri_template,
-      separator:          :atomic,
+      lang:               :atomic,
       textDirection:      :atomic,
-      totalDigits:        :atomic,
+      separator:          :atomic,
+      default:            :atomic,
+      ordered:            :atomic,
+      datatype:           :atomic,
+      aboutUrl:           :uri_template,
+      propertyUrl:        :uri_template,
       valueUrl:           :uri_template,
     }.freeze
 
@@ -484,7 +473,7 @@ module RDF::Tabular
       keys.each do |key|
         value = object[key]
         case key
-        when :aboutUrl, :datatype, :default, :lang, :null, :propertyUrl, :separator, :textDirection, :valueUrl
+        when :aboutUrl, :datatype, :default, :lang, :null, :ordered, :propertyUrl, :separator, :textDirection, :valueUrl
           valid_inherited_property?(key, value) {|m| errors << m}
         when :columns
           if value.is_a?(Array) && value.all? {|v| v.is_a?(Column)}
@@ -683,6 +672,8 @@ module RDF::Tabular
       when :null
         # To be valid, it must be a string or array, and must be compatible with any inherited value through being a subset
         "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
+      when :ordered
+        "boolean" unless %w(true false 1 0).include?(value.to_s.downcase)
       when :separator
         "single character" unless value.is_a?(String) && value.length == 1
       when :textDirection
@@ -694,7 +685,7 @@ module RDF::Tabular
         # Compatibility
       when :aboutUrl, :propertyUrl, :valueUrl
         # No restrictions
-      when :default, :separator, :textDirection
+      when :default, :ordered, :separator, :textDirection
         "same as that defined on parent" if pv && pv != value
       when :datatype
         if pv
@@ -936,6 +927,11 @@ module RDF::Tabular
             when :atomic
               # If the property is an atomic property accepting strings or objects, normalize to the object form as described for that property.
               case key
+              when :doubleQuote, :header, :ordered, :required, :skipBlankRows, :skipInitialSpace,
+                   :suppressOutput, :virtual
+                %w(true 1).include?(value.to_s.downcase)
+              when :skipRows, :headerRowCount, :skipColumns, :headerColumnCount
+                value.to_i
               when :datatype then md.normalize_datatype(value)
               else                value
               end
@@ -1097,7 +1093,21 @@ module RDF::Tabular
     def normalize_datatype(value)
       # Normalize datatype to array of object form
       value = [value] unless value.is_a?(Array)
-      value.map {|v| v.is_a?(Hash) ? (v[:base] ||= 'string'; v) : {base: v}}
+      value.map do |v|
+        v = {base: v} unless v.is_a?(Hash)
+        # Create a new representation using symbols and transformed values
+        nv = {}
+        v.each do |kk, vv|
+          case kk.to_sym
+          when :base, :decimalChar, :format, :groupChar, :pattern then nv[kk.to_sym] = vv
+          when :length, :minLength, :maxLength, :minimum, :maximum,
+            :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
+            nv[kk.to_sym] = vv.to_i
+          end
+        end
+        nv[:base] ||= 'string'
+        nv
+      end
     end
 
     ##

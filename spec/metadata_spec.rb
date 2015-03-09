@@ -45,20 +45,20 @@ describe RDF::Tabular::Metadata do
         valid: %w(, a | :),
         invalid: [1, false, nil] + %w(foo ::)
       },
+      ordered: {
+        valid: [true, false, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+        invalid: [nil, "foo"],
+      },
       default: {
         valid: ["foo"],
         invalid: [1, true, nil]
-      },
-      format: {
-        valid: ["^foo$", "Y|N"],
-        invalid: [nil]
       },
       datatype: {
         valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
                [
                  {"base" => "string"} #, FIXME ...
                ]),
-        invalid: [nil, 1, true, "foo", "anySimpleType", "IDREFS"]
+        invalid: [1, true, "foo", "anySimpleType", "IDREFS"]
       },
       aboutUrl: {
         valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row.{_row}"],
@@ -80,42 +80,6 @@ describe RDF::Tabular::Metadata do
         ],
         invalid: [1, true, nil, %w(foo bar)]
       },
-      length: {
-        valid: [1, 10, "1", "10"],
-        invalid: [-1, 0, "foo", true]
-      },
-      minLength: {
-        valid: [1, 10, "1", "10"],
-        invalid: [-1, 0, "foo", true]
-      },
-      maxLength: {
-        valid: [1, 10, "1", "10"],
-        invalid: [-1, 0, "foo", true]
-      },
-      minimum: {
-        valid: [-10, 0, 10, "1", "10", "2015-01-01", "2015-01-01T00:00:00Z", "00:00:00"],
-        invalid: ["foo", true]
-      },
-      maximum: {
-        valid: [-10, 0, 10, "1", "10", "2015-01-01", "2015-01-01T00:00:00Z", "00:00:00"],
-        invalid: ["foo", true]
-      },
-      minInclusive: {
-        valid: [-10, 0, 10, "1", "10", "2015-01-01", "2015-01-01T00:00:00Z", "00:00:00"],
-        invalid: ["foo", true]
-      },
-      maxInclusive: {
-        valid: [-10, 0, 10, "1", "10", "2015-01-01", "2015-01-01T00:00:00Z", "00:00:00"],
-        invalid: ["foo", true]
-      },
-      minExclusive: {
-        valid: [-10, 0, 10, "1", "10", "2015-01-01", "2015-01-01T00:00:00Z", "00:00:00"],
-        invalid: ["foo", true]
-      },
-      maxExclusive: {
-        valid: [-10, 0, 10, "1", "10", "2015-01-01", "2015-01-01T00:00:00Z", "00:00:00"],
-        invalid: ["foo", true]
-      }
     }.each do |prop, params|
       context prop.to_s do
         if allowed
