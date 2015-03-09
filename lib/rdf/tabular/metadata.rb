@@ -1,5 +1,4 @@
 require 'json'
-require 'json/ld'
 require 'bcp47'
 require 'addressable/template'
 require 'rdf/xsd'
@@ -211,39 +210,15 @@ module RDF::Tabular
       # Triveal case
       return input if input.is_a?(Metadata)
 
-      context = options[:context]
-      object = input
+      object = case input
+      when Hash then input
+      when IO, StringIO then ::JSON.parse(input.read)
+      else ::JSON.parse(input.to_s)
+      end
 
-      # Only define context if input is readable, and there's no parent
-      if !options[:parent] || !input.is_a?(Hash) || input.has_key?('@context')
-        # Open as JSON-LD to get context
-        jsonld = ::JSON::LD::API.new(input, context)
-
-        # Set the context unless we're called with a parent
-        unless options[:parent]
-          context ||= ::JSON::LD::Context.new
-          # If we still haven't found 'csvw', load the default context
-          if !context.term_definitions.has_key?('csvw') &&
-             !jsonld.context.term_definitions.has_key?('csvw')
-            input.rewind if input.respond_to?(:rewind)
-
-            # Also use context from jsonld value in addition to default
-            use_context = case jsonld.value['@context']
-            when Array  then %w(http://www.w3.org/ns/csvw) + jsonld.value['@context']
-            when Hash then ['http://www.w3.org/ns/csvw', jsonld.value['@context']]
-            else             'http://www.w3.org/ns/csvw'
-            end
-          
-            jsonld = ::JSON::LD::API.new(input, use_context)
-          end
-
-          # If we already have a context, merge in the context from this object, otherwise, set it to this object
-          context.merge!(jsonld.context)
-          options = options.merge(context: context)
-        end
-
-        # Get both parsed JSON and context from jsonld
-        object = jsonld.value
+      unless options[:parent]
+        # Add context, if not set (which it should be)
+        object['@context'] ||= options.delete(:@context) || options[:context] || 'http://www.w3.org/ns/csvw'
       end
 
       klass = case
@@ -306,13 +281,17 @@ module RDF::Tabular
     # @return [Metadata]
     def initialize(input, options = {})
       @options = options.dup
-      @context = options[:context] if options[:context]
+
+      # Get context from input
+      @context = ::JSON::LD::Context.new.parse(input['@context']) if input.has_key?('@context')
       reason = @options.delete(:reason)
 
-      @options[:base] ||= context.base if context
+      @options[:base] ||= @context.base if @context
       @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
       @options[:base] ||= input.filename if input.respond_to?(:filename)
       @options[:base] = RDF::URI(@options[:base])
+
+      @context.base = @options[:base] if @context
 
       @options[:depth] ||= 0
       @filenames = Array(@options[:filenames]).map {|fn| RDF::URI(fn)} if @options[:filenames]
@@ -890,8 +869,8 @@ module RDF::Tabular
           content = {"@type" => "TableGroup", "resources" => [self]}
           content['@context'] = object.delete(:@context) if object[:@context]
           ctx = @context
-          self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context) 
-          tg = TableGroup.new(content, context: ctx, filenames: @filenames)
+          self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context)
+          tg = TableGroup.new(content, filenames: @filenames, base: base)
           @parent = tg  # Link from parent
           tg
         end
@@ -910,7 +889,7 @@ module RDF::Tabular
             ctx = md.context
             content['@context'] = md.object.delete(:@context) if md.object[:@context]
             md.remove_instance_variable(:@context) if md.instance_variables.include?(:@context) 
-            tg = TableGroup.new(content, context: ctx, filenames: md.filenames)
+            tg = TableGroup.new(content, filenames: md.filenames, base: md.base)
             md.instance_variable_set(:@parent, tg)  # Link from parent
             tg
           end
@@ -924,7 +903,7 @@ module RDF::Tabular
       end
 
       # Set @context of merged
-      merged['@context'] = 'http://www.w3.org/ns/csvw'
+      merged[:@context] = 'http://www.w3.org/ns/csvw'
       merged
     end
 
@@ -1545,7 +1524,7 @@ module RDF::Tabular
           if v = column.send(prop.to_sym)
             t = Addressable::Template.new(v)
             mapped = t.expand(mapped_values).to_s
-            url = column.context.expand_iri(mapped, documentRelative: true)
+            url = row.context.expand_iri(mapped, documentRelative: true)
             self.send("#{prop}=".to_sym, url)
           end
         end
@@ -1592,6 +1571,11 @@ module RDF::Tabular
     # @return [Table]
     attr_reader :table
 
+    #
+    # Context from Table with base set to table URL for expanding URI Templates
+    # @return [JSON::LD::Context]
+    attr_reader :context
+
     ##
     # @param [Array<Array<String>>] row
     # @param [Metadata] metadata for Table
@@ -1604,6 +1588,9 @@ module RDF::Tabular
       @sourceNumber = source_number
       @values = []
       skipColumns = metadata.dialect.skipColumns.to_i + metadata.dialect.headerColumnCount.to_i
+
+      @context = table.context.dup
+      @context.base = table.url
 
       # Create values hash
       # SPEC CONFUSION: are values pre-or-post conversion?
@@ -1620,7 +1607,7 @@ module RDF::Tabular
 
         # create column if necessary
         columns[index - skipColumns] ||=
-          Column.new({}, table: metadata, parent: metadata.tableSchema, context: nil, number: index + 1 - skipColumns)
+          Column.new({}, table: metadata, parent: metadata.tableSchema, number: index + 1 - skipColumns)
 
         column = columns[index - skipColumns]
 

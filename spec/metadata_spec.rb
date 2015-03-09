@@ -504,8 +504,9 @@ describe RDF::Tabular::Metadata do
       "with defaults" => {
         input: "https://example.org/countries.csv",
         result: %({
-          "url": "https://example.org/countries.csv",
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
+          "url": "https://example.org/countries.csv",
           "tableSchema": {
             "@type": "Schema",
             "columns": [
@@ -524,8 +525,9 @@ describe RDF::Tabular::Metadata do
           "dialect": {"skipRows": 1}
         }),
         result: %({
-          "url": "https://example.org/countries.csv",
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
+          "url": "https://example.org/countries.csv",
           "tableSchema": {
             "@type": "Schema",
             "columns": [
@@ -545,8 +547,9 @@ describe RDF::Tabular::Metadata do
           "@type": "Table"
         }),
         result: %({
-          "url": "https://example.org/tree-ops.csv",
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
+          "url": "https://example.org/tree-ops.csv",
           "tableSchema": {
             "@type": "Schema",
             "columns": [
@@ -567,7 +570,7 @@ describe RDF::Tabular::Metadata do
 
         metadata = metadata ? subject.merge(metadata).resources.first : subject
         result = metadata.embedded_metadata(props[:input])
-        expect(result.to_json(JSON_STATE)).to produce(::JSON.parse(props[:result]).to_json(JSON_STATE), @debug)
+        expect(::JSON.parse(result.to_json(JSON_STATE))).to produce(::JSON.parse(props[:result]), @debug)
       end
     end
   end
@@ -729,8 +732,7 @@ describe RDF::Tabular::Metadata do
         end
       end
     end
-    it "expands aboutUrl in cells" do
-    end
+    it "expands aboutUrl in cells"
 
     context "variations" do
       {
