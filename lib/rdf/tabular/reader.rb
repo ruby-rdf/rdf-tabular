@@ -8,6 +8,7 @@ module RDF::Tabular
   class Reader < RDF::Reader
     format Format
     include Utils
+    DESCRIBES = RDF::URI("http://www.iana.org/assignments/link-relations/describes").freeze
 
     # Metadata associated with the CSV
     #
@@ -28,6 +29,7 @@ module RDF::Tabular
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Reader#initialize`)
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
+    # @option options [Boolean] :minimal includes only the information gleaned from the cells of the tabular data
     # @option options [Boolean] :noProv do not output optional provenance information
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
@@ -43,6 +45,9 @@ module RDF::Tabular
         @options[:depth] ||= 0
 
         debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
+
+        # Minimal implies noProv
+        @options[:noProv] ||= @options[:minimal]
 
         @input = input.is_a?(String) ? StringIO.new(input) : input
 
@@ -94,16 +99,20 @@ module RDF::Tabular
             when :TableGroup
               # Use resolved @id of TableGroup, if available
               table_group = input.id || RDF::Node.new
-              add_statement(0, table_group, RDF.type, CSVW.TableGroup)
+              add_statement(0, table_group, RDF.type, CSVW.TableGroup) unless minimal?
 
               # Common Properties
-              input.common_properties(table_group) do |statement|
-                add_statement(0, statement)
-              end
+              input.each do |key, value|
+                next unless key.to_s.include?(':')
+                input.common_properties(table_group, key, value) do |statement|
+                  add_statement(0, statement)
+                end
+              end unless minimal?
 
               input.each_resource do |table|
+                next if table.supressOutput
                 table_resource = table.id || RDF::Node.new
-                add_statement(0, table_group, CSVW.table, table_resource)
+                add_statement(0, table_group, CSVW.resources, table_resource) unless minimal?
                 Reader.open(table.url, options.merge(
                     format: :tabular,
                     metadata: table,
@@ -127,23 +136,48 @@ module RDF::Tabular
 
         # Output Table-Level RDF triples
         # SPEC CONFUSION: Would we ever use the resolved @id of the Table metadata?
-        table_resource = options.fetch(:table_resource, RDF::Node.new)
-        add_statement(0, table_resource, RDF.type, CSVW.Table)
-
-        # Output table notes and common properties
-        metadata.common_properties(table_resource) do |statement|
-          add_statement(0, statement)
+        table_resource = options.fetch(:table_resource, (metadata.id || RDF::Node.new))
+        unless minimal?
+          add_statement(0, table_resource, RDF.type, CSVW.Table)
+          add_statement(0, table_resource, CSVW.url, RDF::URI(metadata.url))
         end
+
+        # Common Properties
+        metadata.each do |key, value|
+          next unless key.to_s.include?(':') || key == :notes
+          metadata.common_properties(table_resource, key, value) do |statement|
+            add_statement(0, statement)
+          end
+        end unless minimal?
 
         # Input is file containing CSV data.
         # Output ROW-Level statements
         metadata.each_row(input) do |row|
           # Output row-level metadata
-          add_statement(row.sourceNumber, table_resource, CSVW.row, row.resource)
-          add_statement(row.sourceNumber, row.resource, CSVW.rownum, row.number)
+          row_resource = RDF::Node.new
+          unless minimal?
+            add_statement(row.sourceNumber, table_resource, CSVW.row, row_resource)
+            add_statement(row.sourceNumber, row_resource, CSVW.rownum, row.number)
+            add_statement(row.sourceNumber, row_resource, CSVW.url, RDF::URI(metadata.url) + "#row=#{row.sourceNumber}")
+          end
           row.values.each_with_index do |cell, index|
-            Array(cell.valueUrl || cell.value).each do |v|
-              add_statement(row.sourceNumber, cell.aboutUrl, cell.propertyUrl, v)
+            next if cell.column.suppressOutput # Skip ignored cells
+            cell_subject = cell.aboutUrl || row_resource
+            add_statement(row.sourceNumber, row_resource, DESCRIBES, cell_subject) unless minimal?
+
+            if cell.valueUrl
+              add_statement(row.sourceNumber, cell_subject, cell.propertyUrl, cell.valueUrl)
+            elsif cell.column.ordered
+              list = RDF::List[*Array(cell.value)]
+              add_statement(row.sourceNumber, cell_subject, cell.propertyUrl, list.subject)
+              list.each_statement do |statement|
+                next if statement.predicate == RDF.type && statement.object == RDF.List
+                add_statement(row.sourceNumber, statement.subject, statement.predicate, statement.object)
+              end
+            else
+              Array(cell.value).each do |v|
+                add_statement(row.sourceNumber, cell_subject, cell.propertyUrl, v)
+              end
             end
           end
         end
@@ -412,6 +446,9 @@ module RDF::Tabular
         table
       end
     end
+
+    def minimal?; @options[:minimal]; end
+    def prov?; !(@options[:noProv]); end
 
     private
     ##

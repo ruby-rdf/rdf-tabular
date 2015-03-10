@@ -795,31 +795,45 @@ module RDF::Tabular
     end
 
     ##
-    # Return or yield common properties (those which are CURIEs or URLS)
+    # Return or yield RDF for common properties
     #
-    # @overload common_properties(subject, &block)
-    #   @param [RDF::Resource] subject
-    #   @yield property, value
-    #   @yieldparam [String] property as a PName or URL
-    #   @yieldparam [RDF::Statement] statement
-    #
-    # @overload common_properties()
-    # @return [Hash{String => Object}] simply extracted from metadata
-    def common_properties(subject = nil, &block)
-      if block_given?
-        raise "common_properties needs a subject when given a block" unless subject
-        common = {'@id' => subject.to_s}
-        each do |key, value|
-          common[key.to_s] = value if key.to_s.include?(':')
-        end
-        ::JSON::LD::API.toRdf(common, expandContext: context, rename_bnodes: false) do |statement|
-          # Fix subject reference, is a BNode with the same "name" as subject, but a different BNode.
-          statement.subject = subject if subject && subject.node? && statement.subject.to_s == subject.to_s
-          statement.object = RDF::Literal(statement.object.value) if statement.object.literal? && statement.object.language == :und
-          yield statement
+    # @param [RDF::Resource] subject
+    # @param [String] property
+    # @param [String, Hash{String => Object}, Array<String, Hash{String => Object}>] value
+    # @yield property, value
+    # @yieldparam [String] property as a PName or URL
+    # @yieldparam [RDF::Statement] statement
+    def common_properties(subject, property, value, &block)
+      property = context.expand_iri(property.to_s, vocab: true) unless property.is_a?(RDF::URI)
+      case value
+      when Array
+        value.each {|v| common_properties(subject, property, v, &block)}
+      when Hash
+        if value['@value']
+          lit = RDF::Literal(value['@value'], language: value['@language'])
+          block.call(RDF::Statement.new(subject, property, lit))
+        else
+          # value MUST be a node object, establish a new subject from `@id`
+          s2 = value.has_key?('@id') ? context.expand_iri(value['@id']) : RDF::Node.new
+
+          # Generate a triple
+          block.call(RDF::Statement.new(subject, property, s2))
+
+          # Generate types
+          Array(value['@type']).each do |t|
+            block.call(RDF::Statement.new(s2, RDF.type, context.expand_iri(t, vocab: true)))
+          end
+
+          # Generate triples for all other properties
+          value.each do |prop, val|
+            next if prop.to_s.start_with?('@')
+            common_properties(s2, prop, val, &block)
+          end
         end
       else
-        object.dup.keep_if {|key, value| key.to_s.include?(':')}
+        # Value is a primitive JSON value
+        lit = RDF::Literal(value)
+        block.call(RDF::Statement.new(subject, property, RDF::Literal(value)))
       end
     end
 
@@ -1225,12 +1239,12 @@ module RDF::Tabular
   class TableGroup < Metadata
     PROPERTIES = {
       :@id              => :link,
-      :@type        => :atomic,
+      :@type            => :atomic,
       resources:           :array,
       tableSchema:         :object,
       tableDirection:      :atomic,
       dialect:             :object,
-      transformations:           :array,
+      transformations:     :array,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1297,13 +1311,13 @@ module RDF::Tabular
   class Table < Metadata
     PROPERTIES = {
       :@id              => :link,
-      :@type        => :atomic,
+      :@type            => :atomic,
       dialect:             :object,
       notes:               :array,
-      supressOutput:       :atomic,
+      suppressOutput:      :atomic,
       tableDirection:      :atomic,
       tableSchema:         :object,
-      transformations:           :array,
+      transformations:     :array,
       title:               :natural_language,
       url:                 :link,
     }.freeze
@@ -1351,8 +1365,8 @@ module RDF::Tabular
 
   class Transformation < Metadata
     PROPERTIES = {
-      :@id          => :link,
-      :@type    => :atomic,
+      :@id         => :link,
+      :@type       => :atomic,
       source:         :atomic,
       targetFormat:   :link,
       scriptFormat:   :link,
@@ -1382,7 +1396,7 @@ module RDF::Tabular
   class Schema < Metadata
     PROPERTIES = {
       :@id       => :link,
-      :@type => :atomic,
+      :@type     => :atomic,
       columns:      :array,
       foreignKeys:  :array,
       primaryKey:   :column_reference,
@@ -1413,12 +1427,13 @@ module RDF::Tabular
 
   class Column < Metadata
     PROPERTIES = {
-      :@id       => :link,
-      :@type => :atomic,
-      name:         :atomic,
-      title:        :natural_language,
-      required:     :atomic,
-      virtual:      :atomic,
+      :@id         => :link,
+      :@type       => :atomic,
+      name:           :atomic,
+      suppressOutput: :atomic,
+      title:          :natural_language,
+      required:       :atomic,
+      virtual:        :atomic,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1523,7 +1538,7 @@ module RDF::Tabular
 
     PROPERTIES = {
       :@id             => :link,
-      :@type       => :atomic,
+      :@type           => :atomic,
       commentPrefix:      :atomic,
       delimiter:          :atomic,
       doubleQuote:        :atomic,
@@ -1731,10 +1746,6 @@ module RDF::Tabular
           "_sourceColumn" => cell.column.sourceNumber
         )
         cell.set_urls(mapped_values)
-
-        # Row resource set from first cell, or a new Blank Node
-        @resource ||= cell.aboutUrl || RDF::Node.new
-        cell.aboutUrl ||= @resource # Use default
       end
     end
 
