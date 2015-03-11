@@ -1,7 +1,6 @@
 @prefix csvw: <http://www.w3.org/ns/csvw#> .
 @prefix geo: <http://www.geonames.org/ontology#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rel: <http://www.iana.org/assignments/link-relations/> .
 @prefix schema: <http://schema.org/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
@@ -25,15 +24,15 @@
     csvw:resources [
       a csvw:Table;
       csvw:row [
-        rel:describes <http://example.org/countries.csv#AD>;
+        csvw:describes <http://example.org/countries.csv#AD>;
         csvw:rownum 1;
         csvw:url <http://example.org/countries.csv#row=2>
       ],  [
-        rel:describes <http://example.org/countries.csv#AE>;
+        csvw:describes <http://example.org/countries.csv#AE>;
         csvw:rownum 2;
         csvw:url <http://example.org/countries.csv#row=3>
       ],  [
-        rel:describes <http://example.org/countries.csv#AF>;
+        csvw:describes <http://example.org/countries.csv#AF>;
         csvw:rownum 3;
         csvw:url <http://example.org/countries.csv#row=4>
       ];
@@ -41,7 +40,7 @@
     ],  [
       a csvw:Table;
       csvw:row [
-        rel:describes [
+        csvw:describes [
           <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
           <http://example.org/country_slice.csv#population> 9616353;
           <http://example.org/country_slice.csv#year> "1960"^^xsd:gYear
@@ -49,7 +48,7 @@
         csvw:rownum 1;
         csvw:url <http://example.org/country_slice.csv#row=2>
       ],  [
-        rel:describes [
+        csvw:describes [
           <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
           <http://example.org/country_slice.csv#population> 9799379;
           <http://example.org/country_slice.csv#year> "1961"^^xsd:gYear
@@ -57,7 +56,7 @@
         csvw:rownum 2;
         csvw:url <http://example.org/country_slice.csv#row=3>
       ],  [
-        rel:describes [
+        csvw:describes [
           <http://example.org/country_slice.csv#countryRef> <http://example.org/countries.csv#AF>;
           <http://example.org/country_slice.csv#population> 9989846;
           <http://example.org/country_slice.csv#year> "1962"^^xsd:gYear

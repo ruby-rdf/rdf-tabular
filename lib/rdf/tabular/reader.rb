@@ -8,7 +8,6 @@ module RDF::Tabular
   class Reader < RDF::Reader
     format Format
     include Utils
-    DESCRIBES = RDF::URI("http://www.iana.org/assignments/link-relations/describes").freeze
 
     # Metadata associated with the CSV
     #
@@ -164,7 +163,7 @@ module RDF::Tabular
           row.values.each_with_index do |cell, index|
             next if cell.column.suppressOutput # Skip ignored cells
             cell_subject = cell.aboutUrl || default_cell_subject
-            add_statement(row.sourceNumber, row_resource, DESCRIBES, cell_subject) unless minimal?
+            add_statement(row.sourceNumber, row_resource, CSVW.describes, cell_subject) unless minimal?
 
             if cell.valueUrl
               add_statement(row.sourceNumber, cell_subject, cell.propertyUrl, cell.valueUrl)

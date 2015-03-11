@@ -1,6 +1,5 @@
 @prefix csvw: <http://www.w3.org/ns/csvw#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rel: <http://www.iana.org/assignments/link-relations/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 <http://example.org/senior-roles.csv#post-90250> <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90334>;
@@ -32,19 +31,19 @@
     csvw:resources [
       a csvw:Table;
       csvw:row [
-        rel:describes <http://example.org/senior-roles.csv#post-90115>;
+        csvw:describes <http://example.org/senior-roles.csv#post-90115>;
         csvw:rownum 1;
         csvw:url <http://example.org/senior-roles.csv#row=2>
       ],  [
-        rel:describes <http://example.org/senior-roles.csv#post-90250>;
+        csvw:describes <http://example.org/senior-roles.csv#post-90250>;
         csvw:rownum 2;
         csvw:url <http://example.org/senior-roles.csv#row=3>
       ],  [
-        rel:describes <http://example.org/senior-roles.csv#post-90284>;
+        csvw:describes <http://example.org/senior-roles.csv#post-90284>;
         csvw:rownum 3;
         csvw:url <http://example.org/senior-roles.csv#row=4>
       ],  [
-        rel:describes <http://example.org/senior-roles.csv#post-90334>;
+        csvw:describes <http://example.org/senior-roles.csv#post-90334>;
         csvw:rownum 4;
         csvw:url <http://example.org/senior-roles.csv#row=5>
       ];
@@ -52,7 +51,7 @@
     ],  [
       a csvw:Table;
       csvw:row [
-        rel:describes [
+        csvw:describes [
           <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
           <http://example.org/junior-roles.csv#Grade> "4";
           <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "2";
@@ -64,7 +63,7 @@
         csvw:rownum 1;
         csvw:url <http://example.org/junior-roles.csv#row=2>
       ],  [
-        rel:describes [
+        csvw:describes [
           <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
           <http://example.org/junior-roles.csv#Grade> "5";
           <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "1";
@@ -76,7 +75,7 @@
         csvw:rownum 2;
         csvw:url <http://example.org/junior-roles.csv#row=3>
       ],  [
-        rel:describes [
+        csvw:describes [
           <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
           <http://example.org/junior-roles.csv#Grade> "4";
           <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "8.67";
@@ -88,7 +87,7 @@
         csvw:rownum 3;
         csvw:url <http://example.org/junior-roles.csv#row=4>
       ],  [
-        rel:describes [
+        csvw:describes [
           <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
           <http://example.org/junior-roles.csv#Grade> "5";
           <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "0.5";

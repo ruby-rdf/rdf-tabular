@@ -2,7 +2,7 @@
 # This file generated automatically using vocab-fetch from http://w3c.github.io/csvw/ns/csvw.ttl
 require 'rdf'
 module RDF::Tabular
-  class CSVW < RDF::StrictVocabulary("http://www.w3.org/ns/csvw#")
+  class CSVW < RDF::Vocabulary("http://www.w3.org/ns/csvw#")
 
     # Class definitions
     term :Column,

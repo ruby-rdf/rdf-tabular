@@ -36,7 +36,6 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   failure_message do |actual|
     prefixes = {
       '' => @info.action + '#',
-      rel: "http://www.iana.org/assignments/link-relations/",
       oa: "http://www.w3.org/ns/oa#",
       geo: "http://www.geonames.org/ontology#",
     }
