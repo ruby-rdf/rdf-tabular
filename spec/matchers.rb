@@ -34,6 +34,12 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   end
   
   failure_message do |actual|
+    prefixes = {
+      '' => @info.action + '#',
+      rel: "http://www.iana.org/assignments/link-relations/",
+      oa: "http://www.w3.org/ns/oa#",
+      geo: "http://www.geonames.org/ontology#",
+    }
     "#{@info.inspect + "\n"}" +
     if @expected.is_a?(RDF::Enumerable) && @actual.size != @expected.size
       "Graph entry count differs:\nexpected: #{@expected.size}\nactual:   #{@actual.size}\n"
@@ -42,8 +48,8 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     else
       "Graph differs\n"
     end +
-    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
-    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
+    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: prefixes)}" +
+    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: prefixes)}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
     (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
   end  

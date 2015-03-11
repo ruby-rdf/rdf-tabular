@@ -110,7 +110,7 @@ module RDF::Tabular
               end unless minimal?
 
               input.each_resource do |table|
-                next if table.supressOutput
+                next if table.suppressOutput
                 table_resource = table.id || RDF::Node.new
                 add_statement(0, table_group, CSVW.resources, table_resource) unless minimal?
                 Reader.open(table.url, options.merge(
@@ -155,6 +155,7 @@ module RDF::Tabular
         metadata.each_row(input) do |row|
           # Output row-level metadata
           row_resource = RDF::Node.new
+          default_cell_subject = RDF::Node.new
           unless minimal?
             add_statement(row.sourceNumber, table_resource, CSVW.row, row_resource)
             add_statement(row.sourceNumber, row_resource, CSVW.rownum, row.number)
@@ -162,7 +163,7 @@ module RDF::Tabular
           end
           row.values.each_with_index do |cell, index|
             next if cell.column.suppressOutput # Skip ignored cells
-            cell_subject = cell.aboutUrl || row_resource
+            cell_subject = cell.aboutUrl || default_cell_subject
             add_statement(row.sourceNumber, row_resource, DESCRIBES, cell_subject) unless minimal?
 
             if cell.valueUrl

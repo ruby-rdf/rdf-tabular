@@ -575,9 +575,9 @@ describe RDF::Tabular::Metadata do
       expect(nums).to eql([1, 2, 3])
     end
 
-    it "returns BNode resources" do
+    it "returns nil resources" do
       resources = subject.to_enum(:each_row, input).map(&:resource)
-      expect(resources).to include(RDF::Node, RDF::Node, RDF::Node, RDF::Node)
+      expect(resources).to include(nil, nil, nil, nil)
     end
 
     it "returns cells" do
@@ -682,7 +682,7 @@ describe RDF::Tabular::Metadata do
           let(:valueUrls) {props[:valueUrl].map {|u| u.is_a?(String) ? md.url.join(u) : u}}
           it "aboutUrl is #{props[:aboutUrl]}" do
             if aboutUrls.first == RDF::Node
-              expect(cells.map(&:aboutUrl)).to all(be_node)
+              expect(cells.map(&:aboutUrl)).to all(be_nil)
             else
               expect(cells.map(&:aboutUrl)).to include(*aboutUrls)
             end
@@ -1386,7 +1386,7 @@ describe RDF::Tabular::Metadata do
           "rdfs:label": "foo"
         }),
         R: %({
-          "@context": {"@language": "en"},
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "rdfs:label": [
@@ -1412,7 +1412,7 @@ describe RDF::Tabular::Metadata do
           }
         }),
         R: %({
-          "@context": {"@language": "en"},
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "tableSchema": {

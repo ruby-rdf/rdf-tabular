@@ -49,28 +49,31 @@ describe RDF::Tabular::Reader do
 
   context "Test Files" do
     test_files = {
-      "tree-ops.csv" => "tree-ops-result.ttl",
-      "tree-ops.csv-metadata.json" => "tree-ops-result.ttl",
-      "tree-ops-relations.json" => "tree-ops-relations-result.ttl",
-      "country-codes-and-names.csv" => "country-codes-and-names-result.ttl",
-      "countries.json" => "countries-result.ttl",
-      "roles.json" => "roles-result.ttl",
+      "tree-ops.csv" => "tree-ops-standard.ttl",
+      "tree-ops.csv-metadata.json" => "tree-ops-standard.ttl",
+      "tree-ops-ext.json" => "tree-ops-ext-standard.ttl",
+      "tree-ops-virtual.json" => "tree-ops-virtual-standard.ttl",
+      "country-codes-and-names.csv" => "country-codes-and-names-standard.ttl",
+      "countries.json" => "countries-standard.ttl",
+      "roles.json" => "roles-standard.ttl",
     }
-    describe "#each_statement" do
+    context "#each_statement" do
       test_files.each do |csv, ttl|
-        it csv do
-          about = RDF::URI("http://example.org").join(csv)
-          input = File.expand_path("../data/#{csv}", __FILE__)
-          expected = File.expand_path("../data/#{ttl}", __FILE__)
-          RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
-            graph = RDF::Graph.new << reader
-            graph2 = RDF::Graph.load(expected, base_uri: about)
-            expect(graph).to be_equivalent_graph(graph2,
-                                                 debug: @debug,
-                                                 id: about,
-                                                 action: about,
-                                                 result: expected,
-                                                 metadata: reader.metadata)
+        context csv do
+          let(:about) {RDF::URI("http://example.org").join(csv)}
+          let(:input) {File.expand_path("../data/#{csv}", __FILE__)}
+          it "standard mode" do
+            expected = File.expand_path("../data/#{ttl}", __FILE__)
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+              graph = RDF::Graph.new << reader
+              graph2 = RDF::Graph.load(expected, base_uri: about)
+              expect(graph).to be_equivalent_graph(graph2,
+                                                   debug: @debug,
+                                                   id: about,
+                                                   action: about,
+                                                   result: expected,
+                                                   metadata: reader.metadata)
+            end
           end
         end
       end
