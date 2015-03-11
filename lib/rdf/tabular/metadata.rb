@@ -925,6 +925,11 @@ module RDF::Tabular
 
             value = [value] if value.is_a?(Hash)
             case key
+            when :notes
+              # If the property is notes, the result is an array containing values from A followed by values from B.
+              a = object[key].is_a?(Array) ? object[key] : [object[key]].compact
+              b = value.is_a?(Array) ? value : [value]
+              object[key] = a + b
             when :resources
               # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
               value.each do |t|
@@ -984,7 +989,6 @@ module RDF::Tabular
               # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
               object[key] = object[key] + (metadata[key] - object[key])
             end
-
           when :object
             case key
             when :notes
@@ -1026,11 +1030,6 @@ module RDF::Tabular
               a.delete("und") if a["und"].empty?
             end
             object[key] = a
-          when ->(k) {key == :notes || key.to_s.include?(':')}
-            # If the property is a common property, the result is an array containing values from A followed by values from B.
-            a = object[key].is_a?(Array) ? object[key] : [object[key]].compact
-            b = value.is_a?(Array) ? value : [value]
-            object[key] = a + b
           else
             # Otherwise, the value from A overrides that from B
             object[key] ||= value

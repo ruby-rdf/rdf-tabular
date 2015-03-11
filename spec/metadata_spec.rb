@@ -1206,10 +1206,7 @@ describe RDF::Tabular::Metadata do
           }, {
             "@type": "Table",
             "url": "http://example.org/table2",
-            "dc:label": [
-              {"@value": "foo"},
-              {"@value": "bar"}
-            ]
+            "dc:label": {"@value": "foo"}
           }],
           "@context": "http://www.w3.org/ns/csvw"
         })
@@ -1256,7 +1253,7 @@ describe RDF::Tabular::Metadata do
         R: %({"resources": [{
           "url": "http://example.org/foo",
           "dc:title": {"@value": "foo"},
-          "dc:description": [{"@value": "bar"}]
+          "dc:description": {"@value": "bar"}
         }]})
       },
       "TableGroup with differing resources" => {
@@ -1360,19 +1357,16 @@ describe RDF::Tabular::Metadata do
           }]
         }),
       },
-      "Table with common properties merges A and B" => {
+      "Table with common properties keeps A" => {
         A: %({"@type": "Table", "url": "http://example.com/foo", "rdfs:label": "foo"}),
         B: %({"@type": "Table", "url": "http://example.com/foo", "rdfs:label": "bar"}),
         R: %({
           "@type": "Table",
           "url": "http://example.com/foo",
-          "rdfs:label": [
-            {"@value": "foo"},
-            {"@value": "bar"}
-          ]
+          "rdfs:label": {"@value": "foo"}
         }),
       },
-      "Table with common properties in different languages merges A and B" => {
+      "Table with common properties in different languages keeps A" => {
         A: %({
           "@context": {"@language": "en"},
           "@type": "Table",
@@ -1389,10 +1383,7 @@ describe RDF::Tabular::Metadata do
           "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
-          "rdfs:label": [
-            {"@value": "foo", "@language": "en"},
-            {"@value": "foo", "@language": "fr"}
-          ]
+          "rdfs:label": {"@value": "foo", "@language": "en"}
         }),
       },
       "Table with different languages merges A and B" => {
