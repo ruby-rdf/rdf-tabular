@@ -810,7 +810,8 @@ module RDF::Tabular
         value.each {|v| common_properties(subject, property, v, &block)}
       when Hash
         if value['@value']
-          lit = RDF::Literal(value['@value'], language: value['@language'])
+          dt = RDF::URI(context.expand_iri(value['@type'], vocab: true)) if value['@type']
+          lit = RDF::Literal(value['@value'], language: value['@language'], datatype: dt)
           block.call(RDF::Statement.new(subject, property, lit))
         else
           # value MUST be a node object, establish a new subject from `@id`
@@ -841,22 +842,6 @@ module RDF::Tabular
     # @return [Boolean]
     def has_annotations?
       object.keys.any? {|k| k.to_s.include?(':')}
-    end
-
-    # Yield RDF statements after expanding property values
-    #
-    # @param [RDF::Resource] subject
-    # @param [String] property
-    # @param [Object] value
-    # @yield s, p, o
-    # @yieldparam [RDF::Statement] statement
-    def rdf_values(subject, property, value)
-      ::JSON::LD::API.toRdf({'@id' => subject.to_s, property => value}, expandContext: context, rename_bnodes: false) do |statement|
-        # Fix subject reference, is a BNode with the same "name" as subject, but a different BNode.
-        statement.subject = subject if subject && subject.node? && statement.subject.to_s == subject.to_s
-        statement.object = RDF::Literal(statement.object.value) if statement.object.literal? && statement.object.language == :und
-        yield statement
-      end
     end
 
     # Merge metadata into this a copy of this metadata
@@ -1178,7 +1163,7 @@ module RDF::Tabular
             when /^(@|_:)/
               raise Error, "Invalid use of #{k} in JSON-LD content"
             else
-              nv[k] = normalize_jsonld(k, value)
+              nv[k] = normalize_jsonld(k, v)
             end
           end
           nv
@@ -1718,7 +1703,7 @@ module RDF::Tabular
                 end
 
                 expanded_dt = metadata.context.expand_iri(datatype[:base], vocab: true)
-                if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt)).is_a?(RDF::Literal)
+                if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt, column.lang)).is_a?(RDF::Literal)
                   lit_or_errors
                 else
                   cell_errors += lit_or_errors
@@ -1769,7 +1754,7 @@ module RDF::Tabular
     #
     # given a datatype specification, return a literal matching that specififcation, if found, otherwise nil
     # @return [RDF::Literal]
-    def value_matching_datatype(value, datatype, expanded_dt)
+    def value_matching_datatype(value, datatype, expanded_dt, language)
       value_errors = []
 
       # Check constraints
@@ -1925,7 +1910,14 @@ module RDF::Tabular
         unless format.nil? || value.match(Regexp.new(format))
           value_errors << "#{value} does not match format #{format}"
         end
-        lit = RDF::Literal(value, datatype: expanded_dt) if value_errors.empty?
+        lit = if value_errors.empty?
+          if expanded_dt == RDF::XSD.string
+            # Type string will still use language
+            RDF::Literal(value, language: language)
+          else
+            RDF::Literal(value, datatype: expanded_dt)
+          end
+        end
       end
 
       # Final value is a valid literal, or a plain literal otherwise
