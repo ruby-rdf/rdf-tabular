@@ -3,9 +3,11 @@
   "resources": [{
     "url": "dt1.csv",
     "textDirection": "rtl",
-    "columns": [{
-      "name": "col",
-      "textDirection": "ltr"
-    }]
+    "tableSchema": {
+      "columns": [{
+        "name": "col",
+        "textDirection": "ltr"
+      }]
+    }
   }]
 }

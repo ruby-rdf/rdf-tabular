@@ -84,8 +84,8 @@ describe RDF::Tabular::Reader do
         context csv do
           let(:about) {RDF::URI("http://example.org").join(csv)}
           let(:input) {File.expand_path("../data/#{csv}", __FILE__)}
-          it "JSON" do
-            json = ttl.sub(".ttl", ".json")
+          it "standard mode" do
+            json = ttl.sub("-standard.ttl", "-standard.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 
             RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
@@ -101,8 +101,8 @@ describe RDF::Tabular::Reader do
             end
           end
 
-          it "ADT", pending: true do
-            json = ttl.sub(".ttl", ".atd")
+          it "ADT mode", pending: true do
+            json = ttl.sub("-standard.ttl", "-atd.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 
             RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|

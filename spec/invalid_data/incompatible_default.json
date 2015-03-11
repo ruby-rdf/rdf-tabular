@@ -3,9 +3,11 @@
   "resources": [{
     "url": "dt1.csv",
     "default": "bar",
-    "columns": [{
-      "name": "col",
-      "default": "foo"
-    }]
+    "tableSchema": {
+      "columns": [{
+        "name": "col",
+        "default": "foo"
+      }]
+    }
   }]
 }

@@ -346,7 +346,7 @@ describe RDF::Tabular::Metadata do
 
   context "parses example metadata" do
     Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
-      next if filename =~ /-result.json/
+      next if filename =~ /-(atd|standard|minimal).json/
       context filename do
         subject {RDF::Tabular::Metadata.open(filename)}
         its(:errors) {is_expected.to be_empty}
@@ -398,7 +398,7 @@ describe RDF::Tabular::Metadata do
   describe ".open" do
     context "validates example metadata" do
       Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
-        next if filename =~ /-result.json/
+        next if filename =~ /-(atd|standard|minimal).json/
         context filename do
           specify do
             md = RDF::Tabular::Metadata.open(filename, debug: @debug)

@@ -1,1 +1,1 @@
-Column has invalid separator(;): expected same as that defined on parent
+Column has invalid property 'separator' (';'): expected same as that defined on parent
