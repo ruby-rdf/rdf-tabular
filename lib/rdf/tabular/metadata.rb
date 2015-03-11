@@ -1296,7 +1296,6 @@ module RDF::Tabular
       tableDirection:      :atomic,
       tableSchema:         :object,
       transformations:     :array,
-      title:               :natural_language,
       url:                 :link,
     }.freeze
     REQUIRED = [:url].freeze

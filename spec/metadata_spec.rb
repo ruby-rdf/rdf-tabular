@@ -319,17 +319,6 @@ describe RDF::Tabular::Metadata do
     its(:type) {is_expected.to eql :Table}
 
     it "FIXME"
-
-    context "title" do
-      {
-        string: ["foo", {"und" => ["foo"]}],
-      }.each do |name, (input, output)|
-        it name do
-          subject.title = input
-          expect(subject.title).to produce(output)
-        end
-      end
-    end
   end
 
   describe RDF::Tabular::TableGroup do
