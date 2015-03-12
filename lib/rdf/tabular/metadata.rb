@@ -1570,7 +1570,7 @@ module RDF::Tabular
     Cell = Struct.new(:table, :column, :row, :stringValue, :aboutUrl, :propertyUrl, :valueUrl, :value, :errors) do
       def set_urls(mapped_values)
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
-          if v = column.send(prop.to_sym) || ("{#_name}" if prop.to_sym == :propertyUrl)
+          if v = column.send(prop.to_sym)
             t = Addressable::Template.new(v)
             mapped = t.expand(mapped_values).to_s
             url = row.context.expand_iri(mapped, documentRelative: true)

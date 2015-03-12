@@ -163,20 +163,21 @@ module RDF::Tabular
           row.values.each_with_index do |cell, index|
             next if cell.column.suppressOutput # Skip ignored cells
             cell_subject = cell.aboutUrl || default_cell_subject
+            propertyUrl = cell.propertyUrl || RDF::URI("#{metadata.url}##{cell.column.name}")
             add_statement(row.sourceNumber, row_resource, CSVW.describes, cell_subject) unless minimal?
 
             if cell.valueUrl
-              add_statement(row.sourceNumber, cell_subject, cell.propertyUrl, cell.valueUrl)
+              add_statement(row.sourceNumber, cell_subject, propertyUrl, cell.valueUrl)
             elsif cell.column.ordered
               list = RDF::List[*Array(cell.value)]
-              add_statement(row.sourceNumber, cell_subject, cell.propertyUrl, list.subject)
+              add_statement(row.sourceNumber, cell_subject, propertyUrl, list.subject)
               list.each_statement do |statement|
                 next if statement.predicate == RDF.type && statement.object == RDF.List
                 add_statement(row.sourceNumber, statement.subject, statement.predicate, statement.object)
               end
             else
               Array(cell.value).each do |v|
-                add_statement(row.sourceNumber, cell_subject, cell.propertyUrl, v)
+                add_statement(row.sourceNumber, cell_subject, propertyUrl, v)
               end
             end
           end
@@ -285,7 +286,10 @@ module RDF::Tabular
             table_group = {"tables" => tables}
 
             # Common Properties
-            table_group.merge!(input.common_properties)
+            input.each do |key, value|
+              next unless key.to_s.include?(':')
+              table_group[key] = input.common_properties(nil, key, value)
+            end unless minimal?
 
             input.each_resource do |table|
               Reader.open(table.url, options.merge(
@@ -335,17 +339,10 @@ module RDF::Tabular
         table = {"url" => metadata.url.to_s,}
 
         # Use string values notes and common properties
-        metadata.common_properties.each do |prop, value|
-          value = [value] unless value.is_a?(Array)
-          value = value.map do |v|
-            if v.is_a?(Hash) && !(v.keys & %w(@id @value)).empty?
-              v['@value'] || v['@id']
-            else
-              v
-            end
-          end
-          table[prop] = value.length == 1 ? value.first : value
-        end
+        metadata.each do |key, value|
+          next unless key.to_s.include?(':') || key == :notes
+          table[key] = metadata.common_properties(nil, key, value)
+        end unless minimal?
 
         table.merge!("row" => rows)
 

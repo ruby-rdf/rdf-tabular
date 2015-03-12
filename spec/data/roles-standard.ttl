@@ -55,8 +55,8 @@
           <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
           <http://example.org/junior-roles.csv#Grade> "4";
           <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "2";
-          <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "20002";
-          <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "17426";
+          <http://example.org/junior-roles.csv#Payscale%20Maximum%20%28%C2%A3%29> "20002";
+          <http://example.org/junior-roles.csv#Payscale%20Minimum%20%28%C2%A3%29> "17426";
           <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
           <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90284>
         ];
@@ -67,8 +67,8 @@
           <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
           <http://example.org/junior-roles.csv#Grade> "5";
           <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "1";
-          <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "22478";
-          <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "19546";
+          <http://example.org/junior-roles.csv#Payscale%20Maximum%20%28%C2%A3%29> "22478";
+          <http://example.org/junior-roles.csv#Payscale%20Minimum%20%28%C2%A3%29> "19546";
           <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
           <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90284>
         ];
@@ -79,8 +79,8 @@
           <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
           <http://example.org/junior-roles.csv#Grade> "4";
           <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "8.67";
-          <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "20002";
-          <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "17426";
+          <http://example.org/junior-roles.csv#Payscale%20Maximum%20%28%C2%A3%29> "20002";
+          <http://example.org/junior-roles.csv#Payscale%20Minimum%20%28%C2%A3%29> "17426";
           <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
           <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90115>
         ];
@@ -91,8 +91,8 @@
           <http://example.org/junior-roles.csv#Generic%20Job%20Title> "Administrator";
           <http://example.org/junior-roles.csv#Grade> "5";
           <http://example.org/junior-roles.csv#Number%20of%20Posts%20in%20FTE> "0.5";
-          <http://example.org/junior-roles.csv#Payscale%20Maximum%20(%C2%A3)> "22478";
-          <http://example.org/junior-roles.csv#Payscale%20Minimum%20(%C2%A3)> "19546";
+          <http://example.org/junior-roles.csv#Payscale%20Maximum%20%28%C2%A3%29> "22478";
+          <http://example.org/junior-roles.csv#Payscale%20Minimum%20%28%C2%A3%29> "19546";
           <http://example.org/junior-roles.csv#Profession> "Operational Delivery";
           <http://example.org/reportsTo> <http://example.org/senior-roles.csv#post-90115>
         ];
