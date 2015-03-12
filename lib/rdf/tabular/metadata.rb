@@ -148,49 +148,44 @@ module RDF::Tabular
         Metadata.open(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
       end
 
-      found_metadata = []
-      if !options[:no_found_metadata]
+      found_metadata = nil
+
+      # If user_metadata does not describe input, get the first found from linked-, file-, and directory-specific metadata
+      unless user_metadata.is_a?(Table) || user_metadata.is_a?(TableGroup) && user_metadata.for_table(base)
         # load link metadata, if available
+        locs = []
         if input.respond_to?(:links) && 
           link = input.links.find_link(%w(rel describedby))
-          link = RDF::URI(base).join(link.href)
-          begin
-            found_metadata << Metadata.open(link, options.merge(reason: "load linked metadata: #{link}")) if link
-          rescue
-            debug("for_input", options) {"failed to load linked metadata #{link}: #{$!}"}
-          end
+          locs << RDF::URI(base).join(link.href)
         end
 
         if base
-          # Otherwise, look for metadata based on filename
-          begin
-            loc = "#{base}-metadata.json"
-            found_metadata << Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
-          rescue
-            debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
-          end
+          locs += [RDF::URI("#{base}-metadata.json"), RDF::URI(base).join("metadata.json")]
+        end
 
-          # Otherwise, look for metadata in directory
-          begin
-            loc = RDF::URI(base).join("metadata.json")
-            found_metadata << Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
+        locs.each do |loc|
+          found_metadata ||= begin
+            Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
           rescue
             debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
+            nil
           end
         end
       end
 
-      # Extract file metadata, and left-merge if appropriate
-      # Use found metadata when parsing embedded data, but don't merge in until complete
-      md, *rest = found_metadata.dup.unshift(user_metadata).compact
-      parse_md = md ? md.merge(*rest) : Table.new({})
-      embedded_metadata = parse_md.embedded_metadata(input, options)
+      # Merge user and found to get dialect description
+      parse_md = if user_metadata && found_metadata
+        user_metadata.merge(found_metadata)
+      else
+        user_metadata || found_metadata || TableGroup.new({:@context => 'http://www.w3.org/ns/csvw'}, options)
+      end
+      embedded_metadata = parse_md.dialect.embedded_metadata(input, options)
 
       # Merge user metadata with embedded metadata 
       embedded_metadata = user_metadata.merge(embedded_metadata) if user_metadata
 
       # Merge embedded metadata with found
-      embedded_metadata.merge(*found_metadata)
+      found_metadata ? embedded_metadata.merge(found_metadata) : embedded_metadata
     end
 
     ##
@@ -716,69 +711,6 @@ module RDF::Tabular
     end
 
     ##
-    # Extract a new Metadata document from the file or data provided
-    #
-    # @param [#read, #to_s] input IO, or file path or URL
-    # @param  [Hash{Symbol => Object}] options
-    #   any additional options (see `RDF::Util::File.open_file`)
-    # @return [Metadata] Tabular metadata
-    # @see http://w3c.github.io/csvw/syntax/#parsing
-    def embedded_metadata(input, options = {})
-      options = options.dup
-      options.delete(:context) # Don't accidentally use a passed context
-      dialect = self.dialect
-      # Normalize input to an IO object
-      if !input.respond_to?(:read)
-        return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
-      end
-
-      table = {
-        "url" => (options.fetch(:base, "")),
-        "@type" => "Table",
-        "tableSchema" => {
-          "@type" => "Schema",
-          "columns" => nil
-        }
-      }
-
-      # Set encoding on input
-      csv = ::CSV.new(input, csv_options)
-      (1..dialect.skipRows.to_i).each do
-        value = csv.shift.join(dialect.delimiter)  # Skip initial lines, these form comment annotations
-        # Trim value
-        value.lstrip! if %w(true start).include?(dialect.trim.to_s)
-        value.rstrip! if %w(true end).include?(dialect.trim.to_s)
-
-        value = value[1..-1] if dialect.commentPrefix && value.start_with?(dialect.commentPrefix)
-        table["notes"] ||= [] << value unless value.empty?
-      end
-      debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
-
-      (1..dialect.headerRowCount).each do
-        Array(csv.shift).each_with_index do |value, index|
-          # Skip columns
-          next if index < (dialect.skipColumns.to_i + dialect.headerColumnCount.to_i)
-
-          # Trim value
-          value.lstrip! if %w(true start).include?(dialect.trim.to_s)
-          value.rstrip! if %w(true end).include?(dialect.trim.to_s)
-
-          # Initialize title
-          # SPEC CONFUSION: does title get an array, or concatenated values?
-          columns = table["tableSchema"]["columns"] ||= []
-          column = columns[index - dialect.skipColumns.to_i] ||= {
-            "title" => {"und" => []},
-          }
-          column["title"]["und"] << value
-        end
-      end
-      debug("embedded_metadata") {"table: #{table.inspect}"}
-      input.rewind if input.respond_to?(:rewind)
-
-      Table.new(table, options.merge(reason: "load embedded metadata: #{table['@id']}"))
-    end
-
-    ##
     # Yield each data row from the input file
     #
     # @param [:read] input
@@ -1132,9 +1064,9 @@ module RDF::Tabular
       when Array
         value.map {|v| normalize_jsonld(property, v)}
       when String
-        v = {'@value' => value}
-        v['@language'] = context.default_language if context.default_language
-        v
+        ev = {'@value' => value}
+        ev['@language'] = context.default_language if context.default_language
+        ev
       when Hash
         if value['@value']
           if (value.keys.sort & %w(@language @type)) == %w(@language @type)
@@ -1195,10 +1127,10 @@ module RDF::Tabular
     # Options passed to CSV.new based on dialect
     def csv_options
       {
-        col_sep: dialect.delimiter,
-        row_sep: dialect.lineTerminator,
-        quote_char: dialect.quoteChar,
-        encoding: dialect.encoding
+        col_sep: (is_a?(Dialect) ? self : dialect).delimiter,
+        row_sep: (is_a?(Dialect) ? self : dialect).lineTerminator,
+        quote_char: (is_a?(Dialect) ? self : dialect).quoteChar,
+        encoding: (is_a?(Dialect) ? self : dialect).encoding
       }
     end
 
@@ -1557,6 +1489,68 @@ module RDF::Tabular
     # @return [Boolean, String]
     def trim
       object.fetch(:trim, self.skipInitialSpace ? 'start' : false)
+    end
+
+    ##
+    # Extract a new Metadata document from the file or data provided
+    #
+    # @param [#read, #to_s] input IO, or file path or URL
+    # @param  [Hash{Symbol => Object}] options
+    #   any additional options (see `RDF::Util::File.open_file`)
+    # @return [Metadata] Tabular metadata
+    # @see http://w3c.github.io/csvw/syntax/#parsing
+    def embedded_metadata(input, options = {})
+      options = options.dup
+      options.delete(:context) # Don't accidentally use a passed context
+      # Normalize input to an IO object
+      if !input.respond_to?(:read)
+        return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
+      end
+
+      table = {
+        "url" => (options.fetch(:base, "")),
+        "@type" => "Table",
+        "tableSchema" => {
+          "@type" => "Schema",
+          "columns" => nil
+        }
+      }
+
+      # Set encoding on input
+      csv = ::CSV.new(input, csv_options)
+      (1..skipRows.to_i).each do
+        value = csv.shift.join(delimiter)  # Skip initial lines, these form comment annotations
+        # Trim value
+        value.lstrip! if %w(true start).include?(trim.to_s)
+        value.rstrip! if %w(true end).include?(trim.to_s)
+
+        value = value[1..-1] if commentPrefix && value.start_with?(commentPrefix)
+        table["notes"] ||= [] << value unless value.empty?
+      end
+      debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
+
+      (1..headerRowCount).each do
+        Array(csv.shift).each_with_index do |value, index|
+          # Skip columns
+          next if index < (skipColumns.to_i + headerColumnCount.to_i)
+
+          # Trim value
+          value.lstrip! if %w(true start).include?(trim.to_s)
+          value.rstrip! if %w(true end).include?(trim.to_s)
+
+          # Initialize title
+          # SPEC CONFUSION: does title get an array, or concatenated values?
+          columns = table["tableSchema"]["columns"] ||= []
+          column = columns[index - skipColumns.to_i] ||= {
+            "title" => {"und" => []},
+          }
+          column["title"]["und"] << value
+        end
+      end
+      debug("embedded_metadata") {"table: #{table.inspect}"}
+      input.rewind if input.respond_to?(:rewind)
+
+      Table.new(table, options.merge(reason: "load embedded metadata: #{table['@id']}"))
     end
 
     # Logic for accessing elements as accessors

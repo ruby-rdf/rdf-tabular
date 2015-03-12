@@ -291,7 +291,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Dialect do
-    subject {described_class.new({}, debug: @debug)}
+    subject {described_class.new({}, base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties", false)
@@ -306,6 +306,58 @@ describe RDF::Tabular::Metadata do
         it "retrieves set value" do
           subject[p] = "foo"
           expect(subject.send(p)).to eql "foo"
+        end
+      end
+    end
+
+    describe "#embedded_metadata" do
+      {
+        "with defaults" => {
+          input: "https://example.org/countries.csv",
+          result: %({
+            "@context": "http://www.w3.org/ns/csvw",
+            "@type": "Table",
+            "url": "https://example.org/countries.csv",
+            "tableSchema": {
+              "@type": "Schema",
+              "columns": [
+                {"title": {"und": ["countryCode"]}},
+                {"title": {"und": ["latitude"]}},
+                {"title": {"und": ["longitude"]}},
+                {"title": {"und": ["name"]}}
+              ]
+            }
+          })
+        },
+        "with skipRows" => {
+          input: "https://example.org/countries.csv",
+          dialect: {skipRows: 1},
+          result: %({
+            "@context": "http://www.w3.org/ns/csvw",
+            "@type": "Table",
+            "url": "https://example.org/countries.csv",
+            "tableSchema": {
+              "@type": "Schema",
+              "columns": [
+                {"title": {"und": ["AD"]}},
+                {"title": {"und": ["42.546245"]}},
+                {"title": {"und": ["1.601554"]}},
+                {"title": {"und": ["Andorra"]}}
+              ]
+            },
+            "notes": ["countryCode,latitude,longitude,name"]
+          })
+        },
+      }.each do |name, props|
+        it name do
+          dialect = if props[:dialect]
+            described_class.new(props[:dialect], base: RDF::URI("http://example.org/base"), debug: @debug)
+          else
+            subject
+          end
+
+          result = dialect.embedded_metadata(props[:input])
+          expect(::JSON.parse(result.to_json(JSON_STATE))).to produce(::JSON.parse(props[:result]), @debug)
         end
       end
     end
@@ -447,83 +499,6 @@ describe RDF::Tabular::Metadata do
           klass = args.pop
           expect(described_class.new(*args)).to be_a(klass)
         end
-      end
-    end
-  end
-
-  describe "#embedded_metadata" do
-    subject {described_class.new({"@type" => "Table"}, base: RDF::URI("http://example.org/base"), debug: @debug)}
-    {
-      "with defaults" => {
-        input: "https://example.org/countries.csv",
-        result: %({
-          "@context": "http://www.w3.org/ns/csvw",
-          "@type": "Table",
-          "url": "https://example.org/countries.csv",
-          "tableSchema": {
-            "@type": "Schema",
-            "columns": [
-              {"title": {"und": ["countryCode"]}},
-              {"title": {"und": ["latitude"]}},
-              {"title": {"und": ["longitude"]}},
-              {"title": {"und": ["name"]}}
-            ]
-          }
-        })
-      },
-      "with skipRows" => {
-        input: "https://example.org/countries.csv",
-        metadata: %({
-          "@type": "Table",
-          "dialect": {"skipRows": 1}
-        }),
-        result: %({
-          "@context": "http://www.w3.org/ns/csvw",
-          "@type": "Table",
-          "url": "https://example.org/countries.csv",
-          "tableSchema": {
-            "@type": "Schema",
-            "columns": [
-              {"title": {"und": ["AD"]}},
-              {"title": {"und": ["42.546245"]}},
-              {"title": {"und": ["1.601554"]}},
-              {"title": {"und": ["Andorra"]}}
-            ]
-          },
-          "notes": ["countryCode,latitude,longitude,name"]
-        })
-      },
-      "with @language" => {
-        input: "https://example.org/tree-ops.csv",
-        metadata: %({
-          "@context": {"@language": "en"},
-          "@type": "Table"
-        }),
-        result: %({
-          "@context": "http://www.w3.org/ns/csvw",
-          "@type": "Table",
-          "url": "https://example.org/tree-ops.csv",
-          "tableSchema": {
-            "@type": "Schema",
-            "columns": [
-              {"title": {"und": ["GID"]}},
-              {"title": {"und": ["On Street"]}},
-              {"title": {"und": ["Species"]}},
-              {"title": {"und": ["Trim Cycle"]}},
-              {"title": {"und": ["Inventory Date"]}}
-            ]
-          }
-        })
-      },
-    }.each do |name, props|
-      it name do
-        metadata = if props[:metadata]
-          described_class.new(JSON.parse(props[:metadata]), base: RDF::URI("http://example.org/base"), debug: @debug)
-        end
-
-        metadata = metadata ? subject.merge(metadata).resources.first : subject
-        result = metadata.embedded_metadata(props[:input])
-        expect(::JSON.parse(result.to_json(JSON_STATE))).to produce(::JSON.parse(props[:result]), @debug)
       end
     end
   end
