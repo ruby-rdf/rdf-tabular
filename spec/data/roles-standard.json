@@ -1,90 +1,56 @@
 {
-  "tables": [
-    {
-      "url": "http://example.org/senior-roles.csv",
-      "row": [
-        {
-          "url": "http://example.org/senior-roles.csv#post-90115",
-          "rownum": 1,
-          "ref": "90115",
-          "name": "Steve Egan",
-          "grade": "SCS1A",
-          "job": "Deputy Chief Executive",
-          "reportsTo": "http://example.org/senior-roles.csv#post-90334"
-        },
-        {
-          "url": "http://example.org/senior-roles.csv#post-90250",
-          "rownum": 2,
-          "ref": "90250",
-          "name": "David Sweeney",
-          "grade": "SCS1A",
-          "job": "Director",
-          "reportsTo": "http://example.org/senior-roles.csv#post-90334"
-        },
-        {
-          "url": "http://example.org/senior-roles.csv#post-90284",
-          "rownum": 3,
-          "ref": "90284",
-          "name": "Heather Fry",
-          "grade": "SCS1A",
-          "job": "Director",
-          "reportsTo": "http://example.org/senior-roles.csv#post-90334"
-        },
-        {
-          "url": "http://example.org/senior-roles.csv#post-90334",
-          "rownum": 4,
-          "ref": "90334",
-          "name": "Sir Alan Langlands",
-          "grade": "SCS4",
-          "job": "Chief Executive",
-          "reportsTo": "http://example.org/senior-roles.csv#post-xx"
-        }
-      ]
-    },
-    {
-      "url": "http://example.org/junior-roles.csv",
-      "row": [
-        {
-          "rownum": 1,
-          "reportsTo": "http://example.org/senior-roles.csv#post-90284",
-          "Grade": "4",
-          "Payscale%20Minimum%20%28%C2%A3%29": "17426",
-          "Payscale%20Maximum%20%28%C2%A3%29": "20002",
-          "Generic%20Job%20Title": "Administrator",
-          "Number%20of%20Posts%20in%20FTE": "2",
-          "Profession": "Operational Delivery"
-        },
-        {
-          "rownum": 2,
-          "reportsTo": "http://example.org/senior-roles.csv#post-90284",
-          "Grade": "5",
-          "Payscale%20Minimum%20%28%C2%A3%29": "19546",
-          "Payscale%20Maximum%20%28%C2%A3%29": "22478",
-          "Generic%20Job%20Title": "Administrator",
-          "Number%20of%20Posts%20in%20FTE": "1",
-          "Profession": "Operational Delivery"
-        },
-        {
-          "rownum": 3,
-          "reportsTo": "http://example.org/senior-roles.csv#post-90115",
-          "Grade": "4",
-          "Payscale%20Minimum%20%28%C2%A3%29": "17426",
-          "Payscale%20Maximum%20%28%C2%A3%29": "20002",
-          "Generic%20Job%20Title": "Administrator",
-          "Number%20of%20Posts%20in%20FTE": "8.67",
-          "Profession": "Operational Delivery"
-        },
-        {
-          "rownum": 4,
-          "reportsTo": "http://example.org/senior-roles.csv#post-90115",
-          "Grade": "5",
-          "Payscale%20Minimum%20%28%C2%A3%29": "19546",
-          "Payscale%20Maximum%20%28%C2%A3%29": "22478",
-          "Generic%20Job%20Title": "Administrator",
-          "Number%20of%20Posts%20in%20FTE": "0.5",
-          "Profession": "Operational Delivery"
-        }
-      ]
-    }
-  ]
+  "table": [{
+    "url": "http://example.org/senior-roles.csv",
+    "row": [{
+      "url": "http://example.org/senior-roles.csv#row=2",
+      "rownum": 1,
+      "describes": [{ 
+        "@id": "http://example.org/senior-roles.csv#post-90115",
+        "dc:identifier": "90115",
+        "foaf:name": "Steve Egan",
+        "http://example.org/def/grade": "SCS1A",
+        "http://example.org/def/job": "Deputy Chief Executive",
+        "http://example.org/def/reportsTo": "http://example.org/senior-roles.csv#post-90334",
+        "http://example.org/def/profession": "Finance"
+      }]
+    }, {
+      "url": "http://example.org/senior-roles.csv#row=3",
+      "rownum": 2,
+      "describes": [{ 
+        "@id": "http://example.org/senior-roles.csv#post-90334",
+        "dc:identifier": "90334",
+        "foaf:name": "Sir Alan Langlands",
+        "http://example.org/def/grade": "SCS4",
+        "http://example.org/def/job": "Chief Executive",
+        "http://example.org/def/profession": "Policy"
+      }]
+    }]
+  }, {
+    "url": "http://example.org/junior-roles.csv",
+    "row": [{
+      "url": "http://example.org/junior-roles.csv#row=2",
+      "rownum": 1,
+      "describes": [{ 
+        "http://example.org/def/reportsTo": "http://example.org/senior-roles.csv#post-90115",
+        "http://example.org/def/grade": "4",
+        "http://example.org/def/min-pay": 17426,
+        "http://example.org/def/max-pay": 20002,
+        "http://example.org/def/job": "Administrator",
+        "http://example.org/def/number-of-posts": 8.67,
+        "http://example.org/def/profession": "Operational Delivery"
+      }]
+    }, {
+      "url": "http://example.org/junior-roles.csv#row=3",
+      "rownum": 2,
+      "describes": [{ 
+        "http://example.org/def/reportsTo": "http://example.org/senior-roles.csv#post-90115",
+        "http://example.org/def/grade": "5",
+        "http://example.org/def/min-pay": 19546,
+        "http://example.org/def/max-pay": 22478,
+        "http://example.org/def/job": "Administrator",
+        "http://example.org/def/number-of-posts": 0.5,
+        "http://example.org/def/profession": "Operational Delivery"
+      }]
+    }]
+  }]
 }

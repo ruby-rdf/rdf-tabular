@@ -111,7 +111,7 @@ module RDF::Tabular
               input.each_resource do |table|
                 next if table.suppressOutput
                 table_resource = table.id || RDF::Node.new
-                add_statement(0, table_group, CSVW.resources, table_resource) unless minimal?
+                add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                 Reader.open(table.url, options.merge(
                     format: :tabular,
                     metadata: table,
@@ -158,7 +158,7 @@ module RDF::Tabular
           unless minimal?
             add_statement(row.sourceNumber, table_resource, CSVW.row, row_resource)
             add_statement(row.sourceNumber, row_resource, CSVW.rownum, row.number)
-            add_statement(row.sourceNumber, row_resource, CSVW.url, RDF::URI(metadata.url) + "#row=#{row.sourceNumber}")
+            add_statement(row.sourceNumber, row_resource, CSVW.url, row.id)
           end
           row.values.each_with_index do |cell, index|
             next if cell.column.suppressOutput # Skip ignored cells
@@ -259,21 +259,42 @@ module RDF::Tabular
     # @option options [Boolean] :atd output Abstract Table representation instead
     # @return [String]
     def to_json(options = {})
+      io = case options
+      when IO, StringIO then options
+      when Hash then options[:io]
+      end
+      json_state = case options
+      when Hash
+        case
+        when options.has_key?(:state) then options[:state]
+        when options.has_key?(:indent) then options
+        else ::JSON::LD::JSON_STATE
+        end
+      when ::JSON::State, ::JSON::Ext::Generator::State, ::JSON::Pure::Generator::State
+        options
+      else ::JSON::LD::JSON_STATE
+      end
+      options = {} unless options.is_a?(Hash)
+
       hash_fn = options[:atd] ? :to_atd : :to_hash
-      if options[:io]
-        ::JSON::dump_default_options = options.fetch(:state, ::JSON::LD::JSON_STATE)
-        ::JSON.dump(self.send(hash_fn, options), options[:io])
+      options = options.merge(noProv: @options[:noProv])
+
+      if io
+        ::JSON::dump_default_options = json_state
+        ::JSON.dump(self.send(hash_fn, options), io)
       else
-        hash = self.send(hash_fn, options.is_a?(Hash) ? options : {})
-        state = (options[:state] if options.is_a?(Hash)) || options
-        ::JSON.generate(hash, state)
+        hash = self.send(hash_fn, options)
+        ::JSON.generate(hash, json_state)
       end
     end
 
     ##
     # Return a hash representation of the data for JSON serialization
+    #
+    # Produces an array if run in minimal mode.
+    #
     # @param [Hash{Symbol => Object}] options
-    # @return [Hash]
+    # @return [Hash, Array]
     def to_hash(options = {})
       # Construct metadata from that passed from file open, along with information from the file.
       if input.is_a?(Metadata)
@@ -283,50 +304,43 @@ module RDF::Tabular
           case input.type
           when :TableGroup
             tables = []
-            table_group = {"tables" => tables}
+            table_group = {}
+            table_group['@id'] = input.id.to_s if input.id
 
             # Common Properties
             input.each do |key, value|
               next unless key.to_s.include?(':')
               table_group[key] = input.common_properties(nil, key, value)
-            end unless minimal?
+            end
+
+            table_group['table'] = tables
 
             input.each_resource do |table|
+              next if table.suppressOutput
               Reader.open(table.url, options.merge(
                 format:             :tabular,
                 metadata:           table,
                 base:               table.url,
-                no_found_metadata:  true,
-                noProv:             true
+                no_found_metadata:  true
               )) do |r|
-                tables << r.to_hash(options)
+                case table = r.to_hash(options)
+                when Array then tables += table
+                when Hash  then tables << table
+                end
               end
             end
 
-            # Optional describedBy
-            # Provenance
-            if Array(input.filenames).length > 0 && !@options[:noProv]
-              table_group["describedBy"] = input.filenames.length == 1 ? input.filenames.first : input.filenames
-            end
-
-            # Result is table_group
-            table_group
+            # Result is table_group or array
+            minimal? ? tables : table_group
           when :Table
             table = nil
             Reader.open(input.url, options.merge(
               format:             :tabular,
               metadata:           input,
               base:               input.url,
-              no_found_metadata:  true,
-              noProv:             true
+              no_found_metadata:  true
             )) do |r|
               table = r.to_hash(options)
-            end
-
-            # Optional describedBy
-            # Provenance
-            if Array(input.filenames).length > 0 && !@options[:noProv]
-              table["describedBy"] = input.filenames.length == 1 ? input.filenames.first : input.filenames
             end
 
             table
@@ -336,7 +350,9 @@ module RDF::Tabular
         end
       else
         rows = []
-        table = {"url" => metadata.url.to_s,}
+        table = {}
+        table['@id'] = metadata.id.to_s if metadata.id
+        table['url'] = metadata.url.to_s
 
         # Use string values notes and common properties
         metadata.each do |key, value|
@@ -350,19 +366,51 @@ module RDF::Tabular
         # Output ROW-Level statements
         metadata.each_row(input) do |row|
           # Output row-level metadata
-          r = {}
-          r["url"] = row.resource.to_s if row.resource.is_a?(RDF::URI)
+          r, a = {}, {}
+          r["url"] = row.id.to_s
           r["rownum"] = row.number
 
           row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]
 
-            # Ignore vitual columns
-            next if column.virtual
+            # Ignore suppressed columns
+            next if column.suppressOutput
 
-            r[column.name] = cell.valueUrl || cell.value
+            subject = cell.aboutUrl || 'null'
+            co = (a[subject] ||= {})
+            co['@id'] = subject.to_s unless subject == 'null'
+            prop = cell.propertyUrl || column.name
+
+            # Skip empty sequences
+            next if !cell.valueUrl && cell.value.is_a?(Array) && cell.value.empty?
+
+            case co[prop]
+            when nil
+              co[prop] = cell.valueUrl ? cell.valueUrl.to_s : cell.value
+            when Array
+              case when cell.valueUrl then co[prop] << cell.valueUrl.to_s
+              when cell.value.is_a?(Array) then co[prop] += cell.value
+              else co[prop] << cell.value
+              end
+            else
+              co[prop] = [co[prop]] # Make an array
+              case when cell.valueUrl then co[prop] << cell.valueUrl.to_s
+              when cell.value.is_a?(Array) then co[prop] += cell.value
+              else co[prop] << cell.value
+              end
+            end
           end
-          rows << r
+
+          # Check for nesting
+          values = nest_values(a.values)
+          r["describes"] = values
+
+          # SPEC CONFUSION: are values added to rows, or appended to rows in minimal mode?
+          if minimal?
+            rows << values
+          else
+            rows << r
+          end
         end
 
         # Provenance
@@ -469,6 +517,14 @@ module RDF::Tabular
       @callback.call(statement)
     end
 
+    ##
+    # Nest JSON objects
+    #
+    # @param [Array{Hash}] values
+    # @return [Hash, Array{Hash}]
+    def nest_values(values)
+      values #FIXME
+    end
   end
 end
 

@@ -75,6 +75,21 @@ describe RDF::Tabular::Reader do
                                                    metadata: reader.metadata)
             end
           end
+
+          it "minimal mode" do
+            ttl = ttl.sub("standard", "minimal")
+            expected = File.expand_path("../data/#{ttl}", __FILE__)
+            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, debug: @debug) do |reader|
+              graph = RDF::Graph.new << reader
+              graph2 = RDF::Graph.load(expected, base_uri: about)
+              expect(graph).to be_equivalent_graph(graph2,
+                                                   debug: @debug,
+                                                   id: about,
+                                                   action: about,
+                                                   result: expected,
+                                                   metadata: reader.metadata)
+            end
+          end
         end
       end
     end

@@ -2,31 +2,67 @@
   "url": "http://example.org/tree-ops.csv",
   "row": [
     {
-      "url": "http://example.org/tree-ops.csv#gid-1",
+      "url": "http://example.org/tree-ops.csv#row=2",
       "rownum": 1,
-      "GID": "http://example.org/tree-ops.csv#gid-1",
-      "on_street": "ADDISON AV",
-      "species": "Celtis australis",
-      "trim_cycle": "Large Tree Routine Prune",
-      "inventory_date": "2010-10-18"
+      "describes": [
+        {
+          "@id": "http://example.org/tree-ops.csv#gid-1",
+          "http://schema.org/url": "http://example.org/tree-ops.csv#gid-1",
+          "http://schema.org/name": "Celtis australis",
+          "trim_cycle": "Large Tree Routine Prune",
+          "http://schema.org/event": {
+            "@id": "http://example.org/tree-ops.csv#event-2010-10-18",
+            "http://schema.org/startDate": "2010-10-18"
+          },
+          "http://schema.org/location": {
+            "@id": "http://example.org/tree-ops.csv#location-1",
+            "http://schema.org/streetAddress": "ADDISON AV",
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://schema.org/PostalAddress"
+          }
+        }
+      ]
     },
     {
-      "url": "http://example.org/tree-ops.csv#gid-2",
+      "url": "http://example.org/tree-ops.csv#row=3",
       "rownum": 2,
-      "GID": "http://example.org/tree-ops.csv#gid-2",
-      "on_street": "EMERSON ST",
-      "species": "Liquidambar styraciflua",
-      "trim_cycle": "Large Tree Routine Prune",
-      "inventory_date": "2010-06-02"
+      "describes": [
+        {
+          "@id": "http://example.org/tree-ops.csv#gid-2",
+          "http://schema.org/url": "http://example.org/tree-ops.csv#gid-2",
+          "http://schema.org/name": "Liquidambar styraciflua",
+          "trim_cycle": "Large Tree Routine Prune",
+          "http://schema.org/event": {
+            "@id": "http://example.org/tree-ops.csv#event-2010-06-02",
+            "http://schema.org/startDate": "2010-06-02"
+          },
+          "http://schema.org/location": {
+            "@id": "http://example.org/tree-ops.csv#location-2",
+            "http://schema.org/streetAddress": "EMERSON ST",
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://schema.org/PostalAddress"
+          }
+        }
+      ]
     },
     {
-      "url": "http://example.org/tree-ops.csv#gid-3",
+      "url": "http://example.org/tree-ops.csv#row=4",
       "rownum": 3,
-      "GID": "http://example.org/tree-ops.csv#gid-3",
-      "on_street": "EMERSON ST",
-      "species": "Liquidambar styraciflua",
-      "trim_cycle": "Large Tree Routine Prune",
-      "inventory_date": "2010-06-02"
+      "describes": [
+        {
+          "@id": "http://example.org/tree-ops.csv#gid-3",
+          "http://schema.org/url": "http://example.org/tree-ops.csv#gid-3",
+          "http://schema.org/name": "Liquidambar styraciflua",
+          "trim_cycle": "Large Tree Routine Prune",
+          "http://schema.org/event": {
+            "@id": "http://example.org/tree-ops.csv#event-2010-06-02",
+            "http://schema.org/startDate": "2010-06-02"
+          },
+          "http://schema.org/location": {
+            "@id": "http://example.org/tree-ops.csv#location-3",
+            "http://schema.org/streetAddress": "EMERSON ST",
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://schema.org/PostalAddress"
+          }
+        }
+      ]
     }
   ]
 }

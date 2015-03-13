@@ -727,46 +727,77 @@ module RDF::Tabular
     end
 
     ##
-    # Return or yield RDF for common properties
+    # Return JSON-friendly or yield RDF for common properties
     #
-    # @param [RDF::Resource] subject
-    # @param [String] property
-    # @param [String, Hash{String => Object}, Array<String, Hash{String => Object}>] value
-    # @yield property, value
-    # @yieldparam [String] property as a PName or URL
-    # @yieldparam [RDF::Statement] statement
+    # @overload common_properties(subject, property, value, &block)
+    #   Yield RDF statements
+    #   @param [RDF::Resource] subject
+    #   @param [String] property
+    #   @param [String, Hash{String => Object}, Array<String, Hash{String => Object}>] value
+    #   @yield property, value
+    #   @yieldparam [String] property as a PName or URL
+    #   @yieldparam [RDF::Statement] statement
+    #
+    # @overload common_properties(subject, property, value)
+    #   Return value with expanded values and node references flattened
+    #   @return [String, Hash{String => Object}, Array<String, Hash{String => Object}>] simply extracted from metadata
     def common_properties(subject, property, value, &block)
-      property = context.expand_iri(property.to_s, vocab: true) unless property.is_a?(RDF::URI)
-      case value
-      when Array
-        value.each {|v| common_properties(subject, property, v, &block)}
-      when Hash
-        if value['@value']
-          dt = RDF::URI(context.expand_iri(value['@type'], vocab: true)) if value['@type']
-          lit = RDF::Literal(value['@value'], language: value['@language'], datatype: dt)
-          block.call(RDF::Statement.new(subject, property, lit))
+      if block_given?
+        property = context.expand_iri(property.to_s, vocab: true) unless property.is_a?(RDF::URI)
+        case value
+        when Array
+          value.each {|v| common_properties(subject, property, v, &block)}
+        when Hash
+          if value['@value']
+            dt = RDF::URI(context.expand_iri(value['@type'], vocab: true)) if value['@type']
+            lit = RDF::Literal(value['@value'], language: value['@language'], datatype: dt)
+            block.call(RDF::Statement.new(subject, property, lit))
+          else
+            # value MUST be a node object, establish a new subject from `@id`
+            s2 = value.has_key?('@id') ? context.expand_iri(value['@id']) : RDF::Node.new
+
+            # Generate a triple
+            block.call(RDF::Statement.new(subject, property, s2))
+
+            # Generate types
+            Array(value['@type']).each do |t|
+              block.call(RDF::Statement.new(s2, RDF.type, context.expand_iri(t, vocab: true)))
+            end
+
+            # Generate triples for all other properties
+            value.each do |prop, val|
+              next if prop.to_s.start_with?('@')
+              common_properties(s2, prop, val, &block)
+            end
+          end
         else
-          # value MUST be a node object, establish a new subject from `@id`
-          s2 = value.has_key?('@id') ? context.expand_iri(value['@id']) : RDF::Node.new
-
-          # Generate a triple
-          block.call(RDF::Statement.new(subject, property, s2))
-
-          # Generate types
-          Array(value['@type']).each do |t|
-            block.call(RDF::Statement.new(s2, RDF.type, context.expand_iri(t, vocab: true)))
-          end
-
-          # Generate triples for all other properties
-          value.each do |prop, val|
-            next if prop.to_s.start_with?('@')
-            common_properties(s2, prop, val, &block)
-          end
+          # Value is a primitive JSON value
+          lit = RDF::Literal(value)
+          block.call(RDF::Statement.new(subject, property, RDF::Literal(value)))
         end
       else
-        # Value is a primitive JSON value
-        lit = RDF::Literal(value)
-        block.call(RDF::Statement.new(subject, property, RDF::Literal(value)))
+        case value
+        when Array
+          value.map {|v| common_properties(subject, property, v)}
+        when Hash
+          if value['@value']
+            value['@value']
+          elsif value.keys == %w(@id) && value['@id']
+            value['@id']
+          else
+            nv = {}
+            value.each do |k, v|
+              case k.to_s
+              when '@id' then nv[k.to_s] = context.expand_iri(v['@id']).to_s
+              when '@type' then nv[k.to_s] = v
+              else nv[k.to_s] = common_properties(nil, k, v)
+              end
+            end
+            nv
+          end
+        else
+          value
+        end
       end
     end
 
@@ -1573,6 +1604,7 @@ module RDF::Tabular
           if v = column.send(prop.to_sym)
             t = Addressable::Template.new(v)
             mapped = t.expand(mapped_values).to_s
+            # FIXME: don't expand here, do it in CSV2RDF
             url = row.context.expand_iri(mapped, documentRelative: true)
             self.send("#{prop}=".to_sym, url)
           end
@@ -1599,10 +1631,6 @@ module RDF::Tabular
         }
       end
     end
-
-    # URI or BNode of this row, after expanding `uriTemplate`
-    # @return [RDF::Resource] resource
-    attr_reader :resource
 
     # Row values, hashed by `name`
     attr_reader :values
