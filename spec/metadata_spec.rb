@@ -539,11 +539,6 @@ describe RDF::Tabular::Metadata do
       expect(nums).to eql([1, 2, 3])
     end
 
-    it "returns nil resources" do
-      resources = subject.to_enum(:each_row, input).map(&:resource)
-      expect(resources).to include(nil, nil, nil, nil)
-    end
-
     it "returns cells" do
       subject.each_row(input) do |row|
         expect(row).to be_a(RDF::Tabular::Row)
@@ -552,12 +547,12 @@ describe RDF::Tabular::Metadata do
       end
     end
 
-    it "has expected aboutUrls" do
+    it "has nil aboutUrls" do
       subject.each_row(input) do |row|
-        expect(row.values[0].aboutUrl).to eql row.resource
-        expect(row.values[1].aboutUrl).to eql row.resource
-        expect(row.values[2].aboutUrl).to eql row.resource
-        expect(row.values[3].aboutUrl).to eql row.resource
+        expect(row.values[0].aboutUrl).to be_nil
+        expect(row.values[1].aboutUrl).to be_nil
+        expect(row.values[2].aboutUrl).to be_nil
+        expect(row.values[3].aboutUrl).to be_nil
       end
     end
 
@@ -605,7 +600,7 @@ describe RDF::Tabular::Metadata do
       {
         "default title" => {
           aboutUrl: [RDF::Node, RDF::Node, RDF::Node, RDF::Node],
-          propertyUrl: %w(#addressCountry #latitude #longitude #name),
+          propertyUrl: [nil, nil, nil, nil],
           valueUrl: [nil, nil, nil, nil],
           md: {"url" => "https://example.org/countries.csv", "tableSchema" => {"columns" => []}}
         },

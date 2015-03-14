@@ -555,7 +555,7 @@ module RDF::Tabular
           end
         when :name
           unless value.is_a?(String) && name.match(NAME_SYNTAX)
-            errors << "#{type} has invalid property '#{key}': #{value}, expected proper string format"
+            errors << "#{type} has invalid property '#{key}': #{value}, expected proper name format"
           end
         when :notes
           # FIXME validate using JSON-LD dialect
@@ -1601,6 +1601,8 @@ module RDF::Tabular
     Cell = Struct.new(:table, :column, :row, :stringValue, :aboutUrl, :propertyUrl, :valueUrl, :value, :errors) do
       def set_urls(mapped_values)
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
+          # If there are errors on the cell, and this is valueUrl, do not expand
+          next if prop == "valueUrl" && !Array(errors).empty?
           if v = column.send(prop.to_sym)
             t = Addressable::Template.new(v)
             mapped = t.expand(mapped_values).to_s
