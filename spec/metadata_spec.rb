@@ -55,9 +55,8 @@ describe RDF::Tabular::Metadata do
       },
       datatype: {
         valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
-               [
-                 {"base" => "string"} #, FIXME ...
-               ]),
+               [{"base" => "string"}]
+               ),
         invalid: [1, true, "foo", "anySimpleType", "IDREFS"]
       },
       aboutUrl: {
@@ -947,7 +946,7 @@ describe RDF::Tabular::Metadata do
               tableSchema: {
                 columns: [{
                   name: "name",
-                  datatype: [props.dup.delete_if {|k, v| [:value, :valid, :result].include?(k)}]
+                  datatype: props.dup.delete_if {|k, v| [:value, :valid, :result].include?(k)}
                 }]
               }
             }, debug: @debug)

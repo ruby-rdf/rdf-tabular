@@ -27,11 +27,7 @@
     "datatype": "string",
     "null": "xx",
     "propertyUrl": "http://example.org/def/reportsTo",
-    "valueUrl": "senior-roles.csv#post-{reportsTo}",
-    "datatype": {
-      "base": "string",
-      "format": "."
-    }
+    "valueUrl": "senior-roles.csv#post-{reportsTo}"
   }, {
     "name": "profession",
     "title": "Profession",

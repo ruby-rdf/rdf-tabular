@@ -166,8 +166,8 @@ module RDF::Tabular
             propertyUrl = cell.propertyUrl || RDF::URI("#{metadata.url}##{cell.column.name}")
             add_statement(row.sourceNumber, row_resource, CSVW.describes, cell_subject) unless minimal?
 
-            if cell.valueUrl
-              add_statement(row.sourceNumber, cell_subject, propertyUrl, cell.valueUrl)
+            if cell.column.valueUrl
+              add_statement(row.sourceNumber, cell_subject, propertyUrl, cell.valueUrl) if cell.valueUrl
             elsif cell.column.ordered
               list = RDF::List[*Array(cell.value)]
               add_statement(row.sourceNumber, cell_subject, propertyUrl, list.subject)
@@ -358,6 +358,7 @@ module RDF::Tabular
         metadata.each do |key, value|
           next unless key.to_s.include?(':') || key == :notes
           table[key] = metadata.common_properties(nil, key, value)
+          table[key] = [table[key]] if key == :notes && !table[key].is_a?(Array)
         end unless minimal?
 
         table.merge!("row" => rows)
@@ -366,7 +367,7 @@ module RDF::Tabular
         # Output ROW-Level statements
         metadata.each_row(input) do |row|
           # Output row-level metadata
-          r, a = {}, {}
+          r, a, values = {}, {}, {}
           r["url"] = row.id.to_s
           r["rownum"] = row.number
 
@@ -376,38 +377,61 @@ module RDF::Tabular
             # Ignore suppressed columns
             next if column.suppressOutput
 
-            subject = cell.aboutUrl || 'null'
-            co = (a[subject] ||= {})
-            co['@id'] = subject.to_s unless subject == 'null'
-            prop = cell.propertyUrl || column.name
+            # Skip valueUrl cells where the valueUrl is null
+            next if cell.column.valueUrl && cell.valueUrl.nil?
 
             # Skip empty sequences
-            next if !cell.valueUrl && cell.value.is_a?(Array) && cell.value.empty?
+            next if !cell.column.valueUrl && cell.value.is_a?(Array) && cell.value.empty?
 
-            case co[prop]
-            when nil
-              co[prop] = cell.valueUrl ? cell.valueUrl.to_s : cell.value
-            when Array
-              case when cell.valueUrl then co[prop] << cell.valueUrl.to_s
-              when cell.value.is_a?(Array) then co[prop] += cell.value
-              else co[prop] << cell.value
-              end
+            subject = cell.aboutUrl || 'null'
+            co = (a[subject.to_s] ||= {})
+            co['@id'] = subject.to_s unless subject == 'null'
+            prop = case cell.propertyUrl
+            when RDF.type then '@type'
+            when nil then column.name
             else
-              co[prop] = [co[prop]] # Make an array
-              case when cell.valueUrl then co[prop] << cell.valueUrl.to_s
-              when cell.value.is_a?(Array) then co[prop] += cell.value
-              else co[prop] << cell.value
-              end
+              # Compact the property to a term or prefixed name
+              metadata.context.compact_iri(cell.propertyUrl, vocab: true)
             end
+
+            value = case
+            when prop == '@type'
+              metadata.context.compact_iri(cell.valueUrl || cell.value, vocab: true)
+            when cell.valueUrl
+              unless subject == cell.valueUrl
+                values[cell.valueUrl.to_s] ||= {o: co, prop: prop, count: 0}
+                values[cell.valueUrl.to_s][:count] += 1
+              end
+              cell.valueUrl.to_s
+            when cell.value.is_a?(RDF::Literal::Numeric)
+              cell.value.object
+            when cell.value.is_a?(RDF::Literal::Boolean)
+              cell.value.object
+            else
+              cell.value
+            end
+
+            # Add or merge value
+            merge_compacted_value(co, prop, value)
           end
 
           # Check for nesting
-          values = nest_values(a.values)
-          r["describes"] = values
+          values.keys.each do |valueUrl|
+            next unless a.has_key?(valueUrl)
+            ref = values[valueUrl]
+            co = ref[:o]
+            prop = ref[:prop]
+            next if ref[:count] != 1
+            raise "Expected #{ref[o][prop].inspect} to include #{valueUrl.inspect}" unless Array(co[prop]).include?(valueUrl)
+            co[prop] = Array(co[prop]).map {|e| e == valueUrl ? a.delete(valueUrl) : e}
+            co[prop] = co[prop].first if co[prop].length == 1
+          end
+
+          r["describes"] = a.values
 
           # SPEC CONFUSION: are values added to rows, or appended to rows in minimal mode?
           if minimal?
-            rows << values
+            rows += r["describes"]
           else
             rows << r
           end
@@ -517,13 +541,25 @@ module RDF::Tabular
       @callback.call(statement)
     end
 
-    ##
-    # Nest JSON objects
-    #
-    # @param [Array{Hash}] values
-    # @return [Hash, Array{Hash}]
-    def nest_values(values)
-      values #FIXME
+    # Merge values into compacted results, creating arrays if necessary
+    def merge_compacted_value(hash, key, value)
+      return unless hash
+      case hash[key]
+      when nil then hash[key] = value
+      when Array
+        if value.is_a?(Array)
+          hash[key].concat(value)
+        else
+          hash[key] << value
+        end
+      else
+        hash[key] = [hash[key]]
+        if value.is_a?(Array)
+          hash[key].concat(value)
+        else
+          hash[key] << value
+        end
+      end
     end
   end
 end

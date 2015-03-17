@@ -661,7 +661,7 @@ module RDF::Tabular
         # Normalization usually redundant
         dt = normalize_datatype(value)
         # FIXME: support arrays of datatypes?
-        "valid datatype" unless dt.all? {|v| DATATYPES.keys.map(&:to_s).include?(v[:base]) || RDF::URI(v[:base]).absolute?}
+        "valid datatype" unless DATATYPES.keys.map(&:to_s).include?(dt[:base]) || RDF::URI(dt[:base]).absolute?
       when :lang
         "valid BCP47 language tag" unless BCP47::Language.identify(value.to_s)
       when :null
@@ -687,14 +687,10 @@ module RDF::Tabular
           # Normalization usually redundant
           dt = normalize_datatype(value)
           pvdt = normalize_datatype(pv)
+          vl = RDF::Literal.new("", datatype: DATATYPES[dt[:base].to_sym])
+          pvvl = RDF::Literal.new("", datatype: DATATYPES[pvdt[:base].to_sym])
           # must be a subclass of some type defined on parent
-          "compatible datatype of that defined on parent" unless dt.all? do |v|
-            pvdt.any? do |pvv|
-              vl = RDF::Literal.new("", datatype: DATATYPES[v[:base].to_sym])
-              pvvl = RDF::Literal.new("", datatype: DATATYPES[pvv[:base].to_sym])
-              vl.is_a?(pvvl.class)
-            end
-          end
+          "compatible datatype of that defined on parent" unless vl.is_a?(pvvl.class)
         end
       when :lang
         "lang expected to restrict #{pv}" if pv && !value.start_with?(pv)
@@ -1060,26 +1056,23 @@ module RDF::Tabular
 
     ##
     # Normalize datatype to Object/Hash representation
-    # @param [String, Hash{Symbol => String}, Array<String, Hash{Symbol => String}>] value
+    # @param [String, Hash{Symbol => String}] value
     # @return [Hash{Symbol => String}]
     def normalize_datatype(value)
       # Normalize datatype to array of object form
-      value = [value] unless value.is_a?(Array)
-      value.map do |v|
-        v = {base: v} unless v.is_a?(Hash)
-        # Create a new representation using symbols and transformed values
-        nv = {}
-        v.each do |kk, vv|
-          case kk.to_sym
-          when :base, :decimalChar, :format, :groupChar, :pattern then nv[kk.to_sym] = vv
-          when :length, :minLength, :maxLength, :minimum, :maximum,
-            :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
-            nv[kk.to_sym] = vv.to_i
-          end
+      value = {base: value} unless value.is_a?(Hash)
+      # Create a new representation using symbols and transformed values
+      nv = {}
+      value.each do |kk, vv|
+        case kk.to_sym
+        when :base, :decimalChar, :format, :groupChar, :pattern then nv[kk.to_sym] = vv
+        when :length, :minLength, :maxLength, :minimum, :maximum,
+          :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
+          nv[kk.to_sym] = vv.to_i
         end
-        nv[:base] ||= 'string'
-        nv
       end
+      nv[:base] ||= 'string'
+      nv
     end
 
     ##
@@ -1601,8 +1594,8 @@ module RDF::Tabular
     Cell = Struct.new(:table, :column, :row, :stringValue, :aboutUrl, :propertyUrl, :valueUrl, :value, :errors) do
       def set_urls(mapped_values)
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
-          # If there are errors on the cell, and this is valueUrl, do not expand
-          next if prop == "valueUrl" && !Array(errors).empty?
+          # If the cell value is nil, and it is not a virtual column
+          next if prop == "valueUrl" && value.nil? && !column.virtual
           if v = column.send(prop.to_sym)
             t = Addressable::Template.new(v)
             mapped = t.expand(mapped_values).to_s
@@ -1692,43 +1685,36 @@ module RDF::Tabular
 
         @values << cell = Cell.new(metadata, column, self, value)
 
+        datatype = metadata.normalize_datatype(column.datatype || 'string')
+        value = value.gsub(/\r\t\a/, ' ') unless %w(string json xml html anyAtomicType any).include?(datatype[:base])
+        value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType any normalizedString).include?(datatype[:base])
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
         value = column.default || '' if value.empty?
 
         cell_values = column.separator ? value.split(column.separator) : [value]
 
         cell_values = cell_values.map do |v|
-          # If no datatype, always strip value
-          v.strip! unless column.datatype
-
-          case
-          when v == (column.null || '') then nil
-          when v.to_s.empty? then metadata.default || ''
-          when column.datatype
-            datatypes = metadata.normalize_datatype(column.datatype)
-            # Find first matching datatype, otherwise, use orig_val as a plain literal
-            datatypes.inject(nil) do |memo, datatype|
-              memo ||= begin
-                # Trim value
-                if %w(string anyAtomicType any).include?(datatype[:base])
-                  v.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
-                  v.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
-                else
-                  # unless the datatype is string or anyAtomicType or any, strip leading and trailing whitespace from the string value
-                  v.strip!
-                end
-
-                expanded_dt = metadata.context.expand_iri(datatype[:base], vocab: true)
-                if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt, column.lang)).is_a?(RDF::Literal)
-                  lit_or_errors
-                else
-                  cell_errors += lit_or_errors
-                  nil
-                end
-              end
-            end || RDF::Literal(v)
+          v = v.strip unless %w(string anyAtomicType any).include?(datatype[:base])
+          v = column.default || '' if v.empty?
+          if Array(column.null).include?(v)
+            nil
           else
-            RDF::Literal(v, language: column.lang)
+            # Trim value
+            if %w(string anyAtomicType any).include?(datatype[:base])
+              v.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
+              v.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
+            else
+              # unless the datatype is string or anyAtomicType or any, strip leading and trailing whitespace from the string value
+              v.strip!
+            end
+
+            expanded_dt = metadata.context.expand_iri(datatype[:base], vocab: true)
+            if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt, column.lang)).is_a?(RDF::Literal)
+              lit_or_errors
+            else
+              cell_errors += lit_or_errors
+              RDF::Literal(v, language: column.lang)
+            end
           end
         end.compact
 

@@ -10,9 +10,9 @@
             {
               "@id": "http://example.org/countries.csv#AD",
               "http://www.geonames.org/ontology#countryCode": "AD",
-              "http://schema.org/latitude": "42.546245",
-              "http://schema.org/longitude": "1.601554",
-              "http://schema.org/name": "Andorra"
+              "schema:latitude": 42.546245,
+              "schema:longitude": 1.601554,
+              "schema:name": "Andorra"
             }
           ]
         },
@@ -23,9 +23,9 @@
             {
               "@id": "http://example.org/countries.csv#AE",
               "http://www.geonames.org/ontology#countryCode": "AE",
-              "http://schema.org/latitude": "23.424076",
-              "http://schema.org/longitude": "53.847818",
-              "http://schema.org/name": "United Arab Emirates"
+              "schema:latitude": 23.424076,
+              "schema:longitude": 53.847818,
+              "schema:name": "United Arab Emirates"
             }
           ]
         },
@@ -36,9 +36,9 @@
             {
               "@id": "http://example.org/countries.csv#AF",
               "http://www.geonames.org/ontology#countryCode": "AF",
-              "http://schema.org/latitude": "33.93911",
-              "http://schema.org/longitude": "67.709953",
-              "http://schema.org/name": "Afghanistan"
+              "schema:latitude": 33.93911,
+              "schema:longitude": 67.709953,
+              "schema:name": "Afghanistan"
             }
           ]
         }
@@ -54,7 +54,7 @@
             {
               "countryRef": "http://example.org/countries.csv#AF",
               "year": "1960",
-              "population": "9616353"
+              "population": 9616353
             }
           ]
         },
@@ -65,7 +65,7 @@
             {
               "countryRef": "http://example.org/countries.csv#AF",
               "year": "1961",
-              "population": "9799379"
+              "population": 9799379
             }
           ]
         },
@@ -76,7 +76,7 @@
             {
               "countryRef": "http://example.org/countries.csv#AF",
               "year": "1962",
-              "population": "9989846"
+              "population": 9989846
             }
           ]
         }
