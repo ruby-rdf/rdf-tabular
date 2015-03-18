@@ -321,6 +321,7 @@ module RDF::Tabular
                 format:             :tabular,
                 metadata:           table,
                 base:               table.url,
+                minimal:            minimal?,
                 no_found_metadata:  true
               )) do |r|
                 case table = r.to_hash(options)
@@ -338,6 +339,7 @@ module RDF::Tabular
               format:             :tabular,
               metadata:           input,
               base:               input.url,
+              minimal:            minimal?,
               no_found_metadata:  true
             )) do |r|
               table = r.to_hash(options)
@@ -429,9 +431,8 @@ module RDF::Tabular
 
           r["describes"] = a.values
 
-          # SPEC CONFUSION: are values added to rows, or appended to rows in minimal mode?
           if minimal?
-            rows += r["describes"]
+            rows.concat(r["describes"])
           else
             rows << r
           end
@@ -446,7 +447,7 @@ module RDF::Tabular
             table["describedBy"] = @metadata.filenames.length == 1 ? @metadata.filenames.first : @metadata.filenames
           end
         end
-        table
+        minimal? ? table["row"] : table
       end
     end
 

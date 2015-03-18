@@ -55,6 +55,7 @@ describe RDF::Tabular::Reader do
       "tree-ops-virtual.json" => "tree-ops-virtual-standard.ttl",
       "country-codes-and-names.csv" => "country-codes-and-names-standard.ttl",
       "countries.json" => "countries-standard.ttl",
+      "countries.csv" => "countries.csv-standard.ttl",
       "roles.json" => "roles-standard.ttl",
     }
     context "#each_statement" do
@@ -111,6 +112,23 @@ describe RDF::Tabular::Reader do
                 action: about,
                 result: expected,
                 noProv: true,
+                metadata: reader.metadata
+              )
+            end
+          end
+
+          it "minimal mode" do
+            json = ttl.sub("-standard.ttl", "-minimal.json")
+            expected = File.expand_path("../data/#{json}", __FILE__)
+
+            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, debug: @debug) do |reader|
+              expect(JSON.parse(reader.to_json)).to produce(
+                JSON.parse(File.read(expected)),
+                debug: @debug,
+                id: about,
+                action: about,
+                result: expected,
+                minimal: true,
                 metadata: reader.metadata
               )
             end
