@@ -1219,8 +1219,8 @@ describe RDF::Tabular::Metadata do
         B: %({"resources": [{"url": "http://example.org/bar", "dc:description": "bar"}]}),
         R: %({
           "resources": [
-            {"url": "http://example.org/foo", "dc:title": "foo"},
-            {"url": "http://example.org/bar", "dc:description": "bar"}
+            {"url": "http://example.org/foo", "dc:title": {"@value": "foo"}},
+            {"url": "http://example.org/bar", "dc:description": {"@value": "bar"}}
           ]})
       },
       "Table with schemas always takes A" => {

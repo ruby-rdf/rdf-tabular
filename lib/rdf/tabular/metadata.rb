@@ -1020,8 +1020,15 @@ module RDF::Tabular
     def normalize!
       self.each do |key, value|
         self[key] = case @properties[key] || INHERITED_PROPERTIES[key]
+        when ->(k) {key.to_s.include?(':') || key == :notes}
+          normalize_jsonld(key, value)
+        when ->(k) {key.to_s == '@context'}
+          "http://www.w3.org/ns/csvw"
         when :link
           base.join(value)
+        when :array
+          value = [value] unless value.is_a?(Array)
+          value.map {|v| v.is_a?(Metadata) ? v.normalize! : v} # due to foreign keys
         when :object
           case key
           when String
@@ -1043,10 +1050,6 @@ module RDF::Tabular
           when :datatype then normalize_datatype(value)
           else                value
           end
-        when ->(k) {key.to_s.include?(':') || key == :notes}
-          normalize_jsonld(key, value)
-        when ->(k) {key.to_s == '@context'}
-          "http://www.w3.org/ns/csvw"
         else
           value
         end

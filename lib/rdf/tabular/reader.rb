@@ -54,18 +54,23 @@ module RDF::Tabular
           # If input is JSON, then the input is the metadata
           if @options[:base] =~ /\.json(?:ld)?$/ ||
              @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
-            @metadata = @input = Metadata.new(@input, @options)
+            @metadata = Metadata.new(@input, @options)
+            # If @metadata is for a Table, merge with something empty to create a TableGroup metadata
+            @metadata = @metadata.merge(TableGroup.new({})) unless @metadata.is_a?(TableGroup)
+            @input = @metadata
           else
             # HTTP flags
             if @input.respond_to?(:headers) &&
                input.headers.fetch(:content_type, '').split(';').include?('header=absent')
               @options[:metadata] ||= TableGroup.new(dialect: {header: false})
             end
-            # Otherwise, it's tabluar data
-            @metadata = Metadata.for_input(@input, @options)
 
-            # If metadata is a TableGroup, get metadata for this table
-            @metadata = @metadata.for_table(@options[:base]) if @metadata.is_a?(TableGroup)
+            if @options[:no_found_metadata]
+              @metadata = @options[:metadata] # Which will be for a Table
+            else
+              # Otherwise, it's tabluar data. This will result in a TableGroup which we'll use as input
+              @input = @metadata = Metadata.for_input(@input, @options)
+            end
           end
 
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
