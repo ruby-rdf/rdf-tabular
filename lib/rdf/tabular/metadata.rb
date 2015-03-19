@@ -1177,6 +1177,7 @@ module RDF::Tabular
     PROPERTIES = {
       :@id              => :link,
       :@type            => :atomic,
+      notes:               :array,
       resources:           :array,
       tableSchema:         :object,
       tableDirection:      :atomic,

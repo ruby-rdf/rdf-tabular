@@ -107,7 +107,7 @@ module RDF::Tabular
 
               # Common Properties
               input.each do |key, value|
-                next unless key.to_s.include?(':')
+                next unless key.to_s.include?(':') || key == :notes
                 input.common_properties(table_group, key, value) do |statement|
                   add_statement(0, statement)
                 end
@@ -314,8 +314,9 @@ module RDF::Tabular
 
             # Common Properties
             input.each do |key, value|
-              next unless key.to_s.include?(':')
+              next unless key.to_s.include?(':') || key == :notes
               table_group[key] = input.common_properties(nil, key, value)
+              table_group[key] = [table_group[key]] if key == :notes && !table_group[key].is_a?(Array)
             end
 
             table_group['table'] = tables
