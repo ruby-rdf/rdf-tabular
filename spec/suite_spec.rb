@@ -10,9 +10,9 @@ describe RDF::Tabular::Reader do
   %w(rdf json).each do |variant|
     describe "w3c csvw #{variant.upcase} tests" do
       # FIXME: use native JSON-LD versions of manifests
-      manifest = Fixtures::SuiteTest::BASE + "manifest-#{variant}.ttl"
+      manifest = Fixtures::SuiteTest::BASE + "manifest-#{variant}.jsonld"
 
-      Fixtures::SuiteTest::Manifest.open(manifest) do |m|
+      Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
