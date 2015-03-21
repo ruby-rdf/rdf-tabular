@@ -60,16 +60,20 @@ module RDF::Tabular
             @input = @metadata
           else
             # HTTP flags
-            if @input.respond_to?(:headers) &&
+            if !@options[:no_found_metadata] &&
+               @input.respond_to?(:headers) &&
                input.headers.fetch(:content_type, '').split(';').include?('header=absent')
-              @options[:metadata] ||= TableGroup.new(dialect: {header: false})
+              @options[:metadata] ||= TableGroup.new({}, context: 'http://www.w3.org/ns/csvw')
+              @options[:metadata].dialect.header = false
             end
 
             if @options[:no_found_metadata]
               @metadata = @options[:metadata] # Which will be for a Table
             else
               # Otherwise, it's tabluar data. This will result in a TableGroup which we'll use as input
-              @input = @metadata = Metadata.for_input(@input, @options)
+              @metadata = Metadata.for_input(@input, @options)
+              @metadata = @metadata.merge(TableGroup.new({})) unless @metadata.is_a?(TableGroup)
+              @input = @metadata
             end
           end
 

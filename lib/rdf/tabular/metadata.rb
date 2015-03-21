@@ -398,7 +398,7 @@ module RDF::Tabular
       when object[:dialect] then object[:dialect]
       when parent then parent.dialect
       when is_a?(Table) || is_a?(TableGroup)
-        Dialect.new({}, @options.merge(parent: self, context: nil))
+        self.dialect = Dialect.new({}, @options.merge(parent: self, context: nil))
       else
         raise Error, "Can't access dialect from #{self.class} without a parent"
       end
@@ -1229,11 +1229,14 @@ module RDF::Tabular
     # @param [String] url of the table
     # @return [Table]
     def for_table(url)
-      table = resources.detect {|t| t.url == url}
-      # Set document base for this table for resolving URLs
-      table.instance_variable_set(:@context, context.dup)
-      table.context.base = url
-      table
+      # If there are no resources, assume there's one for this table
+      #self.resources ||= [Table.new(url: url)]
+      if table = Array(resources).detect {|t| t.url == url}
+        # Set document base for this table for resolving URLs
+        table.instance_variable_set(:@context, context.dup)
+        table.context.base = url
+        table
+      end
     end
 
     # Return Annotated Table Group representation
@@ -1540,7 +1543,7 @@ module RDF::Tabular
         "@type" => "Table",
         "tableSchema" => {
           "@type" => "Schema",
-          "columns" => nil
+          "columns" => []
         }
       }
 
