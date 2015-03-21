@@ -931,16 +931,16 @@ module RDF::Tabular
                   debug("merge!: columns") {"index: #{index}, title=#{t.title}"}
                   # otherwise, if there is a column description at the same index within A with a title that is also a title in A, considering the language of each title where und matches a value in any language, the column description from B is imported into the matching column description in A.
                   ta.merge!(t)
-                elsif ta.nil?
-                  debug("merge!: columns") {"index: #{index}, nil"}
-                  # SPEC SUGGESTION:
-                  # If there is no column description at the same index within A, then the column description is taken from that index of B.
+                elsif ta.nil? && t.virtual
+                  debug("merge!: columns") {"index: #{index}, virtual"}
+                  # otherwise, if at a given index there is no column description within A, but there is a column description within B.
+                  # FIXME: also the case where there are virtual/non-virtual columns in A which aren't in B
                   t = t.dup
                   t.instance_variable_set(:@parent, self) if self
                   object[key][index] = t
                 else
                   debug("merge!: columns") {"index: #{index}, ignore"}
-                  # otherwise, the column description is ignored
+                  raise Error, "Columns at same index don't match: #{ta.to_json} vs. #{t.to_json}"
                 end
               end
             when :foreignKeys
@@ -1784,7 +1784,7 @@ module RDF::Tabular
            :nonNegativeInteger, :positiveInteger,
            :unsignedLong, :unsignedInt, :unsignedShort, :unsignedByte,
            :nonPositiveInteger, :negativeInteger,
-           :double, :float
+           :double, :float, :number
         # Normalize representation based on numeric-specific facets
         groupChar = datatype.fetch(:groupChar, ',')
         if datatype[:pattern] && !value.match(Regexp.new(datatype[:pattern]))
@@ -1836,7 +1836,7 @@ module RDF::Tabular
             RDF::Literal::FALSE
           end
         end
-      when :date, :time, :dateTime, :dateTimeStamp
+      when :date, :time, :dateTime, :dateTimeStamp, :datetime
         # Match values
         tz, date_format, time_format = nil, nil, nil
 
@@ -1868,6 +1868,7 @@ module RDF::Tabular
           when 'MM.dd.yyyy' then value.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
           when 'M.d.yyyy'   then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
           when 'yyyy-MM-ddTHH:mm:ss' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
+          when 'yyyy-MM-ddTHH:mm' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
           else
             value_errors << "unrecognized date/time format #{date_format}" if date_format
             nil

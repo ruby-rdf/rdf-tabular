@@ -601,7 +601,15 @@ describe RDF::Tabular::Metadata do
           aboutUrl: [RDF::Node, RDF::Node, RDF::Node, RDF::Node],
           propertyUrl: [nil, nil, nil, nil],
           valueUrl: [nil, nil, nil, nil],
-          md: {"url" => "https://example.org/countries.csv", "tableSchema" => {"columns" => []}}
+          md: {"url" => "https://example.org/countries.csv", "tableSchema" => {
+              "columns" => [
+                {"title" => "addressCountry"},
+                {"title" => "latitude"},
+                {"title" => "longitude"},
+                {"title" => "name"}
+              ]
+            }
+          }
         },
         "schema transformations" => {
           aboutUrl: %w(#addressCountry #latitude #longitude #name),
@@ -613,7 +621,12 @@ describe RDF::Tabular::Metadata do
               "aboutUrl" => "{#_name}",
               "propertyUrl" => '{?_name}',
               "valueUrl" => '{_name}',
-              "columns" => []
+              "columns" => [
+                {"title" => "addressCountry"},
+                {"title" => "latitude"},
+                {"title" => "longitude"},
+                {"title" => "name"}
+              ]
             }
           }
         },
@@ -627,7 +640,12 @@ describe RDF::Tabular::Metadata do
               "aboutUrl" => 'http://schema.org/{_name}',
               "propertyUrl" => 'schema:{_name}',
               "valueUrl" => 'schema:{_name}',
-              "columns" => []
+              "columns" => [
+                {"title" => "addressCountry"},
+                {"title" => "latitude"},
+                {"title" => "longitude"},
+                {"title" => "name"}
+              ]
             }
           }
         },
@@ -828,6 +846,11 @@ describe RDF::Tabular::Metadata do
         "NaN double" => {base: "double", value: "NaN"},
         "INF double" => {base: "double", value: "INF"},
         "-INF double" => {base: "double", value: "-INF"},
+        "valid number" => {base: "number", value: "1234.456E789"},
+        "invalid number" => {base: "number", value: "1z", errors: ["1z is not a valid number"]},
+        "NaN number" => {base: "number", value: "NaN"},
+        "INF number" => {base: "number", value: "INF"},
+        "-INF number" => {base: "number", value: "-INF"},
         "valid float" => {base: "float", value: "1234.456E789"},
         "invalid float" => {base: "float", value: "1z", errors: ["1z is not a valid float"]},
         "NaN float" => {base: "float", value: "NaN"},
@@ -870,7 +893,14 @@ describe RDF::Tabular::Metadata do
         "valid dateTime yyyyMMdd HHmmss"   => {base: "dateTime", value: "20150315 150237",   format: "yyyyMMdd HHmmss",   result: "2015-03-15T15:02:37"},
         "valid dateTime dd-MM-yyyy HH:mm" => {base: "dateTime", value: "15-03-2015 15:02", format: "dd-MM-yyyy HH:mm", result: "2015-03-15T15:02:00"},
         "valid dateTime d-M-yyyy HHmm"   => {base: "dateTime", value: "15-3-2015 1502",  format: "d-M-yyyy HHmm",   result: "2015-03-15T15:02:00"},
+        "valid dateTime yyyy-MM-ddTHH:mm"   => {base: "dateTime", value: "2015-03-15T15:02",  format: "yyyy-MM-ddTHH:mm",   result: "2015-03-15T15:02:00"},
         "valid dateTimeStamp d-M-yyyy HHmm X"   => {base: "dateTimeStamp", value: "15-3-2015 1502 Z",  format: "d-M-yyyy HHmm X",   result: "2015-03-15T15:02:00Z"},
+        "valid datetime yyyy-MM-ddTHH:mm:ss" => {base: "datetime", value: "2015-03-15T15:02:37", format: "yyyy-MM-ddTHH:mm:ss", result: "2015-03-15T15:02:37"},
+        "valid datetime yyyy-MM-dd HH:mm:ss" => {base: "datetime", value: "2015-03-15 15:02:37", format: "yyyy-MM-dd HH:mm:ss", result: "2015-03-15T15:02:37"},
+        "valid datetime yyyyMMdd HHmmss"   => {base: "datetime", value: "20150315 150237",   format: "yyyyMMdd HHmmss",   result: "2015-03-15T15:02:37"},
+        "valid datetime dd-MM-yyyy HH:mm" => {base: "datetime", value: "15-03-2015 15:02", format: "dd-MM-yyyy HH:mm", result: "2015-03-15T15:02:00"},
+        "valid datetime d-M-yyyy HHmm"   => {base: "datetime", value: "15-3-2015 1502",  format: "d-M-yyyy HHmm",   result: "2015-03-15T15:02:00"},
+        "valid datetime yyyy-MM-ddTHH:mm"   => {base: "datetime", value: "2015-03-15T15:02",  format: "yyyy-MM-ddTHH:mm",   result: "2015-03-15T15:02:00"},
 
         # Timezones
         "valid w/TZ yyyy-MM-ddX" => {base: "date", value: "2015-03-22Z", format: "yyyy-MM-ddX", result: "2015-03-22Z"},
@@ -1223,23 +1253,6 @@ describe RDF::Tabular::Metadata do
             {"url": "http://example.org/bar", "dc:description": {"@value": "bar"}}
           ]})
       },
-      "Table with schemas always takes A" => {
-        A: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "tableSchema": {"columns": [{"name": "foo"}]}
-        }),
-        B: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "tableSchema": {"columns": [{"name": "bar"}]}
-        }),
-        R: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "tableSchema": {"columns": [{"name": "foo"}]}
-        }),
-      },
       "Table with tableDirection always takes A" => {
         A: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
         B: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "rtl"}),
@@ -1373,11 +1386,6 @@ describe RDF::Tabular::Metadata do
         A: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
         B: %({"@type": "Schema", "columns": [{"name": "foo", "required": false}]}),
         R: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
-      },
-      "Schema with differing columns takes A" => {
-        A: %({"@type": "Schema", "columns": [{"name": "foo"}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "bar"}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo"}]}),
       },
       "Schema with matching column titles" => {
         A: %({"@type": "Schema", "columns": [{"title": "Foo"}]}),
