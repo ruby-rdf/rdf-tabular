@@ -30,7 +30,7 @@ describe RDF::Tabular::Metadata do
   shared_examples "inherited properties" do |allowed = true|
     {
       null: {
-        valid: ["foo"],
+        valid: ["foo", %w(foo bar)],
         invalid: [1, true, {}]
       },
       lang: {
@@ -46,18 +46,18 @@ describe RDF::Tabular::Metadata do
         invalid: [1, false, nil] + %w(foo ::)
       },
       ordered: {
-        valid: [true, false, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
-        invalid: [nil, "foo"],
+        valid: [true, false],
+        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       default: {
         valid: ["foo"],
-        invalid: [1, true, nil]
+        invalid: [1, %w(foo bar), true, nil]
       },
       datatype: {
         valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
                [{"base" => "string"}]
                ),
-        invalid: [1, true, "foo", "anySimpleType", "IDREFS"]
+        invalid: [1, true, "foo", "anyType", "anySimpleType", "IDREFS"]
       },
       aboutUrl: {
         valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row.{_row}"],
@@ -111,17 +111,56 @@ describe RDF::Tabular::Metadata do
     let(:valid) {%w(dc:description dcat:keyword http://schema.org/copyrightHolder)}
     let(:invalid) {%w(foo bar:baz)}
     if allowed
-      it "allows defined prefixed names and absolute URIs" do
-        valid.each do |v|
-          subject[v.to_sym] = "foo"
-          expect(subject.errors).to be_empty
+      context "valid JSON-LD" do
+        it "allows defined prefixed names and absolute URIs" do
+          valid.each do |v|
+            subject[v.to_sym] = "foo"
+            expect(subject.errors).to be_empty
+          end
+        end
+
+        {
+          "value object"            => %({"@value": "foo"}),
+          "value with type"         => %({"@value": "1", "@type": "xsd:integer"}),
+          "value with language"     => %({"@value": "foo", "@language": "en"}),
+          "node"                    => %({"@id": "http://example/foo"}),
+          "node with pname type"    => %({"@type": "foaf:Person"}),
+          "node with URL type"      => %({"@type": "http://example/Person"}),
+          "node with array type"    => %({"@type": ["schema:Person", "foaf:Person"]}),
+          "node with term type"     => %({"@type": "Table"}),
+          "node with term property" => %({"csvw:name": "foo"}),
+          "boolean value"           => true,
+          "integer value"           => 1,
+          "double value"            => 1.1,
+        }.each do |name, value|
+          specify(name) {
+            subject["dc:object"] = value.is_a?(String) ? ::JSON.parse(value) : value
+            expect(subject.errors).to be_empty
+          }
         end
       end
 
-      it "Does not allow unknown prefxies or unprefixed names" do
-        invalid.each do |v|
-          subject[v.to_sym] = "foo"
-          expect(subject.errors).not_to be_empty
+      context "invalid JSON-LD" do
+        it "Does not allow unknown prefxies or unprefixed names" do
+          invalid.each do |v|
+            subject[v.to_sym] = "foo"
+            expect(subject.errors).not_to be_empty
+          end
+        end
+
+        {
+          "value with type and language" => %({"@value": "foo", "@type": "xsd:token", "@language": "en"}),
+          "@id and @value" => %({"@id": "http://example/", "@value": "foo"}),
+          "value with BNode @id" => %({"@id": "_:foo"}),
+          "value with BNode @type" => %({"@type": "_:foo"}),
+          "value with BNode property" => %({"_:foo": "bar"}),
+          "value with @context" => %({"@context": {}, "@id": "http://example/"}),
+          "value with @graph" => %({"@graph": {}}),
+        }.each do |name, value|
+          specify(name) {
+            subject["dc:object"] = ::JSON.parse(value)
+            expect(subject.errors).not_to be_empty
+          }
         end
       end
     else
@@ -163,12 +202,16 @@ describe RDF::Tabular::Metadata do
         invalid: [1, true, nil]
       },
       required: {
-        valid: [true, false, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
-        invalid: [nil, "foo"],
+        valid: [true, false],
+        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+      },
+      suppressOutput: {
+        valid: [true, false],
+        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       virtual: {
-        valid: [true, false, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
-        invalid: [nil, "foo"],
+        valid: [true, false],
+        invalid: [nil, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0", "foo"],
       },
     }.each do |prop, params|
       context prop.to_s do
@@ -262,20 +305,46 @@ describe RDF::Tabular::Metadata do
     end
 
     describe "foreignKeys" do
-      it "FIXME"
+      context "valid" do
+        it "FIXME"
+      end
+
+      context "invalid" do
+        it "FIXME"
+      end
     end
   end
 
   describe RDF::Tabular::Transformation do
     let(:targetFormat) {"http://example.org/targetFormat"}
     let(:scriptFormat) {"http://example.org/scriptFormat"}
-    subject {described_class.new({"targetFormat" => targetFormat, "scriptFormat" => scriptFormat}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"url" => "http://example/", "targetFormat" => targetFormat, "scriptFormat" => scriptFormat}, base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties")
     its(:type) {is_expected.to eql :Transformation}
 
-    it "FIXME"
+    {
+      source: {
+        valid: %w(json rdf) + [nil],
+        invalid: [1, true, {}]
+      },
+    }.each do |prop, params|
+      context prop.to_s do
+        it "validates" do
+          params[:valid].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).to be_valid
+          end
+        end
+        it "invalidates" do
+          params[:invalid].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).not_to be_valid
+          end
+        end
+      end
+    end
 
     context "title" do
       {
@@ -369,7 +438,48 @@ describe RDF::Tabular::Metadata do
     it_behaves_like("common properties")
     its(:type) {is_expected.to eql :Table}
 
-    it "FIXME"
+    {
+      tableSchema: {
+        valid: [RDF::Tabular::Schema.new({})],
+        invalid: [1, true, nil]
+      },
+      notes: {
+        valid: [{}, [{}]],
+        invalid: [1, true, nil]
+      },
+      tableDirection: {
+        valid: %w(rtl ltr default),
+        invalid: %w(foo true 1)
+      },
+      transformations: {
+        valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
+        invalid: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+                 %w(foo true 1)
+      },
+      dialect: {
+        valid: [{skipRows: 1}],
+        invalid: ["http://location-of-dialect", "foo"]
+      },
+      suppressOutput: {
+        valid: [true, false],
+        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+      },
+    }.each do |prop, params|
+      context prop.to_s do
+        it "validates" do
+          params[:valid].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).to be_valid
+          end
+        end
+        it "invalidates" do
+          params[:invalid].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).not_to be_valid
+          end
+        end
+      end
+    end
   end
 
   describe RDF::Tabular::TableGroup do
@@ -381,12 +491,50 @@ describe RDF::Tabular::Metadata do
     it_behaves_like("common properties")
     its(:type) {is_expected.to eql :TableGroup}
 
-    it "FIXME"
+
+    {
+      tableSchema: {
+        valid: [RDF::Tabular::Schema.new({})],
+        invalid: [1, true, nil]
+      },
+      tableDirection: {
+        valid: %w(rtl ltr default),
+        invalid: %w(foo true 1)
+      },
+      dialect: {
+        valid: [{skipRows: 1}],
+        invalid: ["http://location-of-dialect", "foo"]
+      },
+      transformations: {
+        valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
+        invalid: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+                 %w(foo true 1)
+      },
+      notes: {
+        valid: [{}, [{}]],
+        invalid: [1, true, nil]
+      },
+    }.each do |prop, params|
+      context prop.to_s do
+        it "validates" do
+          params[:valid].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).to be_valid
+          end
+        end
+        it "invalidates" do
+          params[:invalid].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).not_to be_valid
+          end
+        end
+      end
+    end
   end
 
   context "parses example metadata" do
     Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
-      next if filename =~ /-(atd|standard|minimal).json/
+      next if filename =~ /-(atd|standard|minimal|roles).json/
       context filename do
         subject {RDF::Tabular::Metadata.open(filename)}
         its(:errors) {is_expected.to be_empty}
@@ -409,12 +557,12 @@ describe RDF::Tabular::Metadata do
     let(:table) {{"url" => "http://example.org/table.csv", "@type" => "Table"}}
     it "loads referenced schema" do
       table[:tableSchema] = "http://example.org/schema"
-      expect(described_class).to receive(:open).with(table[:tableSchema], kind_of(Hash)).and_return('{"@type": "Schema"}')
+      expect(described_class).to receive(:open).with(table[:tableSchema], kind_of(Hash)).and_return(RDF::Tabular::Schema.new({"@type" => "Schema"}))
       described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)
     end
     it "loads referenced dialect" do
       table[:dialect] = "http://example.org/dialect"
-      expect(described_class).to receive(:open).with(table[:dialect], kind_of(Hash)).and_return('{"@type": "Dialect"}')
+      expect(described_class).to receive(:open).with(table[:dialect], kind_of(Hash)).and_return(RDF::Tabular::Dialect.new({}))
       described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)
     end
   end
@@ -438,7 +586,7 @@ describe RDF::Tabular::Metadata do
   describe ".open" do
     context "validates example metadata" do
       Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
-        next if filename =~ /-(atd|standard|minimal).json/
+        next if filename =~ /-(atd|standard|minimal|roles).json/
         context filename do
           specify do
             md = RDF::Tabular::Metadata.open(filename, debug: @debug)
@@ -1074,9 +1222,11 @@ describe RDF::Tabular::Metadata do
     end
 
     context "validation" do
+      it "FIXME"
     end
 
     context "transformation" do
+      it "FIXME"
     end
   end
 

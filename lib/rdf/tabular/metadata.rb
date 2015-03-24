@@ -333,8 +333,13 @@ module RDF::Tabular
             end
           when :tableSchema
             # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
+            # SPEC SUGGESTION: when loading a remote schema, assign @id from it's location if not already set
             object[key] = case value
-            when String then Schema.open(base.join(value), @options.merge(parent: self, context: nil))
+            when String
+              link = base.join(value).to_s
+              s = Schema.open(link, @options.merge(parent: self, context: nil))
+              s[:@id] ||= link
+              s
             when Hash   then Schema.new(value, @options.merge(parent: self, context: nil))
             else
               # Invalid, but preserve value
@@ -417,8 +422,11 @@ module RDF::Tabular
         end
       end
 
-      if value
+      if value.is_a?(Hash)
         @dialect = object[:dialect] = Dialect.new(value)
+      elsif value
+        # Remember invalid dialect for validation purposes
+        object[:dialect] = value
       else
         object.delete(:dialect)
         @dialect = nil
@@ -464,15 +472,15 @@ module RDF::Tabular
       end
 
       # It has only expected properties (exclude metadata)
-      keys = object.keys - [:"@id", :"@context"]
-      keys = keys.reject {|k| k.to_s.include?(':')} unless is_a?(Dialect)
-      errors << "#{type} has unexpected keys: #{(keys - expected_props).map(&:to_s)}" unless keys.all? {|k| expected_props.include?(k)}
+      check_keys = object.keys - [:"@id", :"@context"]
+      check_keys = check_keys.reject {|k| k.to_s.include?(':')} unless is_a?(Dialect)
+      errors << "#{type} has unexpected keys: #{(check_keys - expected_props).map(&:to_s)}" unless check_keys.all? {|k| expected_props.include?(k)}
 
       # It has required properties
-      errors << "#{type} missing required keys: #{(required_props & keys).map(&:to_s)}"  unless (required_props & keys) == required_props
+      errors << "#{type} missing required keys: #{(required_props & check_keys).map(&:to_s)}"  unless (required_props & check_keys) == required_props
 
       # Every property is valid
-      keys.each do |key|
+      object.keys.each do |key|
         value = object[key]
         case key
         when :aboutUrl, :datatype, :default, :lang, :null, :ordered, :propertyUrl, :separator, :textDirection, :valueUrl
@@ -509,8 +517,8 @@ module RDF::Tabular
             errors << e.message
           end
         when :doubleQuote, :header, :required, :skipInitialSpace, :skipBlankRows, :suppressOutput, :virtual
-          unless %w(true false 1 0).include?(value.to_s.downcase)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected true, false, 1, or 0"
+          unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
+            errors << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
           end
         when :encoding
           unless Encoding.find(value)
@@ -523,23 +531,51 @@ module RDF::Tabular
               columns, reference = fk['columns'], fk['reference']
               errors << "#{type} has invalid property '#{key}': missing columns and reference" unless columns && reference
               errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
+
+              # Verify that columns exist in this schema
               Array(columns).each do |k|
                 errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c.name == k}
               end
-              errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
+
+              if reference.is_a?(Hash)
+                ref_cols = reference['columns']
+                schema = if reference.has_key?('resource')
+                  if reference.has_key?('tableSchema')
+                    errors << "#{type} has invalid property '#{key}': reference has a tableSchema: #{reference.inspect}" 
+                  end
+                  # resource is the URL of a Table in the TableGroup
+                  ref = base.join(reference['resource']).to_s
+                  table = root.is_a?(TableGroup) && root.resources.detect {|t| t.url == ref}
+                  errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
+                  table.tableSchema if table
+                elsif reference.has_key?('tableSchema')
+                  # resource is the @id of a Schema in the TableGroup
+                  ref = base.join(reference['tableSchema']).to_s
+                  tables = root.is_a?(TableGroup) ? root.resources.detect {|t| t.tableSchema[:@id] == ref} : []
+                  case tables.length
+                  when 0
+                    errors << "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
+                    nil
+                  when 1
+                    tables.first.tableSchema
+                  else
+                    errors << "#{type} has invalid property '#{key}': multiple schemas found from #{ref}"
+                    nil
+                  end
+                end
+
+                if schema
+                  # ref_cols must exist in schema
+                  Array(ref_cols).each do |k|
+                    errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless schema.columns.any? {|c| c.name == k}
+                  end
+                end
+              else
+                errors << "#{type} has invalid property '#{key}': reference is not an object #{reference.inspect}"
+              end
             else
               errors << "#{type} has invalid property '#{key}': reference must be an object: #{reference.inspect}" 
             end
-
-            if reference.has_key?('resource')
-              if reference.has_key?('tableSchema')
-                errors << "#{type} has invalid property '#{key}': reference has a tableSchema: #{reference.inspect}" 
-              end
-              # FIXME resource is a URL of a specific resource (table) which must exist
-            elsif reference.has_key?('tableSchema')
-              # FIXME tableSchema is a URL of a specific schema which must exist
-            end
-            # FIXME: columns
           end
         when :headerColumnCount, :headerRowCount, :skipColumns, :skipRows
           unless value.is_a?(Numeric) && value.integer? && value > 0
@@ -565,7 +601,14 @@ module RDF::Tabular
             errors << "#{type} has invalid property '#{key}': #{value}, expected proper name format"
           end
         when :notes
-          # FIXME validate using JSON-LD dialect
+          unless value.is_a?(Hash) || value.is_a?(Array)
+            errors << "#{type} has invalid property '#{key}': #{value}, Object or Array"
+          end
+          begin
+            normalize_jsonld(key, value)
+          rescue Error => e
+            errors << "#{type} has invalid content '#{key}': #{e.message}"
+          end
         when :primaryKey
           # A column reference property that holds either a single reference to a column description object or an array of references.
           Array(value).each do |k|
@@ -588,7 +631,7 @@ module RDF::Tabular
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected valid absolute URL"
           end
         when :source
-          unless %w(json rdf).include?(value)
+          unless %w(json rdf).include?(value) || value.nil?
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected json or rdf"
           end
         when :tableDirection
@@ -620,19 +663,25 @@ module RDF::Tabular
         when :title
           valid_natural_language_property?(:title, value) {|m| errors << m}
         when :trim
-          unless %w(true false 1 0 start end).include?(value.to_s.downcase)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected true, false, 1, 0, start or end"
+          unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
+            errors << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
           end
         when :url
           unless @url.valid?
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected valid absolute URL"
           end
+        when :@id, :@context
+          # Skip these
         when :@type
           unless value.to_sym == type
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected #{type}"
           end
-        when ->(k) {k.to_s.include?(':')}
-          # FIXME validate common properties
+        when ->(k) {key.to_s.include?(':')}
+          begin
+            normalize_jsonld(key, value)
+          rescue Error => e
+            errors << "#{type} has invalid content '#{key}': #{e.message}"
+          end
         else
           errors << "#{type} has invalid property '#{key}': unsupported property"
         end
@@ -675,7 +724,7 @@ module RDF::Tabular
         # To be valid, it must be a string or array, and must be compatible with any inherited value through being a subset
         "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
       when :ordered
-        "boolean" unless %w(true false 1 0).include?(value.to_s.downcase)
+        "boolean" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
       when :separator
         "single character" unless value.is_a?(String) && value.length == 1
       when :textDirection
@@ -1038,7 +1087,7 @@ module RDF::Tabular
         when ->(k) {key.to_s == '@context'}
           "http://www.w3.org/ns/csvw"
         when :link
-          base.join(value)
+          base.join(value).to_s
         when :array
           value = [value] unless value.is_a?(Array)
           value.map {|v| v.is_a?(Metadata) ? v.normalize! : v} # due to foreign keys
@@ -1109,7 +1158,9 @@ module RDF::Tabular
         ev
       when Hash
         if value['@value']
-          if (value.keys.sort & %w(@language @type)) == %w(@language @type)
+          if !(value.keys.sort - %w(@value @type @language)).empty?
+            raise Error, "Value object may not contain keys other than @value, @type, or @language: #{value.to_json}"
+          elsif (value.keys.sort & %w(@language @type)) == %w(@language @type)
             raise Error, "Value object may not contain both @type and @language: #{value.to_json}"
           elsif value['@language'] && !BCP47::Language.identify(value['@language'])
             raise Error, "Value object with @language must use valid language: #{value.to_json}"
@@ -1162,6 +1213,13 @@ module RDF::Tabular
       object.fetch(method.to_sym) do
         parent.send(method) if parent
       end
+    end
+
+    ##
+    # Get the root metadata object
+    # @return [TableGroup, Table]
+    def root
+      self.parent ? self.parent.root : self
     end
   private
     # Options passed to CSV.new based on dialect
@@ -1326,7 +1384,7 @@ module RDF::Tabular
       title:          :natural_language,
       url:            :link,
     }.freeze
-    REQUIRED = %w(targetFormat scriptFormat).map(&:to_sym).freeze
+    REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
 
     # Setters
     PROPERTIES.each do |a, type|
