@@ -77,6 +77,9 @@ module RDF::Tabular
             end
           end
 
+          # Validate metadata
+          @metadata.validate! if @metadata && validate?
+
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
 
           if block_given?
@@ -143,7 +146,6 @@ module RDF::Tabular
         end
 
         # Output Table-Level RDF triples
-        # SPEC CONFUSION: Would we ever use the resolved @id of the Table metadata?
         table_resource = options.fetch(:table_resource, (metadata.id || RDF::Node.new))
         unless minimal?
           add_statement(0, table_resource, RDF.type, CSVW.Table)

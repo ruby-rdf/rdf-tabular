@@ -127,15 +127,11 @@ module Fixtures
       end
 
       def rdf?
-        type.include?("Rdf")
+        result.to_s.end_with?(".ttl")
       end
 
       def json?
-        type.include?("Json")
-      end
-
-      def syntax?
-        type.include?("Syntax")
+        result.to_s.end_with?(".json")
       end
 
       def validation?
