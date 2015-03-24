@@ -398,7 +398,9 @@ module RDF::Tabular
       when object[:dialect] then object[:dialect]
       when parent then parent.dialect
       when is_a?(Table) || is_a?(TableGroup)
-        self.dialect = Dialect.new({}, @options.merge(parent: self, context: nil))
+        d = Dialect.new({}, @options.merge(parent: self, context: nil))
+        self.dialect = d unless self.parent
+        d
       else
         raise Error, "Can't access dialect from #{self.class} without a parent"
       end
@@ -410,12 +412,17 @@ module RDF::Tabular
       # Clear cached dialect information from children
       object.values.each do |v|
         case v
-        when Metadata then v.dialect = nil
-        when Array then v.each {|vv| vv.dialect = nil if vv.is_a?(Metadata)}
+        when Metadata then v.object.delete(:dialect)
+        when Array then v.each {|vv| vv.object.delete(:dialect) if vv.is_a?(Metadata)}
         end
       end
 
-      @dialect = object[:dialect] = value ? Dialect.new(value) : nil
+      if value
+        @dialect = object[:dialect] = Dialect.new(value)
+      else
+        object.delete(:dialect)
+        @dialect = nil
+      end
     end
 
     # Type of this Metadata
@@ -497,7 +504,7 @@ module RDF::Tabular
             errors << "#{type} has invalid property '#{key}': expected a Dialect Description"
           end
           begin
-            value.validate!
+            value.validate! if value
           rescue Error => e
             errors << e.message
           end
@@ -934,7 +941,6 @@ module RDF::Tabular
                 elsif ta.nil? && t.virtual
                   debug("merge!: columns") {"index: #{index}, virtual"}
                   # otherwise, if at a given index there is no column description within A, but there is a column description within B.
-                  # FIXME: also the case where there are virtual/non-virtual columns in A which aren't in B
                   t = t.dup
                   t.instance_variable_set(:@parent, self) if self
                   object[key][index] = t
@@ -943,6 +949,10 @@ module RDF::Tabular
                   raise Error, "Columns at same index don't match: #{ta.to_json} vs. #{t.to_json}"
                 end
               end
+              # The number of non-virtual columns in A and B MUST be the same
+              nA = object[key].reject(&:virtual).length
+              nB = Array(value).reject(&:virtual).length
+              raise Error, "Columns must have the same number of non-virtual columns" unless nA == nB
             when :foreignKeys
               # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
               # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
@@ -989,6 +999,9 @@ module RDF::Tabular
               a.delete("und") if a["und"].empty?
             end
             object[key] = a
+          when ->(k) {key == :@id}
+            object[key] ||= value
+            @id ||= metadata.id
           else
             # Otherwise, the value from A overrides that from B
             object[key] ||= value
