@@ -58,7 +58,6 @@ module RDF::Tabular
       hexBinary:          RDF::XSD.hexBinary,
       int:                RDF::XSD.int,
       integer:            RDF::XSD.integer,
-      lang:               RDF::XSD.language,
       language:           RDF::XSD.language,
       long:               RDF::XSD.long,
       Name:               RDF::XSD.Name,
@@ -259,8 +258,6 @@ module RDF::Tabular
     #   Context used for this metadata. Taken from input if not provided
     # @option options [RDF::URI] :base
     #   The Base URL to use when expanding the document. This overrides the value of `input` if it is a URL. If not specified and `input` is not an URL, the base URL defaults to the current document URL if in a browser context, or the empty string if there is no document context.
-    # @option options [Boolean] :validate
-    #   Validate metadata, and raise error if invalid
     # @raise [Error]
     # @return [Metadata]
     def initialize(input, options = {})
@@ -379,8 +376,6 @@ module RDF::Tabular
         debug("md#initialize") {"filenames: #{filenames}"}
         debug("md#initialize") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
       end
-
-      validate! if options[:validate] && !parent
     end
 
     # Setters
@@ -528,29 +523,29 @@ module RDF::Tabular
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
           value.is_a?(Array) && value.each do |fk|
             if fk.is_a?(Hash)
-              columns, reference = fk['columns'], fk['reference']
-              errors << "#{type} has invalid property '#{key}': missing columns and reference" unless columns && reference
+              columnReference, reference = fk['columnReference'], fk['reference']
+              errors << "#{type} has invalid property '#{key}': missing columnReference and reference" unless columnReference && reference
               errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
 
               # Verify that columns exist in this schema
-              Array(columns).each do |k|
-                errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c.name == k}
+              Array(columnReference).each do |k|
+                errors << "#{type} has invalid property '#{key}': columnReference not found #{k}" unless self.columns.any? {|c| c.name == k}
               end
 
               if reference.is_a?(Hash)
-                ref_cols = reference['columns']
+                ref_cols = reference['columnReference']
                 schema = if reference.has_key?('resource')
-                  if reference.has_key?('tableSchema')
-                    errors << "#{type} has invalid property '#{key}': reference has a tableSchema: #{reference.inspect}" 
+                  if reference.has_key?('schemaReference')
+                    errors << "#{type} has invalid property '#{key}': reference has a schemaReference: #{reference.inspect}" 
                   end
                   # resource is the URL of a Table in the TableGroup
                   ref = base.join(reference['resource']).to_s
                   table = root.is_a?(TableGroup) && root.resources.detect {|t| t.url == ref}
                   errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
                   table.tableSchema if table
-                elsif reference.has_key?('tableSchema')
+                elsif reference.has_key?('schemaReference')
                   # resource is the @id of a Schema in the TableGroup
-                  ref = base.join(reference['tableSchema']).to_s
+                  ref = base.join(reference['schemaReference']).to_s
                   tables = root.is_a?(TableGroup) ? root.resources.select {|t| t.tableSchema[:@id] == ref} : []
                   case tables.length
                   when 0
@@ -571,7 +566,7 @@ module RDF::Tabular
                   end
                 end
               else
-                errors << "#{type} has invalid property '#{key}': reference is not an object #{reference.inspect}"
+                errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
               end
             else
               errors << "#{type} has invalid property '#{key}': reference must be an object: #{reference.inspect}" 
@@ -1096,7 +1091,7 @@ module RDF::Tabular
             elsif v.is_a?(Hash) && (ref = v["reference"]).is_a?(Hash)
               # SPEC SUGGESTION: special case for foreignKeys
               ref["resource"] = base.join(ref["resource"]).to_s if ref["resource"]
-              ref["tableSchema"] = base.join(ref["tableSchema"]).to_s if ref["tableSchema"]
+              ref["schemaReference"] = base.join(ref["schemaReference"]).to_s if ref["schemaReference"]
               v
             else
               v

@@ -8,20 +8,21 @@ describe RDF::Tabular::Reader do
   before(:all) {WebMock.allow_net_connect!(net_http_connect_on_start: true)}
   after(:all) {WebMock.allow_net_connect!(net_http_connect_on_start: false)}
 
-  %w(rdf json).each do |variant|
+  %w(rdf json validation).each do |variant|
     describe "w3c csvw #{variant.upcase} tests" do
       manifest = Fixtures::SuiteTest::BASE + "manifest-#{variant}.jsonld"
 
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
+            #next unless t.id.include?("test038")
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               pending("odd isomorphism issue") if t.id == "manifest-rdf#test035"
               t.debug = []
               RDF::Tabular::Reader.open(t.action,
                 t.reader_options.merge(
                   base_uri: t.base,
-                  validate: true,
+                  validate: t.validation?,
                   debug:    t.debug
                 )
               ) do |reader|
@@ -42,7 +43,7 @@ describe RDF::Tabular::Reader do
                     else
                       expect(::JSON.parse(result)).to be_a(Hash)
                     end
-                  else
+                  else # RDF or Validation
                     begin
                       graph << reader
                     rescue Exception => e

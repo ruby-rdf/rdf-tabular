@@ -56,7 +56,11 @@ module RDF::Tabular
              @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
             @metadata = Metadata.new(@input, @options)
             # If @metadata is for a Table, merge with something empty to create a TableGroup metadata
-            @metadata = @metadata.merge(TableGroup.new({})) unless @metadata.is_a?(TableGroup)
+            if @metadata.is_a?(TableGroup)
+              @metadata.normalize!
+            else
+              @metadata = @metadata.merge(TableGroup.new({}))
+            end
             @input = @metadata
           else
             # HTTP flags
@@ -78,7 +82,7 @@ module RDF::Tabular
           end
 
           # Validate metadata
-          @metadata.validate! if @metadata && validate?
+          @metadata.validate! if @metadata
 
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
 

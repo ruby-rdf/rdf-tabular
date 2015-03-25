@@ -50,6 +50,7 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: prefixes)}" +
     "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: prefixes)}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
+    (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
   end  
 end
@@ -86,6 +87,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
     "\n#{@expected}" +
     "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
+    (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     "\nDebug:\n#{@info.debug}"
   end  
 
@@ -103,6 +105,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
     "\n#{@expected}" +
     "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
+    (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     "\nDebug:\n#{@info.debug}"
   end  
 end
@@ -125,6 +128,7 @@ RSpec::Matchers.define :produce do |expected, info = []|
     "Expected: #{expected.is_a?(String) ? expected : expected.to_json(JSON_STATE)}\n" +
     "Actual  : #{actual.is_a?(String) ? actual : actual.to_json(JSON_STATE)}\n" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
+    (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     "Debug:\n#{@info.debug}"
   end
 end

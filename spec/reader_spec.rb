@@ -7,7 +7,7 @@ describe RDF::Tabular::Reader do
   let!(:doap_count) {File.open(doap).each_line.to_a.length}
 
   before(:each) do
-    @reader = RDF::Tabular::Reader.new(StringIO.new(""))
+    @reader = RDF::Tabular::Reader.new(StringIO.new(""), base_uri: "file:#{File.expand_path("..", __FILE__)}")
 
     WebMock.stub_request(:any, %r(.*example.org.*)).
       to_return(lambda {|request|
@@ -63,6 +63,7 @@ describe RDF::Tabular::Reader do
         context csv do
           let(:about) {RDF::URI("http://example.org").join(csv)}
           let(:input) {File.expand_path("../data/#{csv}", __FILE__)}
+
           it "standard mode" do
             expected = File.expand_path("../data/#{ttl}", __FILE__)
             RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, validate: true, debug: @debug) do |reader|

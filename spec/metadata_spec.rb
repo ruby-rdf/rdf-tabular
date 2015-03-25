@@ -328,24 +328,24 @@ describe RDF::Tabular::Metadata do
       context "valid" do
         {
           "references single column with resource" => {
-            "columns" => "a1",
+            "columnReference" => "a1",
             "reference" => {
               "resource" => "b",
-              "columns" => "b1"
+              "columnReference" => "b1"
             }
           },
           "references multiple columns with resource" => {
-            "columns" => ["a1", "a2"],
+            "columnReference" => ["a1", "a2"],
             "reference" => {
               "resource" => "b",
-              "columns" => ["b1", "b2"]
+              "columnReference" => ["b1", "b2"]
             }
           },
           "references single column with tableSchema" => {
-            "columns" => "a1",
+            "columnReference" => "a1",
             "reference" => {
               "tableSchema" => "b_s",
-              "columns" => "b1"
+              "columnReference" => "b1"
             }
           }
         }.each do |name, fk|
@@ -359,46 +359,46 @@ describe RDF::Tabular::Metadata do
       context "invalid" do
         {
           "missing source column" => {
-            "columns" => "not_here",
+            "columnReference" => "not_here",
             "reference" => {
               "resource" => "b",
-              "columns" => "b1"
+              "columnReference" => "b1"
             }
           },
           "one missing source column" => {
-            "columns" => ["a1", "not_here"],
+            "columnReference" => ["a1", "not_here"],
             "reference" => {
               "resource" => "b",
-              "columns" => ["b1", "b2"]
+              "columnReference" => ["b1", "b2"]
             }
           },
           "missing destination column" => {
-            "columns" => "a1",
+            "columnReference" => "a1",
             "reference" => {
               "resource" => "b",
-              "columns" => "not_there"
+              "columnReference" => "not_there"
             }
           },
           "missing resource" => {
-            "columns" => "a1",
+            "columnReference" => "a1",
             "reference" => {
               "resource" => "not_here",
-              "columns" => "b1"
+              "columnReference" => "b1"
             }
           },
           "missing tableSchema" => {
-            "columns" => "a1",
+            "columnReference" => "a1",
             "reference" => {
-              "tableSchema" => "not_here",
-              "columns" => "b1"
+              "schemaReference" => "not_here",
+              "columnReference" => "b1"
             }
           },
           "both resource and tableSchema" => {
-            "columns" => "a1",
+            "columnReference" => "a1",
             "reference" => {
               "resource" => "b",
-              "tableSchema" => "b_s",
-              "columns" => "b1"
+              "schemaReference" => "b_s",
+              "columnReference" => "b1"
             }
           },
         }.each do |name, fk|
@@ -1180,7 +1180,7 @@ describe RDF::Tabular::Metadata do
         "valid QName" => {base: "QName", value: "foo:bar", result: RDF::Literal("foo:bar", datatype: RDF::XSD.QName)},
         "valid normalizedString" => {base: "normalizedString", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.normalizedString)},
         "valid token" => {base: "token", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.token)},
-        "valid language" => {base: "lang", value: "en", result: RDF::Literal("en", datatype: RDF::XSD.language)},
+        "valid language" => {base: "language", value: "en", result: RDF::Literal("en", datatype: RDF::XSD.language)},
         "valid Name" => {base: "Name", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.Name)},
         "valid NMTOKEN" => {base: "NMTOKEN", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.NMTOKEN)},
 
@@ -1640,14 +1640,14 @@ describe RDF::Tabular::Metadata do
         R: %({"@type": "Schema", "primaryKey": "foo"}),
       },
       "Schema with matching foreignKey uses A" => {
-        A: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}]}),
+        A: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
+        B: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
+        R: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
       },
       "Schema with differing foreignKey uses A and B" => {
-        A: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columns": "bar", "reference": {"columns": "bar"}}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columns": "foo", "reference": {"columns": "foo"}}, {"columns": "bar", "reference": {"columns": "bar"}}]}),
+        A: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
+        B: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
+        R: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}, {"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
       },
       "Schema with urlTemplate always takes A" => {
         A: %({"@type": "Schema", "urlTemplate": "foo"}),
