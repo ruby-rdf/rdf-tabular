@@ -305,12 +305,108 @@ describe RDF::Tabular::Metadata do
     end
 
     describe "foreignKeys" do
+      subject {
+        RDF::Tabular::TableGroup.new({
+          resources: [{
+            url: "a",
+            tableSchema: {
+              "@id" => "a_s",
+              columns: [{name: "a1"}, {name: "a2"}],
+              foreignKeys: []
+            }
+          }, {
+            url: "b",
+            tableSchema: {
+              "@id" => "b_s",
+              columns: [{name: "b1"}, {name: "b2"}],
+              foreignKeys: []
+            }
+          }]},
+          base: RDF::URI("http://example.org/base"), debug: @debug
+        )
+      }
       context "valid" do
-        it "FIXME"
+        {
+          "references single column with resource" => {
+            "columns" => "a1",
+            "reference" => {
+              "resource" => "b",
+              "columns" => "b1"
+            }
+          },
+          "references multiple columns with resource" => {
+            "columns" => ["a1", "a2"],
+            "reference" => {
+              "resource" => "b",
+              "columns" => ["b1", "b2"]
+            }
+          },
+          "references single column with tableSchema" => {
+            "columns" => "a1",
+            "reference" => {
+              "tableSchema" => "b_s",
+              "columns" => "b1"
+            }
+          }
+        }.each do |name, fk|
+          it name do
+            subject.resources.first.tableSchema.foreignKeys << fk
+            expect(subject.normalize!.errors).to be_empty
+          end
+        end
       end
 
       context "invalid" do
-        it "FIXME"
+        {
+          "missing source column" => {
+            "columns" => "not_here",
+            "reference" => {
+              "resource" => "b",
+              "columns" => "b1"
+            }
+          },
+          "one missing source column" => {
+            "columns" => ["a1", "not_here"],
+            "reference" => {
+              "resource" => "b",
+              "columns" => ["b1", "b2"]
+            }
+          },
+          "missing destination column" => {
+            "columns" => "a1",
+            "reference" => {
+              "resource" => "b",
+              "columns" => "not_there"
+            }
+          },
+          "missing resource" => {
+            "columns" => "a1",
+            "reference" => {
+              "resource" => "not_here",
+              "columns" => "b1"
+            }
+          },
+          "missing tableSchema" => {
+            "columns" => "a1",
+            "reference" => {
+              "tableSchema" => "not_here",
+              "columns" => "b1"
+            }
+          },
+          "both resource and tableSchema" => {
+            "columns" => "a1",
+            "reference" => {
+              "resource" => "b",
+              "tableSchema" => "b_s",
+              "columns" => "b1"
+            }
+          },
+        }.each do |name, fk|
+          it name do
+            subject.resources.first.tableSchema.foreignKeys << fk
+            expect(subject.normalize!.errors).not_to be_empty
+          end
+        end
       end
     end
   end
@@ -1219,10 +1315,6 @@ describe RDF::Tabular::Metadata do
           expect(a.normalize!).to eq b
         end
       end
-    end
-
-    context "validation" do
-      it "FIXME"
     end
 
     context "transformation" do

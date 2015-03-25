@@ -380,7 +380,7 @@ module RDF::Tabular
         debug("md#initialize") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
       end
 
-      validate! if options[:validate]
+      validate! if options[:validate] && !parent
     end
 
     # Setters
@@ -551,7 +551,7 @@ module RDF::Tabular
                 elsif reference.has_key?('tableSchema')
                   # resource is the @id of a Schema in the TableGroup
                   ref = base.join(reference['tableSchema']).to_s
-                  tables = root.is_a?(TableGroup) ? root.resources.detect {|t| t.tableSchema[:@id] == ref} : []
+                  tables = root.is_a?(TableGroup) ? root.resources.select {|t| t.tableSchema[:@id] == ref} : []
                   case tables.length
                   when 0
                     errors << "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
@@ -1090,9 +1090,21 @@ module RDF::Tabular
           base.join(value).to_s
         when :array
           value = [value] unless value.is_a?(Array)
-          value.map {|v| v.is_a?(Metadata) ? v.normalize! : v} # due to foreign keys
+          value.map do |v|
+            if v.is_a?(Metadata)
+              v.normalize!
+            elsif v.is_a?(Hash) && (ref = v["reference"]).is_a?(Hash)
+              # SPEC SUGGESTION: special case for foreignKeys
+              ref["resource"] = base.join(ref["resource"]).to_s if ref["resource"]
+              ref["tableSchema"] = base.join(ref["tableSchema"]).to_s if ref["tableSchema"]
+              v
+            else
+              v
+            end
+          end
         when :object
-          case key
+          case value
+          when Metadata then value.normalize!
           when String
             # Load referenced JSON document
             # (This is done when objects are loaded in this implementation)
