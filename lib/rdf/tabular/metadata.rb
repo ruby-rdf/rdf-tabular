@@ -91,7 +91,7 @@ module RDF::Tabular
 
     # A name is restricted according to the following RegExp.
     # @return [RegExp]
-    NAME_SYNTAX = %r(\A(?:_col|[a-zA-Z0-9])[a-zA-Z0-9\._]*\z)
+    NAME_SYNTAX = %r(\A(?:_col|[a-zA-Z0-9]|%\h\h)([a-zA-Z0-9\._]|%\h\h)*\z)
 
     # ID of this Metadata
     # @return [RDF::URI]
@@ -1001,7 +1001,7 @@ module RDF::Tabular
               # The number of non-virtual columns in A and B MUST be the same
               nA = object[key].reject(&:virtual).length
               nB = Array(value).reject(&:virtual).length
-              raise Error, "Columns must have the same number of non-virtual columns" unless nA == nB
+              raise Error, "Columns must have the same number of non-virtual columns" unless nA == nB || nB == 0
             when :foreignKeys
               # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
               # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
