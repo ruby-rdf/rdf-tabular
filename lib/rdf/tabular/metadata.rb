@@ -658,8 +658,8 @@ module RDF::Tabular
         when :title
           valid_natural_language_property?(:title, value) {|m| errors << m}
         when :trim
-          unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
-            errors << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
+          unless %w(true false 1 0 start end).include?(value.to_s.downcase)
+            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected true, false, 1, 0, start or end"
           end
         when :url
           unless @url.valid?
