@@ -15,9 +15,8 @@ describe RDF::Tabular::Reader do
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
-            #next unless t.id.include?("test038")
+            next unless t.id.include?("test035")
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
-              pending("odd isomorphism issue") if t.id == "manifest-rdf#test035"
               t.debug = []
               RDF::Tabular::Reader.open(t.action,
                 t.reader_options.merge(
@@ -65,7 +64,7 @@ describe RDF::Tabular::Reader do
                   expect {
                     graph << reader
                     expect(graph.dump(:ntriples)).to produce("not this", t.debug)
-                  }.to raise_error(RDF::ReaderError)
+                  }.to raise_error(RDF::Tabular::Error)
                 end
               end
             end

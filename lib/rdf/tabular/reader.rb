@@ -81,9 +81,6 @@ module RDF::Tabular
             end
           end
 
-          # Validate metadata
-          @metadata.validate! if @metadata
-
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
 
           if block_given?
@@ -108,6 +105,10 @@ module RDF::Tabular
         # Construct metadata from that passed from file open, along with information from the file.
         if input.is_a?(Metadata)
           debug("each_statement: metadata") {input.inspect}
+
+          # Validate metadata
+          input.validate!
+
           depth do
             # Get Metadata to invoke and open referenced files
             case input.type
@@ -183,7 +184,7 @@ module RDF::Tabular
 
             if cell.column.valueUrl
               add_statement(row.sourceNumber, cell_subject, propertyUrl, cell.valueUrl) if cell.valueUrl
-            elsif cell.column.ordered
+            elsif cell.column.ordered && cell.column.separator
               list = RDF::List[*Array(cell.value)]
               add_statement(row.sourceNumber, cell_subject, propertyUrl, list.subject)
               list.each_statement do |statement|
@@ -318,6 +319,9 @@ module RDF::Tabular
           # Get Metadata to invoke and open referenced files
           case input.type
           when :TableGroup
+            # Validate metadata
+            input.validate!
+
             tables = []
             table_group = {}
             table_group['@id'] = input.id.to_s if input.id
