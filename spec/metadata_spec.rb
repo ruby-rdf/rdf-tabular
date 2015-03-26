@@ -42,8 +42,8 @@ describe RDF::Tabular::Metadata do
         invalid: %w(foo default)
       },
       separator: {
-        valid: %w(, a | :),
-        invalid: [1, false, nil] + %w(foo ::)
+        valid: %w(, a | :) + [nil],
+        invalid: [1, false] + %w(foo ::)
       },
       ordered: {
         valid: [true, false],

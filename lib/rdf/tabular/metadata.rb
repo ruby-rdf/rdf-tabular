@@ -721,7 +721,7 @@ module RDF::Tabular
       when :ordered
         "boolean" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
       when :separator
-        "single character" unless value.is_a?(String) && value.length == 1
+        "single character" unless value.nil? || value.is_a?(String) && value.length == 1
       when :textDirection
         # A value for this property is compatible with an inherited value only if they are identical.
         "rtl or ltr" unless %(rtl ltr).include?(value)
@@ -1109,13 +1109,7 @@ module RDF::Tabular
         when :natural_language
           value.is_a?(Hash) ? value : {(context.default_language || 'und') => Array(value)}
         when :atomic
-          # If the property is an atomic property accepting strings or objects, normalize to the object form as described for that property.
           case key
-          when :doubleQuote, :header, :ordered, :required, :skipBlankRows, :skipInitialSpace,
-               :suppressOutput, :virtual
-            %w(true 1).include?(value.to_s.downcase)
-          when :skipRows, :headerRowCount, :skipColumns, :headerColumnCount
-            value.to_i
           when :datatype then normalize_datatype(value)
           else                value
           end
