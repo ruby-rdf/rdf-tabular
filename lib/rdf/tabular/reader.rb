@@ -54,7 +54,7 @@ module RDF::Tabular
           # If input is JSON, then the input is the metadata
           if @options[:base] =~ /\.json(?:ld)?$/ ||
              @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
-            @metadata = Metadata.new(@input, @options)
+            @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
             # If @metadata is for a Table, merge with something empty to create a TableGroup metadata
             if @metadata.is_a?(TableGroup)
               @metadata.normalize!
@@ -139,6 +139,36 @@ module RDF::Tabular
                   r.each_statement(&block)
                 end
               end
+
+              # Provenance
+              if prov?
+                activity = RDF::Node.new
+                add_statement(0, table_group, RDF::PROV.wasGeneratedBy, activity)
+                add_statement(0, activity, RDF.type, RDF::PROV.Activity)
+                add_statement(0, activity, RDF::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
+                add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
+                add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
+
+                unless (urls = input.resources.map(&:url)).empty?
+                  usage = RDF::Node.new
+                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                  urls.each do |url|
+                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(url))
+                  end
+                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.csvEncodedTabularData)
+                end
+
+                unless Array(input.filenames).empty?
+                  usage = RDF::Node.new
+                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                  Array(input.filenames).each do |fn|
+                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(fn))
+                  end
+                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.tabularMetadata)
+                end
+              end
             when :Table
               Reader.open(input.url, options.merge(format: :tabular, metadata: input, base: input.url, no_found_metadata: true)) do |r|
                 r.each_statement(&block)
@@ -196,41 +226,6 @@ module RDF::Tabular
                 add_statement(row.sourceNumber, cell_subject, propertyUrl, v)
               end
             end
-          end
-        end
-
-        # Provenance
-        unless @options[:noProv]
-          # Distribution
-          distribution = RDF::Node.new
-          add_statement(0, table_resource, RDF::DCAT.distribution, distribution)
-          add_statement(0, distribution, RDF.type, RDF::DCAT.Distribution)
-          add_statement(0, distribution, RDF::DCAT.downloadURL, metadata.url)
-
-          activity = RDF::Node.new
-          add_statement(0, table_resource, RDF::PROV.activity, activity)
-          add_statement(0, activity, RDF.type, RDF::PROV.Activity)
-          add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
-          add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
-
-          csv_path = @options[:base]
-
-          if csv_path
-            usage = RDF::Node.new
-            add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-            add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(csv_path))
-            # FIXME: needs to be defined in vocabulary
-            add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "csvEncodedTabularData")
-          end
-
-          Array(@metadata.filenames).each do |fn|
-            usage = RDF::Node.new
-            add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-            add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(fn))
-            # FIXME: needs to be defined in vocabulary
-            add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "tabularMetadata")
           end
         end
       end
@@ -458,15 +453,6 @@ module RDF::Tabular
           end
         end
 
-        # Provenance
-        unless @options[:noProv]
-          table['distribution'] = { "downloadURL" => metadata.url}
-
-          # Optional describedBy
-          if Array(@metadata.filenames).length > 0
-            table["describedBy"] = @metadata.filenames.length == 1 ? @metadata.filenames.first : @metadata.filenames
-          end
-        end
         minimal? ? table["row"] : table
       end
     end

@@ -144,7 +144,7 @@ module RDF::Tabular
       when Hash
         Metadata.new(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
       when String, RDF::URI
-        Metadata.open(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
+        Metadata.open(options[:metadata], options.merge(filenames: options[:metadata], reason: "load user metadata: #{options[:metadata].inspect}"))
       end
 
       found_metadata = nil
@@ -164,7 +164,7 @@ module RDF::Tabular
 
         locs.each do |loc|
           found_metadata ||= begin
-            Metadata.open(loc, options.merge(reason: "load found metadata: #{loc}"))
+            Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
           rescue
             debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
             nil
@@ -914,7 +914,7 @@ module RDF::Tabular
       depth do
         # Merge filenames
         if @filenames || metadata.filenames
-          @filenames = Array(@filenames) | Array(metadata.filenames)
+          @filenames = (Array(@filenames) | Array(metadata.filenames)).uniq
         end
 
         # Normalize A (this) and B (metadata) values into normal form

@@ -15,7 +15,7 @@ describe RDF::Tabular::Reader do
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
-            next unless t.id.include?("test035")
+            #next unless t.id.include?("test035")
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               t.debug = []
               RDF::Tabular::Reader.open(t.action,

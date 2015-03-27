@@ -163,13 +163,14 @@ describe RDF::Tabular::Reader do
         PREFIX prov: <http://www.w3.org/ns/prov#>
         PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
         ASK WHERE {
-          [ prov:activity [
+          [ prov:wasGeneratedBy [
               a prov:Activity;
+              prov:wasAssociatedWith <http://rubygems.org/gems/rdf-tabular>;
               prov:startedAtTime ?start;
               prov:endedAtTime ?end;
               prov:qualifiedUsage [
                 a prov:Usage ;
-                prov:Entity ?csv ;
+                prov:entity <http://example.org/country-codes-and-names.csv> ;
                 prov:hadRole csvw:csvEncodedTabularData
               ];
             ]
@@ -180,13 +181,40 @@ describe RDF::Tabular::Reader do
           )
         }
       ),
-    }.each do |csv, query|
-      it csv do
-        about = RDF::URI("http://example.org").join(csv)
-        input = File.expand_path("../data/#{csv}", __FILE__)
+      "countries.json" => %(
+        PREFIX csvw: <http://www.w3.org/ns/csvw#>
+        PREFIX prov: <http://www.w3.org/ns/prov#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        ASK WHERE {
+          [ prov:wasGeneratedBy [
+              a prov:Activity;
+              prov:wasAssociatedWith <http://rubygems.org/gems/rdf-tabular>;
+              prov:startedAtTime ?start;
+              prov:endedAtTime ?end;
+              prov:qualifiedUsage [
+                a prov:Usage ;
+                prov:entity <http://example.org/countries.csv>, <http://example.org/country_slice.csv>;
+                prov:hadRole csvw:csvEncodedTabularData
+              ], [
+                a prov:Usage ;
+                prov:entity <http://example.org/countries.json> ;
+                prov:hadRole csvw:tabularMetadata
+              ];
+            ]
+          ]
+          FILTER (
+            DATATYPE(?start) = xsd:dateTime &&
+            DATATYPE(?end) = xsd:dateTime
+          )
+        }
+      )
+    }.each do |file, query|
+      it file do
+        about = RDF::URI("http://example.org").join(file)
+        input = File.expand_path("../data/#{file}", __FILE__)
         graph = RDF::Graph.load(input, format: :tabular, base_uri: about, debug: @debug)
 
-        expect(graph).to pass_query(query, debug: @debug, id: about)
+        expect(graph).to pass_query(query, debug: @debug, id: about, action: about)
       end
     end
   end

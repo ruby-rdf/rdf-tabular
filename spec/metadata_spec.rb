@@ -634,6 +634,7 @@ describe RDF::Tabular::Metadata do
       context filename do
         subject {RDF::Tabular::Metadata.open(filename)}
         its(:errors) {is_expected.to be_empty}
+        its(:filenames) {is_expected.to include("file:#{filename}")}
       end
     end
   end
@@ -684,10 +685,9 @@ describe RDF::Tabular::Metadata do
       Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
         next if filename =~ /-(atd|standard|minimal|roles).json/
         context filename do
-          specify do
-            md = RDF::Tabular::Metadata.open(filename, debug: @debug)
-            expect(md.errors).to produce([], @debug)
-          end
+          subject {RDF::Tabular::Metadata.open(filename, debug: @debug)}
+          its(:errors) {is_expected.to produce([], @debug)}
+          its(:filenames) {is_expected.to include("file:#{filename}")}
         end
       end
     end
