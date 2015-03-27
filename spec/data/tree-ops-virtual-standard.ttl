@@ -19,12 +19,6 @@
          <http://example.org/tree-ops.csv#event-2010-06-02>;
        csvw:rownum 2;
        csvw:url <http://example.org/tree-ops.csv#row=3>
-     ],  [
-       csvw:describes <http://example.org/tree-ops.csv#gid-3>,
-         <http://example.org/tree-ops.csv#location-3>,
-         <http://example.org/tree-ops.csv#event-2010-06-02>;
-       csvw:rownum 3;
-       csvw:url <http://example.org/tree-ops.csv#row=4>
      ];
      csvw:url <http://example.org/tree-ops.csv>
    ]
@@ -51,12 +45,3 @@
    schema:streetAddress "EMERSON ST" .
 
 <http://example.org/tree-ops.csv#event-2010-06-02> schema:startDate "2010-06-02"^^xsd:date .
-
-<http://example.org/tree-ops.csv#gid-3> <http://example.org/tree-ops.csv#trim_cycle> "Large Tree Routine Prune";
-   schema:event <http://example.org/tree-ops.csv#event-2010-06-02>;
-   schema:location <http://example.org/tree-ops.csv#location-3>;
-   schema:name "Liquidambar styraciflua";
-   schema:url <http://example.org/tree-ops.csv#gid-3> .
-
-<http://example.org/tree-ops.csv#location-3> rdf:type schema:PostalAddress;
-   schema:streetAddress "EMERSON ST" .

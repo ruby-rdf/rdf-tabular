@@ -14,13 +14,5 @@
     "species": "Liquidambar styraciflua",
     "trim_cycle": "Large Tree Routine Prune",
     "inventory_date": "2010-06-02"
-  },
-  {
-    "@id": "http://example.org/tree-ops.csv#gid-3",
-    "GID": "3",
-    "on_street": "EMERSON ST",
-    "species": "Liquidambar styraciflua",
-    "trim_cycle": "Large Tree Routine Prune",
-    "inventory_date": "2010-06-02"
   }
 ]

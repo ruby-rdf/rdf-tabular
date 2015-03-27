@@ -16,12 +16,6 @@
    :species "Liquidambar styraciflua";
    :trim_cycle "Large Tree Routine Prune" .
 
-:gid-3 :GID "3";
-   :inventory_date "2010-06-02"^^xsd:date;
-   :on_street "EMERSON ST";
-   :species "Liquidambar styraciflua";
-   :trim_cycle "Large Tree Routine Prune" .
-
  [
     a csvw:TableGroup;
     csvw:table  [
@@ -41,10 +35,6 @@
         csvw:describes :gid-2;
         csvw:rownum 2;
         csvw:url <http://example.org/tree-ops.csv#row=3>
-      ],  [
-        csvw:describes :gid-3;
-        csvw:rownum 3;
-        csvw:url <http://example.org/tree-ops.csv#row=4>
       ];
       csvw:url <http://example.org/tree-ops.csv>
     ]

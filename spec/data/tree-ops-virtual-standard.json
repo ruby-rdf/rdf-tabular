@@ -43,27 +43,6 @@
             }
           }
         ]
-      },
-      {
-        "url": "http://example.org/tree-ops.csv#row=4",
-        "rownum": 3,
-        "describes": [
-          {
-            "@id": "http://example.org/tree-ops.csv#gid-3",
-            "schema:url": "http://example.org/tree-ops.csv#gid-3",
-            "schema:name": "Liquidambar styraciflua",
-            "trim_cycle": "Large Tree Routine Prune",
-            "schema:event": {
-              "@id": "http://example.org/tree-ops.csv#event-2010-06-02",
-              "schema:startDate": "2010-06-02"
-            },
-            "schema:location": {
-              "@id": "http://example.org/tree-ops.csv#location-3",
-              "schema:streetAddress": "EMERSON ST",
-              "@type": "schema:PostalAddress"
-            }
-          }
-        ]
       }
     ]
   }]
