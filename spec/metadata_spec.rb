@@ -509,7 +509,26 @@ describe RDF::Tabular::Metadata do
                 {"title": {"und": ["Andorra"]}}
               ]
             },
-            "notes": ["countryCode,latitude,longitude,name"]
+            "rdfs:comment": ["countryCode,latitude,longitude,name"]
+          })
+        },
+        "delimiter" => {
+          input: "https://example.org/tree-ops.tsv",
+          dialect: {delimiter: "\t"},
+          result: %({
+            "@context": "http://www.w3.org/ns/csvw",
+            "@type": "Table",
+            "url": "https://example.org/tree-ops.tsv",
+            "tableSchema": {
+              "@type": "Schema",
+              "columns": [
+                {"title": {"und": ["GID"]}},
+                {"title": {"und": ["On Street"]}},
+                {"title": {"und": ["Species"]}},
+                {"title": {"und": ["Trim Cycle"]}},
+                {"title": {"und": ["Inventory Date"]}}
+              ]
+            }
           })
         },
       }.each do |name, props|

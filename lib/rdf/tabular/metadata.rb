@@ -768,6 +768,16 @@ module RDF::Tabular
       number, skipped = 0, (dialect.skipRows.to_i + dialect.headerRowCount)
       (1..skipped).each {csv.shift}
       csv.each do |data|
+        # Check for embedded comments
+        if dialect.commentPrefix && data.first.start_with?(dialect.commentPrefix)
+          v = data.join(' ')[1..-1].strip
+          unless v.empty?
+            (self["rdfs:comment"] ||= []) << v
+            yield RDF::Statement.new(nil, RDF::RDFS.comment, RDF::Literal(v))
+          end
+          skipped += 1
+          next
+        end
         number += 1
         yield(Row.new(data, self, number, number + skipped))
       end
@@ -1627,13 +1637,14 @@ module RDF::Tabular
         value.lstrip! if %w(true start).include?(trim.to_s)
         value.rstrip! if %w(true end).include?(trim.to_s)
 
-        value = value[1..-1] if commentPrefix && value.start_with?(commentPrefix)
-        table["notes"] ||= [] << value unless value.empty?
+        value = value[1..-1].strip if commentPrefix && value.start_with?(commentPrefix)
+        (table["rdfs:comment"] ||= []) << value unless value.empty?
       end
       debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
 
       (1..headerRowCount).each do
-        Array(csv.shift).each_with_index do |value, index|
+        row_data = Array(csv.shift)
+        Array(row_data).each_with_index do |value, index|
           # Skip columns
           next if index < (skipColumns.to_i + headerColumnCount.to_i)
 
@@ -1752,6 +1763,7 @@ module RDF::Tabular
       # Make sure that the row length is at least as long as the number of column definitions, to implicitly include virtual columns
       columns.each_with_index {|c, index| row[index] ||= (c.null || '')}
       row.each_with_index do |value, index|
+
         next if index < skipColumns
 
         cell_errors = []

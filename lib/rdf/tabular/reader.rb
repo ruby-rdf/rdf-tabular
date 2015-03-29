@@ -197,7 +197,16 @@ module RDF::Tabular
 
         # Input is file containing CSV data.
         # Output ROW-Level statements
+        last_row_num = 0
         metadata.each_row(input) do |row|
+          if row.is_a?(RDF::Statement)
+            # May add additional comments
+            row.subject = table_resource
+            add_statement(last_row_num + 1, row)
+            next
+          end
+          last_row_num = row.sourceNumber
+
           # Output row-level metadata
           row_resource = RDF::Node.new
           default_cell_subject = RDF::Node.new
@@ -383,6 +392,12 @@ module RDF::Tabular
         # Input is file containing CSV data.
         # Output ROW-Level statements
         metadata.each_row(input) do |row|
+          if row.is_a?(RDF::Statement)
+            # May add additional comments
+            table['rdfs:comment'] ||= []
+            table['rdfs:comment'] << row.object.to_s
+            next
+          end
           # Output row-level metadata
           r, a, values = {}, {}, {}
           r["url"] = row.id.to_s
