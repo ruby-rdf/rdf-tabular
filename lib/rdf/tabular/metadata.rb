@@ -1646,7 +1646,8 @@ module RDF::Tabular
         row_data = Array(csv.shift)
         Array(row_data).each_with_index do |value, index|
           # Skip columns
-          next if index < (skipColumns.to_i + headerColumnCount.to_i)
+          skipCols = skipColumns.to_i + headerColumnCount.to_i
+          next if index < skipCols
 
           # Trim value
           value.lstrip! if %w(true start).include?(trim.to_s)
@@ -1655,7 +1656,7 @@ module RDF::Tabular
           # Initialize title
           # SPEC CONFUSION: does title get an array, or concatenated values?
           columns = table["tableSchema"]["columns"] ||= []
-          column = columns[index - skipColumns.to_i] ||= {
+          column = columns[index - skipCols] ||= {
             "title" => {"und" => []},
           }
           column["title"]["und"] << value
@@ -1813,7 +1814,7 @@ module RDF::Tabular
         cell.errors = cell_errors
         metadata.send(:debug, "#{self.number}: each_cell ##{self.sourceNumber},#{cell.column.sourceNumber}", cell.errors.join("\n")) unless cell_errors.empty?
 
-        map_values[columns[index].name] =  (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
+        map_values[columns[index - skipColumns].name] =  (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
 
       # Map URLs for row

@@ -531,6 +531,24 @@ describe RDF::Tabular::Metadata do
             }
           })
         },
+        "headerColumnCount" => {
+          input: "https://example.org/tree-ops.csv",
+          dialect: {headerColumnCount: 1},
+          result: %({
+            "@context": "http://www.w3.org/ns/csvw",
+            "@type": "Table",
+            "url": "https://example.org/tree-ops.csv",
+            "tableSchema": {
+              "@type": "Schema",
+              "columns": [
+                {"title": {"und": ["On Street"]}},
+                {"title": {"und": ["Species"]}},
+                {"title": {"und": ["Trim Cycle"]}},
+                {"title": {"und": ["Inventory Date"]}}
+              ]
+            }
+          })
+        },
       }.each do |name, props|
         it name do
           dialect = if props[:dialect]
