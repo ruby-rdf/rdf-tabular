@@ -13,7 +13,7 @@
 
 <http://example.org/tree-ops-ext> a csvw:Table ;
   dc:title "Tree Operations"@en ;
-  dc:keywords "tree"@en, "street"@en, "maintenance"@en ;
+  dcat:keyword "tree"@en, "street"@en, "maintenance"@en ;
   dc:license <http://opendefinition.org/licenses/cc-by/> ;
   dc:modified "2010-12-31"^^xsd:date ;
   dc:publisher [

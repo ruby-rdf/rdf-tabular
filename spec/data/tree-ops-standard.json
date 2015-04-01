@@ -2,7 +2,7 @@
   "table": [{
     "url": "http://example.org/tree-ops.csv",
     "dc:title": "Tree Operations",
-    "dc:keywords": [
+    "dcat:keyword": [
       "tree",
       "street",
       "maintenance"
