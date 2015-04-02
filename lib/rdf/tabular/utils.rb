@@ -14,7 +14,7 @@ module RDF::Tabular
       message = d_str + (list.empty? ? "" : list.join(": "))
       options[:debug] << message if options[:debug].is_a?(Array)
       @options[:debug] << message if @options[:debug].is_a?(Array)
-      $stderr.puts(message) if RDF::Tabular.debug?
+      $stderr.puts(message) if RDF::Tabular.debug? || @options[:debug] == TrueClass
     end
     module_function :debug
 

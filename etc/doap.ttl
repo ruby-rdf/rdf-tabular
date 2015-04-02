@@ -14,7 +14,10 @@
   doap:description   "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."@en ;
   doap:created       "2015-01-05"^^xsd:date ;
   doap:programming-language "Ruby" ;
-  doap:implements    <http://www.w3.org/TR/csvw/> ;
+  doap:implements    <http://www.w3.org/TR/tabular-data-model/>,
+                     <http://www.w3.org/TR/tabular-metadata/>,
+                     <http://www.w3.org/TR/csv2rdf/>,
+                     <http://www.w3.org/TR/csv2json/>;
   doap:category      <http://dbpedia.org/resource/Resource_Description_Framework>,
                      <http://dbpedia.org/resource/Ruby_(programming_language)> ;
   doap:download-page <http://rubygems.org/gems/rdf-tabular> ;

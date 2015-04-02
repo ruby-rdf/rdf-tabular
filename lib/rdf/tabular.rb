@@ -25,7 +25,7 @@ module RDF
     autoload :Schema,     'rdf/tabular/metadata'
     autoload :Table,      'rdf/tabular/metadata'
     autoload :TableGroup, 'rdf/tabular/metadata'
-    autoload :Template,   'rdf/tabular/metadata'
+    autoload :Transformation,   'rdf/tabular/metadata'
     autoload :VERSION,    'rdf/tabular/version'
 
     def self.debug?; @debug; end

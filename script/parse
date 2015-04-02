@@ -10,25 +10,22 @@ require 'rdf/tabular'
 require 'getoptlong'
 
 def run(input, options)
+  reader_class = RDF::Reader.for(options[:input_format].to_sym)
+  raise "Reader not found for #{options[:input_format]}" unless reader_class
 
-  start = Time.new
-  output = if input.is_a?(String) && input.end_with?(".json")
-    RDF::Tabular::Metadata.open(input, options[:parser_options])
-  elsif input.is_a?(String) && input.end_with(".csv")
-    RDF::Graph.load(input, options[:parse_options].merge(format: :csv))
-  else
-    RDF::Graph.new << RDF::Tabular::Reader.new(input, options[:parse_options])
-  end
-  secs = Time.new - start
-
-  if output.is_a?(RDF::Enumerable)
-    output.write(option[:output], options[:output_format])
-  else
-    options[:output].puts output.to_json(::JSON::LD::JSON_STATE)
+  reader_class.send((input.is_a?(String) ? :open : :new), input, options[:parser_options]) do |reader|
+    if options[:output_format] == :json
+      options[:output].puts reader.to_json(::JSON::LD::JSON_STATE)
+    else
+      RDF::Writer.for(options[:output_format]).
+      new(options[:output], prefixes: reader.prefixes, standard_prefixes: true) do |writer|
+        writer << reader
+      end
+    end
   end
 rescue
   fname = input.respond_to?(:path) ? input.path : (input.is_a?(String) ? input : "-stdin-")
-  STDERR.puts("Error in #{fname}")
+  STDERR.puts("Error in #{fname}: #{$!}")
   raise
 end
 
@@ -44,7 +41,7 @@ options = {
   :parser_options => parser_options,
   :output        => STDOUT,
   :output_format => :turtle,
-  :input_format  => :csv,
+  :input_format  => :tabular,
 }
 input = nil
 
@@ -60,7 +57,7 @@ opts = GetoptLong.new(
 )
 opts.each do |opt, arg|
   case opt
-  when '--dbg'          then parser_options[:debug] = ::JSON::LD::debug = true
+  when '--dbg'          then parser_options[:debug] = ::RDF::Tabular::debug = true
   when '--execute'      then input = arg
   when '--format'       then options[:output_format] = arg.to_sym
   when '--output'       then options[:output] = File.open(arg, "w")

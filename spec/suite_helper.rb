@@ -22,44 +22,46 @@ module RDF::Util
     def self.open_file(filename_or_url, options = {}, &block)
       case filename_or_url.to_s
       when /^file:/
-        path = filename_or_url[5..-1]
+        path = filename_or_url.to_s[5..-1]
         Kernel.open(path.to_s, &block)
-      when 'http://www.w3.org/ns/csvw'
-        Kernel.open(::File.join(LOCAL_PATH, "ns/csvw.jsonld"), &block)
-      when /^#{REMOTE_PATH}/
+      when %r{^(#{REMOTE_PATH}|http://www.w3.org/ns/csvw/?)}
         begin
           #puts "attempt to open #{filename_or_url} locally"
-          if response = ::File.open(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH))
-            document_options = {
-              base_uri:     RDF::URI(filename_or_url),
-              charset:      Encoding::UTF_8,
-              code:         200,
-              headers:      {}
-            }
-            #puts "use #{filename_or_url} locally"
-            case filename_or_url.to_s
-            when /\.html$/   then document_options[:headers][:content_type] = 'text/html'
-            when /\.ttl$/    then document_options[:headers][:content_type] = 'text/turtle'
-            when /\.json$/   then document_options[:headers][:content_type] = 'application/json'
-            when /\.jsonld$/ then document_options[:headers][:content_type] = 'application/ld+json'
-            when /\.html$/   then document_options[:headers][:content_type] = 'text/html'
-            else                  document_options[:headers][:content_type] = 'unknown'
-            end
+          localpath = case filename_or_url.to_s
+          when %r{http://www.w3.org/ns/csvw/?} then ::File.join(LOCAL_PATH, "ns/csvw.jsonld")
+          else filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)
+          end
+          response = begin
+            ::File.open(localpath)
+          rescue Errno::ENOENT
+            Kernel.open(filename_or_url.to_s, "r:utf-8", 'Accept' => "application/ld+json, application/json, text/csv")
+          end
+          document_options = {
+            base_uri:     RDF::URI(filename_or_url),
+            charset:      Encoding::UTF_8,
+            code:         200,
+            headers:      {}
+          }
+          #puts "use #{filename_or_url} locally"
+          document_options[:headers][:content_type] = case filename_or_url.to_s
+          when /\.csv$/   then 'text/csv'
+          when /\.json$/   then 'application/json'
+          when /\.jsonld$/ then 'application/ld+json'
+          else                  'unknown'
+          end
 
-            # For overriding content type from test data
-            document_options[:headers][:content_type] = options[:contentType] if options[:contentType]
+          document_options[:headers][:content_type] = response.content_type if response.respond_to?(:content_type)
+          # For overriding content type from test data
+          document_options[:headers][:content_type] = options[:contentType] if options[:contentType]
 
-            # For overriding Link header from test data
-            document_options[:headers][:link] = options[:httpLink] if options[:httpLink]
+          # For overriding Link header from test data
+          document_options[:headers][:link] = options[:httpLink] if options[:httpLink]
 
-            remote_document = RDF::Util::File::RemoteDocument.new(response.read, document_options)
-            if block_given?
-              yield remote_document
-            else
-              remote_document
-            end
+          remote_document = RDF::Util::File::RemoteDocument.new(response.read, document_options)
+          if block_given?
+            yield remote_document
           else
-            Kernel.open(filename_or_url.to_s, "r:utf-8", &block)
+            remote_document
           end
         end
       else
@@ -72,54 +74,18 @@ end
 module Fixtures
   module SuiteTest
     BASE = "http://w3c.github.io/csvw/tests/"
-    FRAME = JSON.parse(%q({
-      "@context": {
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-        "mf": "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#",
-        "mq": "http://www.w3.org/2001/sw/DataAccess/tests/test-query#",
-        "csvt": "http://w3c.github.io/csvw/tests/vocab#",
-
-        "id": "@id",
-        "type": "@type",
-        "action":  {"@id": "mf:action", "@type": "@id"},
-        "approval":  {"@id": "csvt:approval", "@type": "@id"},
-        "comment": "rdfs:comment",
-        "contentType": "csvt:contentType",
-        "data": {"@id": "mq:data", "@type": "@id"},
-        "entries": {"@id": "mf:entries", "@type": "@id", "@container": "@list"},
-        "httpLink": "csvt:httpLink",
-        "metadata": {"@id": "csvt:metadata", "@type": "@id"},
-        "name": "mf:name",
-        "noProv": {"@id": "csvt:noProv", "@type": "xsd:boolean"},
-        "option": "csvt:option",
-        "result": {"@id": "mf:result", "@type": "@id"}
-      },
-      "@type": "mf:Manifest",
-      "entries": {}
-    }))
- 
     class Manifest < JSON::LD::Resource
-      def self.open(file)
+      def self.open(file, base)
         #puts "open: #{file}"
-        prefixes = {}
-        g = RDF::Repository.load(file, format:  :ttl)
-        JSON::LD::API.fromRDF(g) do |expanded|
-          JSON::LD::API.frame(expanded, FRAME) do |framed|
-            yield Manifest.new(framed['@graph'].first)
-          end
+        RDF::Util::File.open_file(file) do |file|
+          json = ::JSON.load(file.read)
+          yield Manifest.new(json, context: json['@context'].merge('@base' => base))
         end
-      end
-
-      # @param [Hash] json framed JSON-LD
-      # @return [Array<Manifest>]
-      def self.from_jsonld(json)
-        json['@graph'].map {|e| Manifest.new(e)}
       end
 
       def entries
         # Map entries to resources
-        attributes['entries'].map {|e| Entry.new(e)}
+        attributes['entries'].map {|e| Entry.new(e, context: context)}
       end
     end
  
@@ -135,7 +101,15 @@ module Fixtures
         action
       end
 
-      # Alias data and query
+      # Apply base to action and result
+      def action
+        RDF::URI(context['@base']).join(attributes["action"]).to_s
+      end
+
+      def result
+        RDF::URI(context['@base']).join(attributes["result"]).to_s
+      end
+
       def input
         @input ||= RDF::Util::File.open_file(action) {|f| f.read}
       end
@@ -153,15 +127,15 @@ module Fixtures
       end
 
       def rdf?
-        type.include?("Rdf")
+        result.to_s.end_with?(".ttl")
       end
 
       def json?
-        type.include?("Json")
+        result.to_s.end_with?(".json")
       end
 
-      def syntax?
-        type.include?("Syntax")
+      def validation?
+        type.include?("Validation")
       end
 
       def positive_test?
@@ -174,9 +148,10 @@ module Fixtures
 
       def reader_options
         res = {}
-        res[:noProv] = option['noProv'] == 'true' if option && option.has_key?('noProv')
-        res[:metadata] = option['metadata'] if option && option.has_key?('metadata')
+        res[:noProv] = option['noProv'] if option
+        res[:metadata] = RDF::URI(context['@base']).join(option['metadata']).to_s if option && option.has_key?('metadata')
         res[:httpLink] = httpLink if attributes['httpLink']
+        res[:minimal] = option['minimal'] if option
         res[:contentType] = contentType if attributes['contentType']
         res
       end

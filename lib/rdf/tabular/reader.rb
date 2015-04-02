@@ -28,6 +28,8 @@ module RDF::Tabular
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Reader#initialize`)
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
+    # @option options [Boolean] :minimal includes only the information gleaned from the cells of the tabular data
+    # @option options [Boolean] :noProv do not output optional provenance information
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored
@@ -39,9 +41,16 @@ module RDF::Tabular
         @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
         @options[:base] ||= input.path if input.respond_to?(:path)
         @options[:base] ||= input.filename if input.respond_to?(:filename)
+        if RDF::URI(@options[:base]).relative? && File.exist?(@options[:base])
+          @options[:base] = "file:/#{File.expand_path(@options[:base])}"
+        end
+
         @options[:depth] ||= 0
 
         debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
+
+        # Minimal implies noProv
+        @options[:noProv] ||= @options[:minimal]
 
         @input = input.is_a?(String) ? StringIO.new(input) : input
 
@@ -49,21 +58,33 @@ module RDF::Tabular
           # If input is JSON, then the input is the metadata
           if @options[:base] =~ /\.json(?:ld)?$/ ||
              @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
-            @input = Metadata.new(@input, @options)
+            @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
+            # If @metadata is for a Table, merge with something empty to create a TableGroup metadata
+            if @metadata.is_a?(TableGroup)
+              @metadata.normalize!
+            else
+              @metadata = @metadata.merge(TableGroup.new({}))
+            end
+            @input = @metadata
+          elsif @options[:no_found_metadata]
+            # Extract embedded metadata and merge
+            table_metadata = @options[:metadata]
+            embedded_metadata = table_metadata.dialect.embedded_metadata(input, @options)
+            @metadata = table_metadata.dup.merge!(embedded_metadata)
           else
             # HTTP flags
             if @input.respond_to?(:headers) &&
                input.headers.fetch(:content_type, '').split(';').include?('header=absent')
-              @options[:metadata] ||= TableGroup.new(dialect: {header: false})
+              @options[:metadata] ||= Table.new(url: @options[:base])
+              @options[:metadata].dialect.header = false
             end
-            # Otherwise, it's tabluar data
-            @metadata = Metadata.for_input(@input, @options)
 
-            # If metadata is a TableGroup, get metadata for this table
-            @metadata = @metadata.for_table(@options[:base]) if @metadata.is_a?(TableGroup)
+            # It's tabluar data. Find metadata and proceed as if it was specified in the first place
+            @metadata = Metadata.for_input(@input, @options)
+            @input = @metadata
           end
 
-          debug("Reader#initialize") {"input: #{input}, metadata: #{metadata}"}
+          debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
 
           if block_given?
             case block.arity
@@ -87,26 +108,72 @@ module RDF::Tabular
         # Construct metadata from that passed from file open, along with information from the file.
         if input.is_a?(Metadata)
           debug("each_statement: metadata") {input.inspect}
+
+          # Validate metadata
+          input.validate!
+
           depth do
             # Get Metadata to invoke and open referenced files
             case input.type
             when :TableGroup
-              table_group = RDF::Node.new
-              add_statement(0, table_group, RDF.type, CSVW.TableGroup)
+              # Use resolved @id of TableGroup, if available
+              table_group = input.id || RDF::Node.new
+              add_statement(0, table_group, RDF.type, CSVW.TableGroup) unless minimal?
 
               # Common Properties
-              input.common_properties(table_group) do |statement|
-                add_statement(0, statement)
-              end
+              input.each do |key, value|
+                next unless key.to_s.include?(':') || key == :notes
+                input.common_properties(table_group, key, value) do |statement|
+                  add_statement(0, statement)
+                end
+              end unless minimal?
 
-              input.resources.each do |table|
-                add_statement(0, table_group, CSVW.table, table.id + "#table")
-                Reader.open(table.id, options.merge(format: :tabular, metadata: table, base: table.id, no_found_metadata: true)) do |r|
+              input.each_resource do |table|
+                next if table.suppressOutput
+                table_resource = table.id || RDF::Node.new
+                add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
+                Reader.open(table.url, options.merge(
+                    format: :tabular,
+                    metadata: table,
+                    base: table.url,
+                    no_found_metadata: true,
+                    table_resource: table_resource
+                )) do |r|
                   r.each_statement(&block)
                 end
               end
+
+              # Provenance
+              if prov?
+                activity = RDF::Node.new
+                add_statement(0, table_group, RDF::PROV.wasGeneratedBy, activity)
+                add_statement(0, activity, RDF.type, RDF::PROV.Activity)
+                add_statement(0, activity, RDF::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
+                add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
+                add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
+
+                unless (urls = input.resources.map(&:url)).empty?
+                  usage = RDF::Node.new
+                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                  urls.each do |url|
+                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(url))
+                  end
+                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.csvEncodedTabularData)
+                end
+
+                unless Array(input.filenames).empty?
+                  usage = RDF::Node.new
+                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                  Array(input.filenames).each do |fn|
+                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(fn))
+                  end
+                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.tabularMetadata)
+                end
+              end
             when :Table
-              Reader.open(input.id, options.merge(format: :tabular, metadata: input, base: input.id, no_found_metadata: true)) do |r|
+              Reader.open(input.url, options.merge(format: :tabular, metadata: input, base: input.url, no_found_metadata: true)) do |r|
                 r.each_statement(&block)
               end
             else
@@ -117,80 +184,60 @@ module RDF::Tabular
         end
 
         # Output Table-Level RDF triples
-        table_resource = metadata.id + "#table"
-        add_statement(0, table_resource, RDF.type, CSVW.Table)
-
-        # Distribution
-        distribution = RDF::Node.new
-        add_statement(0, table_resource, RDF::DCAT.distribution, distribution)
-        add_statement(0, distribution, RDF.type, RDF::DCAT.Distribution)
-        add_statement(0, distribution, RDF::DCAT.downloadURL, metadata.id)
-
-        # Output table common properties
-        metadata.common_properties(table_resource) do |statement|
-          add_statement(0, statement)
+        table_resource = options.fetch(:table_resource, (metadata.id || RDF::Node.new))
+        unless minimal?
+          add_statement(0, table_resource, RDF.type, CSVW.Table)
+          add_statement(0, table_resource, CSVW.url, RDF::URI(metadata.url))
         end
 
-        # Column metadata
-        Array(metadata.schema.columns).compact.each do |column|
-          pred = column.predicateUrl
-
-          # SPEC FIXME: Output csvw:Column, if set
-          add_statement(0, pred, RDF.type, RDF.Property)
-
-          # Titles
-          column.rdf_values(pred, "title", column.title) do |statement|
-            # Make sure to use column language, not that from the context
-            statement.object = RDF::Literal(statement.object.value, language: column.language) if statement.object.literal?
-            statement.predicate = RDF::RDFS.label if statement.predicate == CSVW.title
+        # Common Properties
+        metadata.each do |key, value|
+          next unless key.to_s.include?(':') || key == :notes
+          metadata.common_properties(table_resource, key, value) do |statement|
             add_statement(0, statement)
           end
-
-          # Common Properties
-          column.common_properties(pred) do |statement|
-            add_statement(0, statement)
-          end
-        end
+        end unless minimal?
 
         # Input is file containing CSV data.
         # Output ROW-Level statements
+        last_row_num = 0
         metadata.each_row(input) do |row|
+          if row.is_a?(RDF::Statement)
+            # May add additional comments
+            row.subject = table_resource
+            add_statement(last_row_num + 1, row)
+            next
+          end
+          last_row_num = row.sourceNumber
+
           # Output row-level metadata
-          add_statement(row.rownum, table_resource, CSVW.row, row.resource)
-          row.values.each_with_index do |value, index|
-            column = metadata.schema.columns[index]
-            Array(value).each do |v|
-              add_statement(row.rownum, row.resource, column.predicateUrl, v)
+          row_resource = RDF::Node.new
+          default_cell_subject = RDF::Node.new
+          unless minimal?
+            add_statement(row.sourceNumber, table_resource, CSVW.row, row_resource)
+            add_statement(row.sourceNumber, row_resource, CSVW.rownum, row.number)
+            add_statement(row.sourceNumber, row_resource, CSVW.url, row.id)
+          end
+          row.values.each_with_index do |cell, index|
+            next if cell.column.suppressOutput # Skip ignored cells
+            cell_subject = cell.aboutUrl || default_cell_subject
+            propertyUrl = cell.propertyUrl || RDF::URI("#{metadata.url}##{cell.column.name}")
+            add_statement(row.sourceNumber, row_resource, CSVW.describes, cell_subject) unless minimal?
+
+            if cell.column.valueUrl
+              add_statement(row.sourceNumber, cell_subject, propertyUrl, cell.valueUrl) if cell.valueUrl
+            elsif cell.column.ordered && cell.column.separator
+              list = RDF::List[*Array(cell.value)]
+              add_statement(row.sourceNumber, cell_subject, propertyUrl, list.subject)
+              list.each_statement do |statement|
+                next if statement.predicate == RDF.type && statement.object == RDF.List
+                add_statement(row.sourceNumber, statement.subject, statement.predicate, statement.object)
+              end
+            else
+              Array(cell.value).each do |v|
+                add_statement(row.sourceNumber, cell_subject, propertyUrl, v)
+              end
             end
-          end
-        end
-
-        # Provenance
-        unless @options[:noProv]
-          activity = RDF::Node.new
-          add_statement(0, table_resource, RDF::PROV.activity, activity)
-          add_statement(0, activity, RDF.type, RDF::PROV.Activity)
-          add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
-          add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
-
-          csv_path = @options[:base]
-
-          if csv_path
-            usage = RDF::Node.new
-            add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-            add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(csv_path))
-            # FIXME: needs to be defined in vocabulary
-            add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "csvEncodedTabularData")
-          end
-
-          Array(@metadata.filenames).each do |fn|
-            usage = RDF::Node.new
-            add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-            add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-            add_statement(0, usage, RDF::PROV.Entity, RDF::URI(fn))
-            # FIXME: needs to be defined in vocabulary
-            add_statement(0, usage, RDF::PROV.hadRole, CSVW.to_uri + "tabularMetadata")
           end
         end
       end
@@ -232,22 +279,45 @@ module RDF::Tabular
     # @param [Hash{Symbol => Object}] options may also be a JSON state
     # @option options [IO, StringIO] io to output to file
     # @option options [::JSON::State] :state used when dumping
+    # @option options [Boolean] :atd output Abstract Table representation instead
     # @return [String]
     def to_json(options = {})
-      if options[:io]
-        ::JSON::dump_default_options = options.fetch(:state, ::JSON::LD::JSON_STATE)
-        ::JSON.dump(self.to_hash(options), options[:io])
+      io = case options
+      when IO, StringIO then options
+      when Hash then options[:io]
+      end
+      json_state = case options
+      when Hash
+        case
+        when options.has_key?(:state) then options[:state]
+        when options.has_key?(:indent) then options
+        else ::JSON::LD::JSON_STATE
+        end
+      when ::JSON::State, ::JSON::Ext::Generator::State, ::JSON::Pure::Generator::State
+        options
+      else ::JSON::LD::JSON_STATE
+      end
+      options = {} unless options.is_a?(Hash)
+
+      hash_fn = options[:atd] ? :to_atd : :to_hash
+      options = options.merge(noProv: @options[:noProv])
+
+      if io
+        ::JSON::dump_default_options = json_state
+        ::JSON.dump(self.send(hash_fn, options), io)
       else
-        hash = self.to_hash(options.is_a?(Hash) ? options : {})
-        state = (options[:state] if options.is_a?(Hash)) || options
-        ::JSON.generate(hash, options)
+        hash = self.send(hash_fn, options)
+        ::JSON.generate(hash, json_state)
       end
     end
 
     ##
     # Return a hash representation of the data for JSON serialization
+    #
+    # Produces an array if run in minimal mode.
+    #
     # @param [Hash{Symbol => Object}] options
-    # @return [Hash]
+    # @return [Hash, Array]
     def to_hash(options = {})
       # Construct metadata from that passed from file open, along with information from the file.
       if input.is_a?(Metadata)
@@ -256,48 +326,50 @@ module RDF::Tabular
           # Get Metadata to invoke and open referenced files
           case input.type
           when :TableGroup
+            # Validate metadata
+            input.validate!
+
             tables = []
-            table_group = {"tables" => tables}
+            table_group = {}
+            table_group['@id'] = input.id.to_s if input.id
 
             # Common Properties
-            table_group.merge!(input.common_properties)
+            input.each do |key, value|
+              next unless key.to_s.include?(':') || key == :notes
+              table_group[key] = input.common_properties(nil, key, value)
+              table_group[key] = [table_group[key]] if key == :notes && !table_group[key].is_a?(Array)
+            end
 
-            input.resources.each do |table|
-              Reader.open(table.id, options.merge(
+            table_group['table'] = tables
+
+            input.each_resource do |table|
+              next if table.suppressOutput
+              Reader.open(table.url, options.merge(
                 format:             :tabular,
                 metadata:           table,
-                base:               table.id,
-                no_found_metadata:  true,
-                noProv:             true
+                base:               table.url,
+                minimal:            minimal?,
+                no_found_metadata:  true
               )) do |r|
-                tables << r.to_hash(options)
+                case table = r.to_hash(options)
+                when Array then tables += table
+                when Hash  then tables << table
+                end
               end
             end
 
-            # Optional describedBy
-            # Provenance
-            if Array(input.filenames).length > 0 && !@options[:noProv]
-              table_group["describedBy"] = input.filenames.length == 1 ? input.filenames.first : input.filenames
-            end
-
-            # Result is table_group
-            table_group
+            # Result is table_group or array
+            minimal? ? tables : table_group
           when :Table
             table = nil
-            Reader.open(input.id, options.merge(
+            Reader.open(input.url, options.merge(
               format:             :tabular,
               metadata:           input,
-              base:               input.id,
-              no_found_metadata:  true,
-              noProv:             true
+              base:               input.url,
+              minimal:            minimal?,
+              no_found_metadata:  true
             )) do |r|
               table = r.to_hash(options)
-            end
-
-            # Optional describedBy
-            # Provenance
-            if Array(input.filenames).length > 0 && !@options[:noProv]
-              table["describedBy"] = input.filenames.length == 1 ? input.filenames.first : input.filenames
             end
 
             table
@@ -307,36 +379,170 @@ module RDF::Tabular
         end
       else
         rows = []
-        table = {
-          # SPEC CONFUSION: aren't these URIs the same?
-          "@id" => metadata.id.to_s,
-          "distribution" => { "downloadURL" => metadata.id},
-        }.merge(metadata.common_properties).
-        merge("row" => rows)
+        table = {}
+        table['@id'] = metadata.id.to_s if metadata.id
+        table['url'] = metadata.url.to_s
+
+        # Use string values notes and common properties
+        metadata.each do |key, value|
+          next unless key.to_s.include?(':') || key == :notes
+          table[key] = metadata.common_properties(nil, key, value)
+          table[key] = [table[key]] if key == :notes && !table[key].is_a?(Array)
+        end unless minimal?
+
+        table.merge!("row" => rows)
 
         # Input is file containing CSV data.
         # Output ROW-Level statements
         metadata.each_row(input) do |row|
-          # Output row-level metadata
-          r = {}
-          r["url"] = row.resource.to_s if row.resource.is_a?(RDF::URI)
-
-          row.values.each_with_index do |value, index|
-            column = metadata.schema.columns[index]
-            # SPEC CONFUSION: predicateUrl or simply name?
-            r[column.name] = value
+          if row.is_a?(RDF::Statement)
+            # May add additional comments
+            table['rdfs:comment'] ||= []
+            table['rdfs:comment'] << row.object.to_s
+            next
           end
-          rows << r
+          # Output row-level metadata
+          r, a, values = {}, {}, {}
+          r["url"] = row.id.to_s
+          r["rownum"] = row.number
+
+          row.values.each_with_index do |cell, index|
+            column = metadata.tableSchema.columns[index]
+
+            # Ignore suppressed columns
+            next if column.suppressOutput
+
+            # Skip valueUrl cells where the valueUrl is null
+            next if cell.column.valueUrl && cell.valueUrl.nil?
+
+            # Skip empty sequences
+            next if !cell.column.valueUrl && cell.value.is_a?(Array) && cell.value.empty?
+
+            subject = cell.aboutUrl || 'null'
+            co = (a[subject.to_s] ||= {})
+            co['@id'] = subject.to_s unless subject == 'null'
+            prop = case cell.propertyUrl
+            when RDF.type then '@type'
+            when nil then column.name
+            else
+              # Compact the property to a term or prefixed name
+              metadata.context.compact_iri(cell.propertyUrl, vocab: true)
+            end
+
+            value = case
+            when prop == '@type'
+              metadata.context.compact_iri(cell.valueUrl || cell.value, vocab: true)
+            when cell.valueUrl
+              unless subject == cell.valueUrl
+                values[cell.valueUrl.to_s] ||= {o: co, prop: prop, count: 0}
+                values[cell.valueUrl.to_s][:count] += 1
+              end
+              cell.valueUrl.to_s
+            when cell.value.is_a?(RDF::Literal::Numeric)
+              cell.value.object
+            when cell.value.is_a?(RDF::Literal::Boolean)
+              cell.value.object
+            else
+              cell.value
+            end
+
+            # Add or merge value
+            merge_compacted_value(co, prop, value)
+          end
+
+          # Check for nesting
+          values.keys.each do |valueUrl|
+            next unless a.has_key?(valueUrl)
+            ref = values[valueUrl]
+            co = ref[:o]
+            prop = ref[:prop]
+            next if ref[:count] != 1
+            raise "Expected #{ref[o][prop].inspect} to include #{valueUrl.inspect}" unless Array(co[prop]).include?(valueUrl)
+            co[prop] = Array(co[prop]).map {|e| e == valueUrl ? a.delete(valueUrl) : e}
+            co[prop] = co[prop].first if co[prop].length == 1
+          end
+
+          r["describes"] = a.values
+
+          if minimal?
+            rows.concat(r["describes"])
+          else
+            rows << r
+          end
         end
 
-        # Optional describedBy
-        # Provenance
-        if Array(@metadata.filenames).length > 0 && !@options[:noProv]
-          table["describedBy"] = @metadata.filenames.length == 1 ? @metadata.filenames.first : @metadata.filenames
+        minimal? ? table["row"] : table
+      end
+    end
+
+    # Return a hash representation of the annotated tabular data model for JSON serialization
+    # @param [Hash{Symbol => Object}] options
+    # @return [Hash]
+    def to_atd(options = {})
+      # Construct metadata from that passed from file open, along with information from the file.
+      if input.is_a?(Metadata)
+        debug("each_statement: metadata") {input.inspect}
+        depth do
+          # Get Metadata to invoke and open referenced files
+          case input.type
+          when :TableGroup
+            table_group = input.to_atd
+
+            input.each_resource do |table|
+              Reader.open(table.url, options.merge(
+                format:             :tabular,
+                metadata:           table,
+                base:               table.url,
+                no_found_metadata:  true, # FIXME: remove
+                noProv:             true
+              )) do |r|
+                table = r.to_atd(options)
+                
+                # Fill in columns and rows in table_group entry from returned table
+                t = table_group[:resources].detect {|tab| tab["url"] == table["url"]}
+                t["columns"] = table["columns"]
+                t["rows"] = table["rows"]
+              end
+            end
+
+            # Result is table_group
+            table_group
+          when :Table
+            table = nil
+            Reader.open(input.url, options.merge(
+              format:             :tabular,
+              metadata:           input,
+              base:               input.url,
+              no_found_metadata:  true,
+              noProv:             true
+            )) do |r|
+              table = r.to_atd(options)
+            end
+
+            table
+          else
+            raise "Opened inappropriate metadata type: #{input.type}"
+          end
+        end
+      else
+        rows = []
+        table = metadata.to_atd
+        rows, columns = table["rows"], table["columns"]
+
+        # Input is file containing CSV data.
+        # Output ROW-Level statements
+        metadata.each_row(input) do |row|
+          rows << row.to_atd
+          row.values.each_with_index do |cell, colndx|
+            columns[colndx]["cells"] << cell.id
+          end
         end
         table
       end
     end
+
+    def minimal?; @options[:minimal]; end
+    def prov?; !(@options[:noProv]); end
 
     private
     ##
@@ -360,6 +566,26 @@ module RDF::Tabular
       @callback.call(statement)
     end
 
+    # Merge values into compacted results, creating arrays if necessary
+    def merge_compacted_value(hash, key, value)
+      return unless hash
+      case hash[key]
+      when nil then hash[key] = value
+      when Array
+        if value.is_a?(Array)
+          hash[key].concat(value)
+        else
+          hash[key] << value
+        end
+      else
+        hash[key] = [hash[key]]
+        if value.is_a?(Array)
+          hash[key].concat(value)
+        else
+          hash[key] << value
+        end
+      end
+    end
   end
 end
 

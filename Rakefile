@@ -34,6 +34,11 @@ namespace :doc do
   end
 end
 
+desc "Update copy of CSVW context"
+task :context do
+  %x(curl -o etc/csvw.jsonld http://w3c.github.io/csvw/ns/csvw.jsonld)
+end
+
 desc "Create CSVW vocabulary definition"
 task :vocab do
   puts "Generate lib/rdf/tabular/csvw.rb"
@@ -43,6 +48,7 @@ task :vocab do
     File.open("lib/rdf/tabular/csvw.rb", "w") do |out|
       loader = RDF::VocabularyLoader.new("CSVW")
       loader.uri = "http://www.w3.org/ns/csvw#"
+      loader.source = "http://w3c.github.io/csvw/ns/csvw.ttl"
       loader.module_name = "RDF::Tabular"
       loader.strict = true
       loader.output = out

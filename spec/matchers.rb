@@ -34,6 +34,11 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
   end
   
   failure_message do |actual|
+    prefixes = {
+      '' => @info.action + '#',
+      oa: "http://www.w3.org/ns/oa#",
+      geo: "http://www.geonames.org/ontology#",
+    }
     "#{@info.inspect + "\n"}" +
     if @expected.is_a?(RDF::Enumerable) && @actual.size != @expected.size
       "Graph entry count differs:\nexpected: #{@expected.size}\nactual:   #{@actual.size}\n"
@@ -42,9 +47,10 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     else
       "Graph differs\n"
     end +
-    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
-    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
+    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: prefixes)}" +
+    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: prefixes)}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
+    (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
   end  
 end
@@ -81,6 +87,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
     "\n#{@expected}" +
     "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
+    (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     "\nDebug:\n#{@info.debug}"
   end  
 
@@ -98,6 +105,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
     "\n#{@expected}" +
     "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
+    (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     "\nDebug:\n#{@info.debug}"
   end  
 end
@@ -120,6 +128,7 @@ RSpec::Matchers.define :produce do |expected, info = []|
     "Expected: #{expected.is_a?(String) ? expected : expected.to_json(JSON_STATE)}\n" +
     "Actual  : #{actual.is_a?(String) ? actual : actual.to_json(JSON_STATE)}\n" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
+    (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     "Debug:\n#{@info.debug}"
   end
 end

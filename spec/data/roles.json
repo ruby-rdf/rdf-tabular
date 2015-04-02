@@ -1,11 +1,23 @@
 {
-  "@context": "http://www.w3.org/ns/csvw",
-  "dialect": {"trim": true},
+  "@type": "TableGroup",
+  "@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}],
   "resources": [{
-    "@id": "senior-roles.csv",
-    "schema": "http://example.org/senior-roles.json"
+    "url": "gov.uk/professions.csv",
+    "tableSchema": {
+      "columns": [{
+        "name": "name",
+        "title": "Profession",
+        "datatype": "string",
+        "required": true
+      }],
+      "primaryKey": "name"
+    },
+    "suppressOutput": true
   }, {
-    "@id": "junior-roles.csv",
-    "schema": "http://example.org/junior-roles.json"
+    "url": "senior-roles.csv",
+    "tableSchema": "senior-roles.json"
+  }, {
+    "url": "junior-roles.csv",
+    "tableSchema": "junior-roles.json"
   }]
 }

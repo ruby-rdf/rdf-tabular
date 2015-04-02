@@ -15,10 +15,10 @@ Gem::Specification.new do |gem|
   gem.email                 = 'public-rdf-ruby@w3.org'
 
   gem.platform              = Gem::Platform::RUBY
-  gem.files                 = %w(AUTHORS README.md UNLICENSE VERSION) + Dir.glob('lib/**/*.rb')
+  gem.files                 = %w(AUTHORS README.md UNLICENSE VERSION etc/doap.ttl etc/csvw.jsonld) + Dir.glob('lib/**/*.rb')
   gem.require_paths         = %w(lib)
   gem.extensions            = %w()
-  gem.test_files            = Dir.glob('spec/**/*.rb') + Dir.glob('spec/test-files/*')
+  gem.test_files            = Dir.glob('spec/**')
   gem.has_rdoc              = false
 
   gem.required_ruby_version = '>= 1.9.2'

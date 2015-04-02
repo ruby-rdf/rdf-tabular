@@ -1,0 +1,1 @@
+Column has invalid property 'textDirection' ('ltr'): expected same as that defined on parent

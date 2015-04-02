@@ -1,4 +1,4 @@
-module RDF::Microdata::VERSION
+module RDF::Tabular::VERSION
   VERSION_FILE = File.join(File.expand_path(File.dirname(__FILE__)), "..", "..", "..", "VERSION")
   MAJOR, MINOR, TINY, EXTRA = File.read(VERSION_FILE).chop.split(".")
 

@@ -1,0 +1,177 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+$:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", 'lib')))
+require "bundler/setup"
+require 'rdf/tabular'
+require 'rdf/isomorphic'
+require File.expand_path(File.join(File.dirname(__FILE__), "..", 'spec', 'spec_helper'))
+require File.expand_path(File.join(File.dirname(__FILE__), "..", 'spec', 'suite_helper'))
+require 'getoptlong'
+
+ASSERTOR = "http://greggkellogg.net/foaf#me"
+RUN_TIME = Time.now
+
+def earl_preamble(options)
+  options[:output].write File.read(File.expand_path("../../etc/doap#{'-ntriples' if options[:ntriples]}.ttl", __FILE__))
+  options[:output].puts %(
+<> foaf:primaryTopic <http://rubygems.org/gems/rdf-tabular> ;
+  dc:issued "#{RUN_TIME.xmlschema}"^^xsd:dateTime ;
+  foaf:maker <#{ASSERTOR}> .
+
+<#{ASSERTOR}> a foaf:Person, earl:Assertor;
+  foaf:name "Gregg Kellogg";
+  foaf:title "Implementor";
+  foaf:homepage <http://greggkellogg.net/> .
+)
+end
+
+def run_tc(tc, options)
+  STDERR.write "run #{tc.id}"
+
+  if options[:verbose]
+    puts "\nTestCase: #{tc.inspect}"
+    puts "\nInput:\n" + tc.input 
+    puts "\nExpected:\n" + tc.expected
+  end
+
+  graph = RDF::Repository.new
+  json_result = nil
+  result = nil
+
+  begin
+    puts "open #{tc.action}" if options[:verbose]
+    options = {base_uri:  tc.base}.merge(options)
+
+    RDF::Tabular::Reader.new(tc.action,
+                             tc.reader_options.merge(
+                               base_uri:  tc.base,
+                               validate:  tc.validation?)
+    ) do |reader|
+      tc.metadata = reader.metadata
+
+      if tc.positive_test?
+        if tc.json?
+          result = if tc.evaluate?
+            RDF::Util::File.open_file(tc.result) do |res|
+              ::JSON.parse(json_result = reader.to_json) == ::JSON.parse(res.read)
+            end
+          else
+            ::JSON.parse(result).is_a?(Hash)
+          end
+        else # RDF or Validation
+          begin
+            graph << reader
+          rescue ::RDF::Tabular::Error => e
+            STDERR.puts "Unexpected exception: #{e.inspect}" if options[:verbose]
+            result = "failed"
+          end
+
+          result = if result
+            result
+          elsif tc.sparql?
+            # FIXME
+            "passed"
+          elsif tc.evaluate?
+            output_graph = RDF::Repository.load(tc.result, format:  :turtle, base_uri:  tc.base)
+            graph.isomorphic_with?(output_graph) ? "passed" : "failed"
+          else
+            result = graph.empty? ? "failed" : "passed"
+          end
+        end
+      else
+        begin
+          graph << reader
+          STDERR.puts "Expected exception" if options[:verbose]
+          result = "failed"
+        rescue RDF::ReaderError, RDF::Tabular::Error
+          result = "passed"
+        end
+      end
+    end
+  rescue Exception => e
+    STDERR.puts "#{"exception:" unless options[:quiet]}: #{e}"
+    if options[:quiet]
+      return
+    else
+      raise
+    end
+  end
+
+
+  if tc.json?
+    options[:output].puts("\nOutput:\n" + json_result) unless options[:quiet]
+  else
+    options[:output].puts("\nOutput:\n" + graph.dump(:ttl, standard_prefixes: true)) unless options[:quiet]
+  end
+
+  if options[:earl]
+    options[:output].puts %{
+[ a earl:Assertion;
+  earl:assertedBy <#{ASSERTOR}>;
+  earl:subject <http://rubygems.org/gems/rdf#{'-turtle' unless options[:ntriples]}>;
+  earl:test <#{tc.id}>;
+  earl:result [
+    a earl:TestResult;
+    earl:outcome earl:#{result};
+    dc:date "#{RUN_TIME.xmlschema}"^^xsd:dateTime];
+  earl:mode earl:automatic ] .
+}
+  end
+
+  puts "#{"test result:" unless options[:quiet]} #{result}"
+end
+
+options = {
+  output:  STDOUT,
+}
+
+opts = GetoptLong.new(
+  ["--help", "-?", GetoptLong::NO_ARGUMENT],
+  ["--dbg", GetoptLong::NO_ARGUMENT],
+  ["--earl", GetoptLong::NO_ARGUMENT],
+  ["--quiet", "-q", GetoptLong::NO_ARGUMENT],
+  ["--output", "-o", GetoptLong::REQUIRED_ARGUMENT],
+  ["--validate", GetoptLong::NO_ARGUMENT],
+  ["--verbose", "-v", GetoptLong::NO_ARGUMENT]
+)
+
+def help(options)
+  puts "Usage: #{$0} [options] [test-number ...]"
+  puts "Options:"
+  puts "      --debug:              Display detailed debug output"
+  puts "      --earl:               Generate EARL report"
+  puts "      --quiet:              Minimal output"
+  puts "      --output:             Output to specified file"
+  puts "      --validate:           Validate input"
+  puts "      --verbose:            Verbose processing"
+  puts "      --help,-?:            This message"
+  exit(0)
+end
+
+
+opts.each do |opt, arg|
+  case opt
+  when '--help'             then help(options)
+  when '--dbg'              then ::RDF::Turtle::debug = true
+  when '--earl'             then options[:quiet] = options[:earl] = true
+  when '--output'           then options[:output] = File.open(arg, "w")
+  when '--quiet'            then options[:quiet] = true
+  when '--validate'         then options[:validate] = true
+  when '--verbose'          then options[:verbose] = true
+  end
+end
+
+earl_preamble(options) if options[:earl]
+
+WebMock.allow_net_connect!(net_http_connect_on_start: true)
+
+%w(rdf json validation).each do |variant|
+  manifest = Fixtures::SuiteTest::BASE + "manifest-#{variant}.jsonld"
+  
+  Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
+    m.entries.each do |tc|
+      next unless ARGV.empty? || ARGV.any? {|n| tc.id.match(/#{n}/)}
+      run_tc(tc, options)
+    end
+  end
+end

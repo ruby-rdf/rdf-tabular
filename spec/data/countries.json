@@ -1,11 +1,12 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
   "resources": [{
-    "@id": "http://example.org/countries.csv",
-    "schema": {
+    "url": "http://example.org/countries.csv",
+    "tableSchema": {
       "columns": [{
         "name": "countryCode",
-        "datatype": "string"
+        "datatype": "string",
+        "propertyUrl": "http://www.geonames.org/ontology{#_name}"
       }, {
         "name": "latitude",
         "datatype": "number"
@@ -16,15 +17,16 @@
         "name": "name",
         "datatype": "string"
       }],
-      "urlTemplate": "http://example.org/countries.csv{#countryCode}",
+      "aboutUrl": "http://example.org/countries.csv{#countryCode}",
+      "propertyUrl": "http://schema.org/{_name}",
       "primaryKey": "countryCode"
     }
   }, {
-    "@id": "http://example.org/country_slice.csv",
-    "schema": {
+    "url": "http://example.org/country_slice.csv",
+    "tableSchema": {
       "columns": [{
         "name": "countryRef",
-        "datatype": "string"
+        "valueUrl": "http://example.org/countries.csv{#countryRef}"
       }, {
         "name": "year",
         "datatype": "gYear"
@@ -33,10 +35,10 @@
         "datatype": "integer"
       }],
       "foreignKeys": [{
-        "columns": "countryRef",
+        "columnReference": "countryRef",
         "reference": {
           "resource": "http://example.org/countries.csv",
-          "columns": "countryCode"
+          "columnReference": "countryCode"
         }
       }]
     }

@@ -1,15 +1,54 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
-  "@id": "http://example.org/junior-roles.json",
   "columns": [{
-    "name": "reportsTo",
-    "title": "Reporting Senior Post"
+    "name": "reportsToSenior",
+    "title": "Reporting Senior Post",
+    "datatype": "string",
+    "propertyUrl": "http://example.org/def/reportsTo",
+    "valueUrl": "senior-roles.csv#post-{reportsToSenior}",
+    "required": true
+  }, {
+    "name": "grade",
+    "title": "Grade",
+    "datatype": "string",
+    "propertyUrl": "http://example.org/def/grade"
+  }, {
+    "name": "min_pay",
+    "title": "Payscale Minimum (£)",
+    "datatype": "integer",
+    "propertyUrl": "http://example.org/def/min_pay"
+  }, {
+    "name": "max_pay",
+    "title": "Payscale Maximum (£)",
+    "datatype": "integer",
+    "propertyUrl": "http://example.org/def/max_pay"
+  }, {
+    "name": "job",
+    "title": "Generic Job Title",
+    "datatype": "string",
+    "propertyUrl": "http://example.org/def/job"
+  }, {
+    "name": "number",
+    "title": "Number of Posts (FTE)",
+    "datatype": "number",
+    "propertyUrl": "http://example.org/def/number-of-posts" 
+  }, {
+    "name": "profession",
+    "title": "Profession",
+    "datatype": "string",
+    "propertyUrl": "http://example.org/def/profession"
   }],
   "foreignKeys": [{
-    "columns": "reportsTo",
+    "columnReference": "reportsToSenior",
     "reference": {
-      "schema": "http://example.org/senior-roles.json",
-      "columns": "ref"
+      "resource": "senior-roles.csv",
+      "columnReference": "ref"
+    }
+  }, {
+    "columnReference": "profession",
+    "reference": {
+      "resource": "gov.uk/professions.csv",
+      "columnReference": "name"
     }
   }]
 }

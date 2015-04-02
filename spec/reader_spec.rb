@@ -7,7 +7,7 @@ describe RDF::Tabular::Reader do
   let!(:doap_count) {File.open(doap).each_line.to_a.length}
 
   before(:each) do
-    @reader = RDF::Tabular::Reader.new(StringIO.new(""))
+    @reader = RDF::Tabular::Reader.new(StringIO.new(""), base_uri: "file:#{File.expand_path("..", __FILE__)}")
 
     WebMock.stub_request(:any, %r(.*example.org.*)).
       to_return(lambda {|request|
@@ -49,27 +49,48 @@ describe RDF::Tabular::Reader do
 
   context "Test Files" do
     test_files = {
-      "tree-ops.csv" => "tree-ops-result.ttl",
-      "tree-ops.csv-metadata.json" => "tree-ops-result.ttl",
-      "country-codes-and-names.csv" => "country-codes-and-names-result.ttl",
-      "countries.json" => "countries-result.ttl",
-      "roles.json" => "roles-result.ttl",
+      "tree-ops.csv" => "tree-ops-standard.ttl",
+      "tree-ops.csv-metadata.json" => "tree-ops-standard.ttl",
+      "tree-ops-ext.json" => "tree-ops-ext-standard.ttl",
+      "tree-ops-virtual.json" => "tree-ops-virtual-standard.ttl",
+      "country-codes-and-names.csv" => "country-codes-and-names-standard.ttl",
+      "countries.json" => "countries-standard.ttl",
+      "countries.csv" => "countries.csv-standard.ttl",
+      "roles.json" => "roles-standard.ttl",
     }
-    describe "#each_statement" do
+    context "#each_statement" do
       test_files.each do |csv, ttl|
-        it csv do
-          about = RDF::URI("http://example.org").join(csv)
-          input = File.expand_path("../data/#{csv}", __FILE__)
-          expected = File.expand_path("../data/#{ttl}", __FILE__)
-          RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
-            graph = RDF::Graph.new << reader
-            graph2 = RDF::Graph.load(expected, base_uri: about)
-            expect(graph).to be_equivalent_graph(graph2,
-                                                 debug: @debug,
-                                                 id: about,
-                                                 action: about,
-                                                 result: expected,
-                                                 metadata: reader.metadata)
+        context csv do
+          let(:about) {RDF::URI("http://example.org").join(csv)}
+          let(:input) {File.expand_path("../data/#{csv}", __FILE__)}
+
+          it "standard mode" do
+            expected = File.expand_path("../data/#{ttl}", __FILE__)
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, validate: true, debug: @debug) do |reader|
+              graph = RDF::Graph.new << reader
+              graph2 = RDF::Graph.load(expected, base_uri: about)
+              expect(graph).to be_equivalent_graph(graph2,
+                                                   debug: @debug,
+                                                   id: about,
+                                                   action: about,
+                                                   result: expected,
+                                                   metadata: reader.metadata)
+            end
+          end
+
+          it "minimal mode" do
+            ttl = ttl.sub("standard", "minimal")
+            expected = File.expand_path("../data/#{ttl}", __FILE__)
+            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, debug: @debug) do |reader|
+              graph = RDF::Graph.new << reader
+              graph2 = RDF::Graph.load(expected, base_uri: about)
+              expect(graph).to be_equivalent_graph(graph2,
+                                                   debug: @debug,
+                                                   id: about,
+                                                   action: about,
+                                                   result: expected,
+                                                   metadata: reader.metadata)
+            end
           end
         end
       end
@@ -77,19 +98,58 @@ describe RDF::Tabular::Reader do
 
     describe "#to_json" do
       test_files.each do |csv, ttl|
-        it csv do
-          json = ttl.sub(".ttl", ".json")
-          about = RDF::URI("http://example.org").join(csv)
-          input = File.expand_path("../data/#{csv}", __FILE__)
-          expected = File.expand_path("../data/#{json}", __FILE__)
+        context csv do
+          let(:about) {RDF::URI("http://example.org").join(csv)}
+          let(:input) {File.expand_path("../data/#{csv}", __FILE__)}
+          it "standard mode" do
+            json = ttl.sub("-standard.ttl", "-standard.json")
+            expected = File.expand_path("../data/#{json}", __FILE__)
 
-          RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
-            expect(JSON.parse(reader.to_json)).to produce(JSON.parse(File.read(expected)),
-                                                         debug: @debug,
-                                                         id: about,
-                                                         action: about,
-                                                         result: expected,
-                                                         metadata: reader.metadata)
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+              expect(JSON.parse(reader.to_json)).to produce(
+                JSON.parse(File.read(expected)),
+                debug: @debug,
+                id: about,
+                action: about,
+                result: expected,
+                noProv: true,
+                metadata: reader.metadata
+              )
+            end
+          end
+
+          it "minimal mode" do
+            json = ttl.sub("-standard.ttl", "-minimal.json")
+            expected = File.expand_path("../data/#{json}", __FILE__)
+
+            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, debug: @debug) do |reader|
+              expect(JSON.parse(reader.to_json)).to produce(
+                JSON.parse(File.read(expected)),
+                debug: @debug,
+                id: about,
+                action: about,
+                result: expected,
+                minimal: true,
+                metadata: reader.metadata
+              )
+            end
+          end
+
+          it "ADT mode", pending: true do
+            json = ttl.sub("-standard.ttl", "-atd.json")
+            expected = File.expand_path("../data/#{json}", __FILE__)
+
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+              expect(JSON.parse(reader.to_json(atd: true))).to produce(
+                JSON.parse(File.read(expected)),
+                debug: @debug,
+                id: about,
+                action: about,
+                result: expected,
+                noProv: true,
+                metadata: reader.metadata
+              )
+            end
           end
         end
       end
@@ -103,15 +163,17 @@ describe RDF::Tabular::Reader do
         PREFIX prov: <http://www.w3.org/ns/prov#>
         PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
         ASK WHERE {
-          <http://example.org/country-codes-and-names.csv#table> prov:activity [
-            a prov:Activity;
-            prov:startedAtTime ?start;
-            prov:endedAtTime ?end;
-            prov:qualifiedUsage [
-              a prov:Usage ;
-              prov:Entity ?csv ;
-              prov:hadRole csvw:csvEncodedTabularData
-            ];
+          [ prov:wasGeneratedBy [
+              a prov:Activity;
+              prov:wasAssociatedWith <http://rubygems.org/gems/rdf-tabular>;
+              prov:startedAtTime ?start;
+              prov:endedAtTime ?end;
+              prov:qualifiedUsage [
+                a prov:Usage ;
+                prov:entity <http://example.org/country-codes-and-names.csv> ;
+                prov:hadRole csvw:csvEncodedTabularData
+              ];
+            ]
           ]
           FILTER (
             DATATYPE(?start) = xsd:dateTime &&
@@ -119,13 +181,40 @@ describe RDF::Tabular::Reader do
           )
         }
       ),
-    }.each do |csv, query|
-      it csv do
-        about = RDF::URI("http://example.org").join(csv)
-        input = File.expand_path("../data/#{csv}", __FILE__)
+      "countries.json" => %(
+        PREFIX csvw: <http://www.w3.org/ns/csvw#>
+        PREFIX prov: <http://www.w3.org/ns/prov#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        ASK WHERE {
+          [ prov:wasGeneratedBy [
+              a prov:Activity;
+              prov:wasAssociatedWith <http://rubygems.org/gems/rdf-tabular>;
+              prov:startedAtTime ?start;
+              prov:endedAtTime ?end;
+              prov:qualifiedUsage [
+                a prov:Usage ;
+                prov:entity <http://example.org/countries.csv>, <http://example.org/country_slice.csv>;
+                prov:hadRole csvw:csvEncodedTabularData
+              ], [
+                a prov:Usage ;
+                prov:entity <http://example.org/countries.json> ;
+                prov:hadRole csvw:tabularMetadata
+              ];
+            ]
+          ]
+          FILTER (
+            DATATYPE(?start) = xsd:dateTime &&
+            DATATYPE(?end) = xsd:dateTime
+          )
+        }
+      )
+    }.each do |file, query|
+      it file do
+        about = RDF::URI("http://example.org").join(file)
+        input = File.expand_path("../data/#{file}", __FILE__)
         graph = RDF::Graph.load(input, format: :tabular, base_uri: about, debug: @debug)
 
-        expect(graph).to pass_query(query, debug: @debug, id: about)
+        expect(graph).to pass_query(query, debug: @debug, id: about, action: about)
       end
     end
   end
