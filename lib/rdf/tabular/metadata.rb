@@ -513,7 +513,7 @@ module RDF::Tabular
             errors << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
           end
         when :encoding
-          unless Encoding.find(value)
+          unless (Encoding.find(value) rescue false)
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected a valid encoding"
           end
         when :foreignKeys
@@ -766,12 +766,15 @@ module RDF::Tabular
       (1..skipped).each {csv.shift}
       csv.each do |data|
         # Check for embedded comments
-        if dialect.commentPrefix && data.first.start_with?(dialect.commentPrefix)
+        if dialect.commentPrefix && data.first.to_s.start_with?(dialect.commentPrefix)
           v = data.join(' ')[1..-1].strip
           unless v.empty?
             (self["rdfs:comment"] ||= []) << v
             yield RDF::Statement.new(nil, RDF::RDFS.comment, RDF::Literal(v))
           end
+          skipped += 1
+          next
+        elsif dialect.skipBlankRows && data.join("").strip.empty?
           skipped += 1
           next
         end

@@ -41,6 +41,10 @@ module RDF::Tabular
         @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
         @options[:base] ||= input.path if input.respond_to?(:path)
         @options[:base] ||= input.filename if input.respond_to?(:filename)
+        if RDF::URI(@options[:base]).relative? && File.exist?(@options[:base])
+          @options[:base] = "file:/#{File.expand_path(@options[:base])}"
+        end
+
         @options[:depth] ||= 0
 
         debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
