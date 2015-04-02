@@ -32,7 +32,7 @@ Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-tabular/f
   * {RDF::Tabular::Reader}
 
 ## Dependencies
-* [Ruby](http://ruby-lang.org/) (>= 1.9.2)
+* [Ruby](http://ruby-lang.org/) (>= 2.0.0)
 * [RDF.rb](http://rubygems.org/gems/rdf) (>= 1.0)
 * [JSON](https://rubygems.org/gems/json) (>= 1.5)
 
