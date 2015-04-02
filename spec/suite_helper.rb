@@ -10,6 +10,10 @@ module RDF::Util
     REMOTE_PATH = "http://w3c.github.io/csvw/"
     LOCAL_PATH = ::File.expand_path("../w3c-csvw", __FILE__) + '/'
 
+    class << self
+      alias_method :original_open_file, :open_file
+    end
+
     ##
     # Override to use Patron for http and https, Kernel.open otherwise.
     #
@@ -24,13 +28,10 @@ module RDF::Util
       when /^file:/
         path = filename_or_url.to_s[5..-1]
         Kernel.open(path.to_s, &block)
-      when %r{^(#{REMOTE_PATH}|http://www.w3.org/ns/csvw/?)}
+      when -> (k) {k =~ %r{^#{REMOTE_PATH}} && ::File.exist?(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH))}
         begin
           #puts "attempt to open #{filename_or_url} locally"
-          localpath = case filename_or_url.to_s
-          when %r{http://www.w3.org/ns/csvw/?} then ::File.join(LOCAL_PATH, "ns/csvw.jsonld")
-          else filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)
-          end
+          localpath = filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)
           response = begin
             ::File.open(localpath)
           rescue Errno::ENOENT
@@ -65,7 +66,7 @@ module RDF::Util
           end
         end
       else
-        Kernel.open(filename_or_url.to_s, "r:utf-8", &block)
+        original_open_file(filename_or_url, options, &block)
       end
     end
   end

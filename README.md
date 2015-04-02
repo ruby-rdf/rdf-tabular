@@ -1,6 +1,6 @@
 # Tabular Data RDF Reader and JSON serializer
 
-[RDF::Tabular][] reader for [RDF.rb][] and fully JSON serializer.
+[CSV][] reader for [RDF.rb][] and fully JSON serializer.
 
 [![Gem Version](https://badge.fury.io/rb/rdf-tabular.png)](http://badge.fury.io/rb/rdf-tabular)
 [![Build Status](https://secure.travis-ci.org/ruby-rdf/rdf-tabular.png?branch=master)](http://travis-ci.org/ruby-rdf/rdf-tabular)
@@ -17,13 +17,12 @@ Install with `gem install rdf-tabular`
     require 'rdf/tabular'
 
 ## RDF Reader
-{RDF::Tabular} also acts as a normal RDF reader, using the standard RDF.rb Reader interface:
+RDF::Tabular also acts as a normal RDF reader, using the standard RDF.rb Reader interface:
 
-    graph = RDF::Graph.load("etc/doap.csv")
+    graph = RDF::Graph.load("etc/doap.csv", minimal: true)
 
 ## Documentation
 Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-tabular/file/README.md)
-
 
 ### Principal Classes
 * {RDF::Tabular}
@@ -33,7 +32,7 @@ Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-tabular/f
   * {RDF::Tabular::Reader}
 
 ## Dependencies
-* [Ruby](http://ruby-lang.org/) (>= 1.9.2)
+* [Ruby](http://ruby-lang.org/) (>= 2.0.0)
 * [RDF.rb](http://rubygems.org/gems/rdf) (>= 1.0)
 * [JSON](https://rubygems.org/gems/json) (>= 1.5)
 
@@ -70,4 +69,5 @@ see <http://unlicense.org/> or the accompanying {file:UNLICENSE} file.
 [YARD-GS]:          http://rubydoc.info/docs/yard/file/docs/GettingStarted.md
 [PDD]:              http://lists.w3.org/Archives/Public/public-rdf-ruby/2010May/0013.html
 [RDF.rb]:           http://rubygems.org/gems/rdf
+[CSV]:              http://en.wikipedia.org/wiki/Comma-separated_values
 [W3C CSVW]:         http://www.w3.org/2013/csvw/wiki/Main_Page

@@ -12,7 +12,7 @@ end
 
 group :debug do
   gem "wirble"
-  gem "byebug", platform: :mri
+  gem "byebug",  platforms: [:mri_21]
 end
 
 group :development, :test do

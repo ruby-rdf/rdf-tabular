@@ -2,6 +2,7 @@ $:.unshift "."
 require 'spec_helper'
 require 'fileutils'
 
+WebMock.allow_net_connect!(net_http_connect_on_start: true)
 describe RDF::Tabular::Reader do
   require 'suite_helper'
 

@@ -35,6 +35,7 @@ parser_options = {
   :profile  => false,
   :validate => false,
   :strict   => false,
+  :minimal  => false,
 }
 
 options = {
@@ -49,6 +50,7 @@ opts = GetoptLong.new(
   ["--dbg", GetoptLong::NO_ARGUMENT],
   ["--execute", "-e", GetoptLong::REQUIRED_ARGUMENT],
   ["--format", GetoptLong::REQUIRED_ARGUMENT],
+  ["--minimal", GetoptLong::NO_ARGUMENT],
   ["--output", "-o", GetoptLong::REQUIRED_ARGUMENT],
   ["--quiet", GetoptLong::NO_ARGUMENT],
   ["--uri", GetoptLong::REQUIRED_ARGUMENT],
@@ -60,6 +62,7 @@ opts.each do |opt, arg|
   when '--dbg'          then parser_options[:debug] = ::RDF::Tabular::debug = true
   when '--execute'      then input = arg
   when '--format'       then options[:output_format] = arg.to_sym
+  when '--minimal'      then parser_options[:minimal] = true
   when '--output'       then options[:output] = File.open(arg, "w")
   when '--quiet'        then options[:quiet] = true
   when '--uri'          then parser_options[:base] = arg
