@@ -62,23 +62,22 @@ module RDF::Tabular
               @metadata = @metadata.merge(TableGroup.new({}))
             end
             @input = @metadata
+          elsif @options[:no_found_metadata]
+            # Extract embedded metadata and merge
+            table_metadata = @options[:metadata]
+            embedded_metadata = table_metadata.dialect.embedded_metadata(input, @options)
+            @metadata = table_metadata.dup.merge!(embedded_metadata)
           else
             # HTTP flags
-            if !@options[:no_found_metadata] &&
-               @input.respond_to?(:headers) &&
+            if @input.respond_to?(:headers) &&
                input.headers.fetch(:content_type, '').split(';').include?('header=absent')
-              @options[:metadata] ||= TableGroup.new({}, context: 'http://www.w3.org/ns/csvw')
+              @options[:metadata] ||= Table.new(url: @options[:base])
               @options[:metadata].dialect.header = false
             end
 
-            if @options[:no_found_metadata]
-              @metadata = @options[:metadata] # Which will be for a Table
-            else
-              # Otherwise, it's tabluar data. This will result in a TableGroup which we'll use as input
-              @metadata = Metadata.for_input(@input, @options)
-              @metadata = @metadata.merge(TableGroup.new({})) unless @metadata.is_a?(TableGroup)
-              @input = @metadata
-            end
+            # It's tabluar data. Find metadata and proceed as if it was specified in the first place
+            @metadata = Metadata.for_input(@input, @options)
+            @input = @metadata
           end
 
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}

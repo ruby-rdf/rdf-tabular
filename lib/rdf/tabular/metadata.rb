@@ -128,7 +128,7 @@ module RDF::Tabular
     end
 
     ##
-    # Return metadata for a file, based on user-specified, embedded and path-relative locations from an input file
+    # Return metadata for a file, based on user-specified and path-relative locations from an input file
     # @param [IO, StringIO] input
     # @param [Hash{Symbol => Object}] options
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
@@ -172,19 +172,16 @@ module RDF::Tabular
         end
       end
 
-      # Merge user and found to get dialect description
-      parse_md = if user_metadata && found_metadata
-        user_metadata.merge(found_metadata)
-      else
-        user_metadata || found_metadata || TableGroup.new({:@context => 'http://www.w3.org/ns/csvw'}, options)
+      # Return either the merge or user- and found-metadata, any of these, or an empty TableGroup
+      metadata = case
+      when user_metadata && found_metadata then user_metadata.merge(found_metadata)
+      when user_metadata then user_metadata
+      when found_metadata then found_metadata
+      else TableGroup.new({resources: [{url: base}]}, options)
       end
-      embedded_metadata = parse_md.dialect.embedded_metadata(input, options)
 
-      # Merge user metadata with embedded metadata 
-      embedded_metadata = user_metadata.merge(embedded_metadata) if user_metadata
-
-      # Merge embedded metadata with found
-      found_metadata ? embedded_metadata.merge(found_metadata) : embedded_metadata
+      # Make TableGroup, if not already
+      metadata.is_a?(TableGroup) ? metadata : metadata.merge(TableGroup.new({}))
     end
 
     ##
@@ -952,15 +949,17 @@ module RDF::Tabular
               object[key] = a + b
             when :resources
               # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
-              value.each do |t|
-                if ta = object[key].detect {|e| e.url == t.url}
+              value.each do |tb|
+                if ta = object[key].detect {|e| e.url == tb.url}
                   # if there is a table description with the same url in A, the table description from B is imported into the matching table description in A
-                  ta.merge!(t)
+                  debug("merge!: resources") {"TA: #{ta.inspect}, TB: #{tb.inspect}"}
+                  ta.merge!(tb)
                 else
                   # otherwise, the table description from B is appended to the array of table descriptions A
-                  t = t.dup
-                  t.instance_variable_set(:@parent, self)
-                  object[key] << t
+                  tb = tb.dup
+                  tb.instance_variable_set(:@parent, self)
+                  debug("merge!: resources") {"add TB: #{tb.inspect}"}
+                  object[key] << tb
                 end
               end
             when :transformations
@@ -979,28 +978,23 @@ module RDF::Tabular
               end
             when :columns
               # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
-              Array(value).each_with_index do |t, index|
-                ta = object[key][index]
-                if ta && ta[:name] && ta[:name] == t[:name] 
-                  debug("merge!: columns") {"index: #{index}, name=#{t[:name] }"}
-                  # if there is a column description at the same index within A and that column description has the same name, the column description from B is imported into the matching column description in A
-                  ta.merge!(t)
-                elsif ta && ta[:title] && t[:title] && (
-                  ta[:title].any? {|lang, values| !(Array(t[:title][lang]) & values).empty?} ||
-                  !(Array(ta[:title]['und']) & t[:title].values.flatten.compact).empty? ||
-                  !(Array(t[:title]['und']) & ta[:title].values.flatten.compact).empty?)
-                  debug("merge!: columns") {"index: #{index}, title=#{t.title}"}
-                  # otherwise, if there is a column description at the same index within A with a title that is also a title in A, considering the language of each title where und matches a value in any language, the column description from B is imported into the matching column description in A.
-                  ta.merge!(t)
-                elsif ta.nil? && t.virtual
+              Array(value).each_with_index do |cb, index|
+                ca = object[key][index] || {}
+                va = ([ca[:name]] + (ca[:title] || {}).values.flatten).compact.map(&:downcase)
+                vb = ([cb[:name]] + (cb[:title] || {}).values.flatten).compact.map(&:downcase)
+                if !(va & vb).empty?
+                  debug("merge!: columns") {"index: #{index}, va: #{va}, vb: #{vb}"}
+                  # If there's a non-empty case-insensitive intersection between the name and title values for the column description at the same index within A and B, the column description from B is imported into the matching column description in A
+                  ca.merge!(cb)
+                elsif ca.nil? && cb.virtual
                   debug("merge!: columns") {"index: #{index}, virtual"}
                   # otherwise, if at a given index there is no column description within A, but there is a column description within B.
-                  t = t.dup
-                  t.instance_variable_set(:@parent, self) if self
-                  object[key][index] = t
+                  cb = cb.dup
+                  cb.instance_variable_set(:@parent, self) if self
+                  object[key][index] = cb
                 else
                   debug("merge!: columns") {"index: #{index}, ignore"}
-                  raise Error, "Columns at same index don't match: #{ta.to_json} vs. #{t.to_json}"
+                  raise Error, "Columns at same index don't match: #{ca.to_json} vs. #{cb.to_json}"
                 end
               end
               # The number of non-virtual columns in A and B MUST be the same
