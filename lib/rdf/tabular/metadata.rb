@@ -1,4 +1,5 @@
 require 'json'
+require 'json/ld'
 require 'bcp47'
 require 'addressable/template'
 require 'rdf/xsd'

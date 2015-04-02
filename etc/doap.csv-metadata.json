@@ -1,0 +1,34 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "url": "doap.csv",
+  "tableSchema": {
+    "aboutUrl": "http://rubygems.org/gems/rdf-tabular",
+    "propertyUrl": "http://usefulinc.com/ns/doap#{_name}",
+    "null": "",
+    "columns": [
+      {"title": "name"},
+      {"title": "type", "propertyUrl": "rdf:type", "valueUrl": "{+type}"},
+      {"title": "homepage", "valueUrl": "{+homepage}"},
+      {"title": "license", "valueUrl": "{+license}"},
+      {"title": "shortdesc", "lang": "en"},
+      {"title": "description", "lang": "en"},
+      {"title": "created", "datatype": {"base": "date", "format": "M/d/yyyy"}},
+      {"title": "programming_language", "propertyUrl": "http://usefulinc.com/ns/doap#programming-language"},
+      {"title": "implements", "valueUrl": "{+implements}"},
+      {"title": "category", "valueUrl": "{+category}"},
+      {"title": "download_page", "propertyUrl": "http://usefulinc.com/ns/doap#download-page", "valueUrl": "{+download_page}"},
+      {"title": "mailing_list", "propertyUrl": "http://usefulinc.com/ns/doap#mailing-list", "valueUrl": "{+mailing_list}"},
+      {"title": "bug_database", "propertyUrl": "http://usefulinc.com/ns/doap#bug-database", "valueUrl": "{+bug_database}"},
+      {"title": "blog", "valueUrl": "{+blog}"},
+      {"title": "developer", "valueUrl": "{+developer}"},
+      {"title": "maintainer", "valueUrl": "{+maintainer}"},
+      {"title": "documenter", "valueUrl": "{+documenter}"},
+      {"title": "maker", "propertyUrl": "foaf:maker", "valueUrl": "{+maker}"},
+      {"title": "dc_title", "propertyUrl": "dc:title"},
+      {"title": "dc_description", "propertyUrl": "dc:description", "lang": "en"},
+      {"title": "dc_date", "propertyUrl": "dc:date", "datatype": {"base": "date", "format": "M/d/yyyy"}},
+      {"title": "dc_creator", "propertyUrl": "dc:creator", "valueUrl": "{+dc_creator}"},
+      {"title": "isPartOf", "propertyUrl": "dc:isPartOf", "valueUrl": "{+isPartOf}"}
+    ]
+  }
+}
