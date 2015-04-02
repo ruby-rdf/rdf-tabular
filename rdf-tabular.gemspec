@@ -15,7 +15,7 @@ Gem::Specification.new do |gem|
   gem.email                 = 'public-rdf-ruby@w3.org'
 
   gem.platform              = Gem::Platform::RUBY
-  gem.files                 = %w(AUTHORS README.md UNLICENSE VERSION etc/doap.* etc/csvw.jsonld) + Dir.glob('lib/**/*.rb')
+  gem.files                 = %w(AUTHORS README.md UNLICENSE VERSION) + Dir.glob('etc/*') + Dir.glob('lib/**/*.rb')
   gem.require_paths         = %w(lib)
   gem.extensions            = %w()
   gem.test_files            = Dir.glob('spec/**')
@@ -35,7 +35,7 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'sparql',          '~> 1.1'
   gem.add_development_dependency 'rspec',           '~> 3.0'
   gem.add_development_dependency 'rspec-its',       '~> 1.0'
-  gem.add_development_dependency 'webmock',     '~> 1.17'
+  gem.add_development_dependency 'webmock',         '~> 1.17'
 
   gem.post_install_message  = nil
 end
