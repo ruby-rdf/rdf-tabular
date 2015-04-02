@@ -92,6 +92,10 @@ module RDF::Tabular
     # @return [RegExp]
     NAME_SYNTAX = %r(\A(?:_col|[a-zA-Z0-9]|%\h\h)([a-zA-Z0-9\._]|%\h\h)*\z)
 
+    # Local version of the context
+    # @return [JSON::LD::Context]
+    LOCAL_CONTEXT = ::JSON::LD::Context.new.parse(File.expand_path("../../../../etc/csvw.jsonld", __FILE__))
+
     # ID of this Metadata
     # @return [RDF::URI]
     attr_reader :id
@@ -261,7 +265,14 @@ module RDF::Tabular
       @options = options.dup
 
       # Get context from input
-      @context = ::JSON::LD::Context.new.parse(input['@context']) if input.has_key?('@context')
+      # Optimize by using built-in version of context, and just extract @base, @lang
+      @context = case input['@context']
+      when Array then LOCAL_CONTEXT.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
+      when Hash  then LOCAL_CONTEXT.parse(input['@context'])
+      when nil   then nil
+      else            LOCAL_CONTEXT
+      end
+
       reason = @options.delete(:reason)
 
       @options[:base] ||= @context.base if @context

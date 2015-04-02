@@ -34,6 +34,11 @@ namespace :doc do
   end
 end
 
+desc "Update copy of CSVW context"
+task :context do
+  %x(curl -o etc/csvw.jsonld http://w3c.github.io/csvw/ns/csvw.jsonld)
+end
+
 desc "Create CSVW vocabulary definition"
 task :vocab do
   puts "Generate lib/rdf/tabular/csvw.rb"
