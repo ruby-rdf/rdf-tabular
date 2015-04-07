@@ -748,7 +748,7 @@ describe RDF::Tabular::Metadata do
         "encoding Dialect" => [{"encoding" => "utf-8"}, RDF::Tabular::Dialect],
         "header Dialect" => [{"header" => true}, RDF::Tabular::Dialect],
         "headerRowCount Dialect" => [{"headerRowCount" => 1}, RDF::Tabular::Dialect],
-        "lineTerminator Dialect" => [{"lineTerminator" => "\r\n"}, RDF::Tabular::Dialect],
+        "lineTerminators Dialect" => [{"lineTerminators" => "\r\n"}, RDF::Tabular::Dialect],
         "quoteChar Dialect" => [{"quoteChar" => "\""}, RDF::Tabular::Dialect],
         "skipBlankRows Dialect" => [{"skipBlankRows" => true}, RDF::Tabular::Dialect],
         "skipColumns Dialect" => [{"skipColumns" => 0}, RDF::Tabular::Dialect],

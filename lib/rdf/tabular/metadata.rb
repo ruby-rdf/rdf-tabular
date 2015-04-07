@@ -229,7 +229,7 @@ module RDF::Tabular
           when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
           when %w(name required).any? {|k| object_keys.include?(k)} then :Column
           when %w(commentPrefix delimiter doubleQuote encoding header headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
-          when %w(lineTerminator quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
+          when %w(lineTerminators quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
           end
 
           case type.to_s.to_sym
@@ -507,7 +507,7 @@ module RDF::Tabular
           unless value.is_a?(String) && value.length == 1
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected a single character string"
           end
-        when :format, :lineTerminator, :uriTemplate
+        when :format, :lineTerminators, :uriTemplate
           unless value.is_a?(String)
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
           end
@@ -1246,7 +1246,7 @@ module RDF::Tabular
     def csv_options
       {
         col_sep: (is_a?(Dialect) ? self : dialect).delimiter,
-        row_sep: (is_a?(Dialect) ? self : dialect).lineTerminator,
+        row_sep: Array((is_a?(Dialect) ? self : dialect).lineTerminators).first,
         quote_char: (is_a?(Dialect) ? self : dialect).quoteChar,
         encoding: (is_a?(Dialect) ? self : dialect).encoding
       }
@@ -1557,7 +1557,7 @@ module RDF::Tabular
       encoding:           "utf-8".freeze,
       header:             true,
       headerRowCount:     1,
-      lineTerminator:     :auto, # SPEC says "\r\n"
+      lineTerminators:    :auto,
       quoteChar:          '"',
       skipBlankRows:      false,
       skipColumns:        0,
@@ -1575,7 +1575,7 @@ module RDF::Tabular
       encoding:           :atomic,
       header:             :atomic,
       headerRowCount:     :atomic,
-      lineTerminator:     :atomic,
+      lineTerminators:    :atomic,
       quoteChar:          :atomic,
       skipBlankRows:      :atomic,
       skipColumns:        :atomic,

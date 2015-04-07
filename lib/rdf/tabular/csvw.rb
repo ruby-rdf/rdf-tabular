@@ -168,10 +168,10 @@ module RDF::Tabular
       range: "xsd:nonNegativeInteger".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
-    property :lineTerminator,
+    property :lineTerminators,
       comment: %(The character that is used at the end of a row. The default is CRLF.).freeze,
       domain: "http://www.w3.org/ns/csvw#Dialect".freeze,
-      label: "line terminator".freeze,
+      label: "line terminators".freeze,
       range: "xsd:string".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
