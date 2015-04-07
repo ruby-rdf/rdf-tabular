@@ -148,14 +148,6 @@ module RDF::Tabular
       range: "xsd:boolean".freeze,
       "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
       type: "rdf:Property".freeze
-    property :headerColumnCount,
-      comment: %(The number of header columns \(following the skipped columns\) in each row. The default is 0.
-).freeze,
-      domain: "http://www.w3.org/ns/csvw#Dialect".freeze,
-      label: "header column count".freeze,
-      range: "xsd:nonNegativeInteger".freeze,
-      "rdfs:isDefinedBy" => %(http://www.w3.org/ns/csvw#).freeze,
-      type: "rdf:Property".freeze
     property :headerRowCount,
       comment: %(The number of header rows \(following the skipped rows\) in the file. The default is 1.).freeze,
       domain: "http://www.w3.org/ns/csvw#Dialect".freeze,

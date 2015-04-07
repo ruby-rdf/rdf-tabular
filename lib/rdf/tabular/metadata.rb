@@ -228,7 +228,7 @@ module RDF::Tabular
           when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Transformation
           when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
           when %w(name required).any? {|k| object_keys.include?(k)} then :Column
-          when %w(commentPrefix delimiter doubleQuote encoding header headerColumnCount headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
+          when %w(commentPrefix delimiter doubleQuote encoding header headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
           when %w(lineTerminator quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
           end
 
@@ -581,7 +581,7 @@ module RDF::Tabular
               errors << "#{type} has invalid property '#{key}': reference must be an object: #{reference.inspect}" 
             end
           end
-        when :headerColumnCount, :headerRowCount, :skipColumns, :skipRows
+        when :headerRowCount, :skipColumns, :skipRows
           unless value.is_a?(Numeric) && value.integer? && value > 0
             errors << "#{type} has invalid property '#{key}': #{value.inspect} must be a positive integer"
           end
@@ -1484,7 +1484,7 @@ module RDF::Tabular
     # @note this is lazy evaluated to avoid dependencies on setting dialect vs. initializing columns
     # @return [Integer] 1-based colnum number
     def sourceNumber
-      skipColumns = table ? (dialect.skipColumns.to_i + dialect.headerColumnCount.to_i) : 0
+      skipColumns = table ? dialect.skipColumns.to_i : 0
       number + skipColumns
     end
 
@@ -1556,7 +1556,6 @@ module RDF::Tabular
       doubleQuote:        true,
       encoding:           "utf-8".freeze,
       header:             true,
-      headerColumnCount:  0,
       headerRowCount:     1,
       lineTerminator:     :auto, # SPEC says "\r\n"
       quoteChar:          '"',
@@ -1575,7 +1574,6 @@ module RDF::Tabular
       doubleQuote:        :atomic,
       encoding:           :atomic,
       header:             :atomic,
-      headerColumnCount:  :atomic,
       headerRowCount:     :atomic,
       lineTerminator:     :atomic,
       quoteChar:          :atomic,
@@ -1655,7 +1653,7 @@ module RDF::Tabular
         row_data = Array(csv.shift)
         Array(row_data).each_with_index do |value, index|
           # Skip columns
-          skipCols = skipColumns.to_i + headerColumnCount.to_i
+          skipCols = skipColumns.to_i
           next if index < skipCols
 
           # Trim value
@@ -1759,7 +1757,7 @@ module RDF::Tabular
       @number = number
       @sourceNumber = source_number
       @values = []
-      skipColumns = metadata.dialect.skipColumns.to_i + metadata.dialect.headerColumnCount.to_i
+      skipColumns = metadata.dialect.skipColumns.to_i
 
       @context = table.context.dup
       @context.base = table.url

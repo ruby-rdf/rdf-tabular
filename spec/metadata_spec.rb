@@ -531,24 +531,6 @@ describe RDF::Tabular::Metadata do
             }
           })
         },
-        "headerColumnCount" => {
-          input: "https://example.org/tree-ops.csv",
-          dialect: {headerColumnCount: 1},
-          result: %({
-            "@context": "http://www.w3.org/ns/csvw",
-            "@type": "Table",
-            "url": "https://example.org/tree-ops.csv",
-            "tableSchema": {
-              "@type": "Schema",
-              "columns": [
-                {"title": {"und": ["On Street"]}},
-                {"title": {"und": ["Species"]}},
-                {"title": {"und": ["Trim Cycle"]}},
-                {"title": {"und": ["Inventory Date"]}}
-              ]
-            }
-          })
-        },
       }.each do |name, props|
         it name do
           dialect = if props[:dialect]
@@ -765,7 +747,6 @@ describe RDF::Tabular::Metadata do
         "doubleQuote Dialect" => [{"doubleQuote" => true}, RDF::Tabular::Dialect],
         "encoding Dialect" => [{"encoding" => "utf-8"}, RDF::Tabular::Dialect],
         "header Dialect" => [{"header" => true}, RDF::Tabular::Dialect],
-        "headerColumnCount Dialect" => [{"headerColumnCount" => 0}, RDF::Tabular::Dialect],
         "headerRowCount Dialect" => [{"headerRowCount" => 1}, RDF::Tabular::Dialect],
         "lineTerminator Dialect" => [{"lineTerminator" => "\r\n"}, RDF::Tabular::Dialect],
         "quoteChar Dialect" => [{"quoteChar" => "\""}, RDF::Tabular::Dialect],
@@ -961,8 +942,6 @@ describe RDF::Tabular::Metadata do
         "headerRowCount" => {dialect: {headerRowCount: 0}},
         "skipRows + headerRowCount" => {dialect: {skipRows: 1, headerRowCount: 0}},
         "skipColumns" => {dialect: {skipColumns: 1}},
-        "headerColumnCount" => {dialect: {headerColumnCount: 0}},
-        "skipColumns + headerColumnCount" => {dialect: {skipColumns: 1, headerColumnCount: 0}},
       }.each do |name, props|
         context name do
           subject {
@@ -995,7 +974,7 @@ describe RDF::Tabular::Metadata do
           }
           let(:rows) {subject.to_enum(:each_row, input).to_a}
           let(:rowOffset) {props[:dialect].fetch(:skipRows, 0) + props[:dialect].fetch(:headerRowCount, 1)}
-          let(:columnOffset) {props[:dialect].fetch(:skipColumns, 0) + props[:dialect].fetch(:headerColumnCount, 0)}
+          let(:columnOffset) {props[:dialect].fetch(:skipColumns, 0)}
           it "has expected number attributes" do
             nums = [1, 2, 3, 4]
             nums = nums.first(nums.length - rowOffset)
