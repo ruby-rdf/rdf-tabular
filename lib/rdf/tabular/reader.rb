@@ -216,6 +216,7 @@ module RDF::Tabular
           unless minimal?
             add_statement(row.sourceNumber, table_resource, CSVW.row, row_resource)
             add_statement(row.sourceNumber, row_resource, CSVW.rownum, row.number)
+            add_statement(row.sourceNumber, row_resource, RDF.type, CSVW.Row)
             add_statement(row.sourceNumber, row_resource, CSVW.url, row.id)
           end
           row.values.each_with_index do |cell, index|

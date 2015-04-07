@@ -29,10 +29,12 @@
       dc:modified "2010-12-31"^^xsd:date;
       dc:publisher "Example Municipality"@en;
       csvw:row [
+        a csvw:Row;
         csvw:describes :gid-1;
         csvw:rownum 1;
         csvw:url <http://example.org/tree-ops.csv#row=2>
       ],  [
+        a csvw:Row;
         csvw:describes :gid-2;
         csvw:rownum 2;
         csvw:url <http://example.org/tree-ops.csv#row=3>
