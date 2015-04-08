@@ -52,9 +52,29 @@ describe RDF::Tabular::Reader do
       allow_any_instance_of(RDF::Tabular::Dialect).to receive(:embedded_metadata).and_return(RDF::Tabular::Table.new({}))
       allow_any_instance_of(RDF::Tabular::Metadata).to receive(:each_row).and_yield(RDF::Statement.new)
     }
+    it "sets delimiter to TAB in dialect given text/tsv" do
+      input = double("input", content_type: "text/tsv", headers: {content_type: "text/tsv"}, charset: nil)
+      expect_any_instance_of(RDF::Tabular::Dialect).to receive(:separator=).with("\t")
+      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+    end
     it "sets header to false in dialect given header=absent" do
       input = double("input", content_type: "text/csv", headers: {content_type: "text/csv;header=absent"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Dialect).to receive(:header=).with(false)
+      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+    end
+    it "sets encoding to ISO-8859-4 in dialect given charset=ISO-8859-4" do
+      input = double("input", content_type: "text/csv", headers: {content_type: "text/csv;charset=ISO-8859-4"}, charset: "ISO-8859-4")
+      expect_any_instance_of(RDF::Tabular::Dialect).to receive(:encoding=).with("ISO-8859-4")
+      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+    end
+    it "sets lang to de in metadata given Content-Language=de" do
+      input = double("input", content_type: "text/csv", headers: {content_language: "de"}, charset: nil)
+      expect_any_instance_of(RDF::Tabular::Metadata).to receive(:lang=).with("de")
+      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+    end
+    it "does not set lang with two languages in metadata given Content-Language=de, en" do
+      input = double("input", content_type: "text/csv", headers: {content_language: "de, en"}, charset: nil)
+      expect_any_instance_of(RDF::Tabular::Metadata).not_to receive(:lang=)
       RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
     end
   end

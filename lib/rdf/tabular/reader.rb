@@ -73,8 +73,13 @@ module RDF::Tabular
 
             # HTTP flags for setting header values
             dialect.header = false if (input.headers.fetch(:content_type, '').split(';').include?('header=absent') rescue false)
+            dialect.encoding = input.charset if (input.charset rescue nil)
+            dialect.separator = "\t" if (input.content_type == "text/tsv" rescue nil)
 
             embedded_metadata = dialect.embedded_metadata(input, @options)
+            if lang = (input.headers[:content_language] rescue "")
+              embedded_metadata.lang = lang unless lang.include?(',')
+            end
 
             @metadata = table_metadata.dup.merge!(embedded_metadata)
           else
