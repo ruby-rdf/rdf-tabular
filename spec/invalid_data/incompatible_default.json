@@ -1,6 +1,6 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
-  "resources": [{
+  "tables": [{
     "url": "dt1.csv",
     "default": "bar",
     "tableSchema": {

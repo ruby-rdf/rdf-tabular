@@ -182,8 +182,8 @@ module RDF::Tabular
       when user_metadata && found_metadata then user_metadata.merge(found_metadata)
       when user_metadata                   then user_metadata
       when found_metadata                  then found_metadata
-      when base                            then TableGroup.new({resources: [{url: base}]}, options)
-      else                                      TableGroup.new({resources: []}, options)
+      when base                            then TableGroup.new({tables: [{url: base}]}, options)
+      else                                      TableGroup.new({tables: []}, options)
       end
 
       # Make TableGroup, if not already
@@ -224,7 +224,7 @@ module RDF::Tabular
           # Figure out type by site
           object_keys = object.keys.map(&:to_s)
           type ||= case
-          when %w(resources).any? {|k| object_keys.include?(k)} then :TableGroup
+          when %w(tables).any? {|k| object_keys.include?(k)} then :TableGroup
           when %w(dialect tableSchema transformations).any? {|k| object_keys.include?(k)} then :Table
           when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Transformation
           when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
@@ -330,7 +330,7 @@ module RDF::Tabular
               value
             end
             @type ||= :Table
-          when :resources
+          when :tables
             # An array of table descriptions for the tables in the group.
             object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
               value.map {|v| Table.new(v, @options.merge(parent: self, context: nil))}
@@ -550,13 +550,13 @@ module RDF::Tabular
                   end
                   # resource is the URL of a Table in the TableGroup
                   ref = base.join(reference['resource']).to_s
-                  table = root.is_a?(TableGroup) && root.resources.detect {|t| t.url == ref}
+                  table = root.is_a?(TableGroup) && root.tables.detect {|t| t.url == ref}
                   errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
                   table.tableSchema if table
                 elsif reference.has_key?('schemaReference')
                   # resource is the @id of a Schema in the TableGroup
                   ref = base.join(reference['schemaReference']).to_s
-                  tables = root.is_a?(TableGroup) ? root.resources.select {|t| t.tableSchema[:@id] == ref} : []
+                  tables = root.is_a?(TableGroup) ? root.tables.select {|t| t.tableSchema[:@id] == ref} : []
                   case tables.length
                   when 0
                     errors << "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
@@ -619,7 +619,7 @@ module RDF::Tabular
           Array(value).each do |k|
             errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c.name == k}
           end
-        when :resources
+        when :tables
           if value.is_a?(Array) && value.all? {|v| v.is_a?(Table)}
             value.each do |t|
               begin
@@ -665,8 +665,8 @@ module RDF::Tabular
           else
             errors << "#{type} has invalid property '#{key}': expected array of Transformations"
           end
-        when :title
-          valid_natural_language_property?(:title, value) {|m| errors << m}
+        when :titles
+          valid_natural_language_property?(:titles, value) {|m| errors << m}
         when :trim
           unless %w(true false 1 0 start end).include?(value.to_s.downcase)
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected true, false, 1, 0, start or end"
@@ -890,7 +890,7 @@ module RDF::Tabular
         if self.is_a?(Table) && self.parent
           self.parent
         else
-          content = {"@type" => "TableGroup", "resources" => [self]}
+          content = {"@type" => "TableGroup", "tables" => [self]}
           content['@context'] = object.delete(:@context) if object[:@context]
           ctx = @context
           self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context)
@@ -909,7 +909,7 @@ module RDF::Tabular
           if md.parent
             md.parent
           else
-            content = {"@type" => "TableGroup", "resources" => [md]}
+            content = {"@type" => "TableGroup", "tables" => [md]}
             ctx = md.context
             content['@context'] = md.object.delete(:@context) if md.object[:@context]
             md.remove_instance_variable(:@context) if md.instance_variables.include?(:@context) 
@@ -964,18 +964,18 @@ module RDF::Tabular
               a = object[key].is_a?(Array) ? object[key] : [object[key]].compact
               b = value.is_a?(Array) ? value : [value]
               object[key] = a + b
-            when :resources
+            when :tables
               # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
               value.each do |tb|
                 if ta = object[key].detect {|e| e.url == tb.url}
                   # if there is a table description with the same url in A, the table description from B is imported into the matching table description in A
-                  debug("merge!: resources") {"TA: #{ta.inspect}, TB: #{tb.inspect}"}
+                  debug("merge!: tables") {"TA: #{ta.inspect}, TB: #{tb.inspect}"}
                   ta.merge!(tb)
                 else
                   # otherwise, the table description from B is appended to the array of table descriptions A
                   tb = tb.dup
                   tb.instance_variable_set(:@parent, self)
-                  debug("merge!: resources") {"add TB: #{tb.inspect}"}
+                  debug("merge!: tables") {"add TB: #{tb.inspect}"}
                   object[key] << tb
                 end
               end
@@ -997,11 +997,11 @@ module RDF::Tabular
               # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
               Array(value).each_with_index do |cb, index|
                 ca = object[key][index] || {}
-                va = ([ca[:name]] + (ca[:title] || {}).values.flatten).compact.map(&:downcase)
-                vb = ([cb[:name]] + (cb[:title] || {}).values.flatten).compact.map(&:downcase)
+                va = ([ca[:name]] + (ca[:titles] || {}).values.flatten).compact.map(&:downcase)
+                vb = ([cb[:name]] + (cb[:titles] || {}).values.flatten).compact.map(&:downcase)
                 if !(va & vb).empty?
                   debug("merge!: columns") {"index: #{index}, va: #{va}, vb: #{vb}"}
-                  # If there's a non-empty case-insensitive intersection between the name and title values for the column description at the same index within A and B, the column description from B is imported into the matching column description in A
+                  # If there's a non-empty case-insensitive intersection between the name and titles values for the column description at the same index within A and B, the column description from B is imported into the matching column description in A
                   ca.merge!(cb)
                 elsif ca.nil? && cb.virtual
                   debug("merge!: columns") {"index: #{index}, virtual"}
@@ -1271,7 +1271,7 @@ module RDF::Tabular
       :@id              => :link,
       :@type            => :atomic,
       notes:               :array,
-      resources:           :array,
+      tables:              :array,
       tableSchema:         :object,
       tableDirection:      :atomic,
       dialect:             :object,
@@ -1295,7 +1295,7 @@ module RDF::Tabular
     # Does the Metadata or any descendant have any common properties
     # @return [Boolean]
     def has_annotations?
-      super || resources.any? {|t| t.has_annotations? }
+      super || tables.any? {|t| t.has_annotations? }
     end
 
     # Logic for accessing elements as accessors
@@ -1308,10 +1308,10 @@ module RDF::Tabular
     end
 
     ##
-    # Iterate over all resources
+    # Iterate over all tables
     # @yield [Table]
-    def each_resource
-      resources.map(&:url).each do |url|
+    def each_table
+      tables.map(&:url).each do |url|
         yield for_table(url)
       end
     end
@@ -1322,9 +1322,9 @@ module RDF::Tabular
     # @param [String] url of the table
     # @return [Table]
     def for_table(url)
-      # If there are no resources, assume there's one for this table
-      #self.resources ||= [Table.new(url: url)]
-      if table = Array(resources).detect {|t| t.url == url}
+      # If there are no tables, assume there's one for this table
+      #self.tables ||= [Table.new(url: url)]
+      if table = Array(tables).detect {|t| t.url == url}
         # Set document base for this table for resolving URLs
         table.instance_variable_set(:@context, context.dup)
         table.context.base = url
@@ -1337,7 +1337,7 @@ module RDF::Tabular
       {
         "@id" => id,
         "@type" => "AnnotatedTableGroup",
-        "resources" => resources.map(&:to_atd)
+        "tables" => tables.map(&:to_atd)
       }
     end
   end
@@ -1403,7 +1403,7 @@ module RDF::Tabular
       source:         :atomic,
       targetFormat:   :link,
       scriptFormat:   :link,
-      title:          :natural_language,
+      titles:         :natural_language,
       url:            :link,
     }.freeze
     REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
@@ -1464,7 +1464,7 @@ module RDF::Tabular
       :@type       => :atomic,
       name:           :atomic,
       suppressOutput: :atomic,
-      title:          :natural_language,
+      titles:         :natural_language,
       required:       :atomic,
       virtual:        :atomic,
     }.freeze
@@ -1508,9 +1508,9 @@ module RDF::Tabular
       end
     end
 
-    # Return or create a name for the column from title, if it exists
+    # Return or create a name for the column from titles, if it exists
     def name
-      object[:name] ||= if title && (ts = title[context.default_language || 'und'])
+      object[:name] ||= if titles && (ts = titles[context.default_language || 'und'])
         n = Array(ts).first
         n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
         n1 = URI.encode(n[1..-1], /[^\w\.]/)
@@ -1536,7 +1536,7 @@ module RDF::Tabular
         "cells" => [],
         "virtual" => self.virtual,
         "name" => self.name,
-        "title" => self.title
+        "titles" => self.titles
       }
     end
 
@@ -1662,13 +1662,12 @@ module RDF::Tabular
           value.lstrip! if %w(true start).include?(trim.to_s)
           value.rstrip! if %w(true end).include?(trim.to_s)
 
-          # Initialize title
-          # SPEC CONFUSION: does title get an array, or concatenated values?
+          # Initialize titles
           columns = table["tableSchema"]["columns"] ||= []
           column = columns[index - skipCols] ||= {
-            "title" => {"und" => []},
+            "titles" => {"und" => []},
           }
-          column["title"]["und"] << value
+          column["titles"]["und"] << value
         end
       end
       debug("embedded_metadata") {"table: #{table.inspect}"}

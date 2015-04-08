@@ -138,7 +138,7 @@ module RDF::Tabular
               end unless minimal?
 
               # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
-              if input.resources.empty? && options[:original_input]
+              if input.tables.empty? && options[:original_input]
                 table_resource = RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                 Reader.new(options[:original_input], options.merge(
@@ -149,7 +149,7 @@ module RDF::Tabular
                   r.each_statement(&block)
                 end
               else
-                input.each_resource do |table|
+                input.each_table do |table|
                   next if table.suppressOutput
                   table_resource = table.id || RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
@@ -174,7 +174,7 @@ module RDF::Tabular
                 add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
                 add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
 
-                unless (urls = input.resources.map(&:url)).empty?
+                unless (urls = input.tables.map(&:url)).empty?
                   usage = RDF::Node.new
                   add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
                   add_statement(0, usage, RDF.type, RDF::PROV.Usage)
@@ -365,7 +365,7 @@ module RDF::Tabular
 
             table_group['table'] = tables
 
-            if input.resources.empty? && options[:original_input]
+            if input.tables.empty? && options[:original_input]
               md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
               Reader.new(options[:original_input], options.merge(
                   metadata: md,
@@ -379,7 +379,7 @@ module RDF::Tabular
                 end
               end
             else
-              input.each_resource do |table|
+              input.each_table do |table|
                 next if table.suppressOutput
                 Reader.open(table.url, options.merge(
                   format:             :tabular,
@@ -526,7 +526,7 @@ module RDF::Tabular
           when :TableGroup
             table_group = input.to_atd
 
-            input.each_resource do |table|
+            input.each_table do |table|
               Reader.open(table.url, options.merge(
                 format:             :tabular,
                 metadata:           table,
@@ -537,7 +537,7 @@ module RDF::Tabular
                 table = r.to_atd(options)
                 
                 # Fill in columns and rows in table_group entry from returned table
-                t = table_group[:resources].detect {|tab| tab["url"] == table["url"]}
+                t = table_group[:tables].detect {|tab| tab["url"] == table["url"]}
                 t["columns"] = table["columns"]
                 t["rows"] = table["rows"]
               end
