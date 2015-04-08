@@ -47,6 +47,18 @@ describe RDF::Tabular::Reader do
     readers.each { |reader| expect(reader).to eq RDF::Tabular::Reader }
   end
 
+  context "HTTP Headers" do
+    before(:each) {
+      allow_any_instance_of(RDF::Tabular::Dialect).to receive(:embedded_metadata).and_return(RDF::Tabular::Table.new({}))
+      allow_any_instance_of(RDF::Tabular::Metadata).to receive(:each_row).and_yield(RDF::Statement.new)
+    }
+    it "sets header to false in dialect given header=absent" do
+      input = double("input", content_type: "text/csv", headers: {content_type: "text/csv;header=absent"}, charset: nil)
+      expect_any_instance_of(RDF::Tabular::Dialect).to receive(:header=).with(false)
+      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+    end
+  end
+
   context "Test Files" do
     test_files = {
       "tree-ops.csv" => "tree-ops-standard.ttl",

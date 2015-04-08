@@ -22,7 +22,7 @@ module RDF::Tabular
     ##
     # Initializes the RDF::Tabular Reader instance.
     #
-    # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>]       input
+    # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>, String]       input
     #   An opened file possibly JSON Metadata,
     #   or an Array used as an internalized array of arrays
     # @param  [Hash{Symbol => Object}] options
@@ -41,7 +41,7 @@ module RDF::Tabular
         @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
         @options[:base] ||= input.path if input.respond_to?(:path)
         @options[:base] ||= input.filename if input.respond_to?(:filename)
-        if RDF::URI(@options[:base]).relative? && File.exist?(@options[:base])
+        if RDF::URI(@options[:base]).relative? && File.exist?(@options[:base].to_s)
           @options[:base] = "file:/#{File.expand_path(@options[:base])}"
         end
 
@@ -69,19 +69,18 @@ module RDF::Tabular
           elsif @options[:no_found_metadata]
             # Extract embedded metadata and merge
             table_metadata = @options[:metadata]
-            embedded_metadata = table_metadata.dialect.embedded_metadata(input, @options)
+            dialect = table_metadata.dialect.dup
+
+            # HTTP flags for setting header values
+            dialect.header = false if (input.headers.fetch(:content_type, '').split(';').include?('header=absent') rescue false)
+
+            embedded_metadata = dialect.embedded_metadata(input, @options)
+
             @metadata = table_metadata.dup.merge!(embedded_metadata)
           else
-            # HTTP flags
-            if @input.respond_to?(:headers) &&
-               input.headers.fetch(:content_type, '').split(';').include?('header=absent')
-              @options[:metadata] ||= Table.new(url: @options[:base])
-              @options[:metadata].dialect.header = false
-            end
-
             # It's tabluar data. Find metadata and proceed as if it was specified in the first place
-            @metadata = Metadata.for_input(@input, @options)
-            @input = @metadata
+            @options[:original_input] = @input
+            @input = @metadata = Metadata.for_input(@input, @options)
           end
 
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
@@ -128,18 +127,31 @@ module RDF::Tabular
                 end
               end unless minimal?
 
-              input.each_resource do |table|
-                next if table.suppressOutput
-                table_resource = table.id || RDF::Node.new
+              # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
+              if input.resources.empty? && options[:original_input]
+                table_resource = RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
-                Reader.open(table.url, options.merge(
-                    format: :tabular,
-                    metadata: table,
-                    base: table.url,
+                Reader.new(options[:original_input], options.merge(
+                    metadata: Table.new({url: "http://example.org/default-metadata"}),
                     no_found_metadata: true,
                     table_resource: table_resource
                 )) do |r|
                   r.each_statement(&block)
+                end
+              else
+                input.each_resource do |table|
+                  next if table.suppressOutput
+                  table_resource = table.id || RDF::Node.new
+                  add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
+                  Reader.open(table.url, options.merge(
+                      format: :tabular,
+                      metadata: table,
+                      base: table.url,
+                      no_found_metadata: true,
+                      table_resource: table_resource
+                  )) do |r|
+                    r.each_statement(&block)
+                  end
                 end
               end
 

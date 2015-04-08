@@ -180,9 +180,10 @@ module RDF::Tabular
       # Return either the merge or user- and found-metadata, any of these, or an empty TableGroup
       metadata = case
       when user_metadata && found_metadata then user_metadata.merge(found_metadata)
-      when user_metadata then user_metadata
-      when found_metadata then found_metadata
-      else TableGroup.new({resources: [{url: base}]}, options)
+      when user_metadata                   then user_metadata
+      when found_metadata                  then found_metadata
+      when base                            then TableGroup.new({resources: [{url: base}]}, options)
+      else                                      TableGroup.new({resources: []}, options)
       end
 
       # Make TableGroup, if not already
@@ -671,6 +672,7 @@ module RDF::Tabular
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected true, false, 1, 0, start or end"
           end
         when :url
+          # Only validate URL in validation mode; this allows for a nil URL
           unless @url.valid?
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected valid absolute URL"
           end
@@ -1623,8 +1625,8 @@ module RDF::Tabular
       options = options.dup
       options.delete(:context) # Don't accidentally use a passed context
       # Normalize input to an IO object
-      if !input.respond_to?(:read)
-        return ::RDF::Util::File.open_file(input.to_s) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
+      if input.is_a?(String)
+        return ::RDF::Util::File.open_file(input) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
       end
 
       table = {

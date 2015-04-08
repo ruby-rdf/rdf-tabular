@@ -45,7 +45,8 @@ module RDF::Util
           }
           #puts "use #{filename_or_url} locally"
           document_options[:headers][:content_type] = case filename_or_url.to_s
-          when /\.csv$/   then 'text/csv'
+          when /\.csv$/    then 'text/csv'
+          when /\.tsv$/    then 'text/tsv'
           when /\.json$/   then 'application/json'
           when /\.jsonld$/ then 'application/ld+json'
           else                  'unknown'
