@@ -52,7 +52,12 @@ module RDF::Tabular
         # Minimal implies noProv
         @options[:noProv] ||= @options[:minimal]
 
-        @input = input.is_a?(String) ? StringIO.new(input) : input
+        #byebug if input.is_a?(Array)
+        @input = case input
+        when String then StringIO.new(input)
+        when Array then StringIO.new(input.map {|r| r.join(",")}.join("\n"))
+        else input
+        end
 
         depth do
           # If input is JSON, then the input is the metadata
@@ -137,7 +142,7 @@ module RDF::Tabular
                 table_resource = RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                 Reader.new(options[:original_input], options.merge(
-                    metadata: Table.new({url: "http://example.org/default-metadata"}),
+                    metadata: Table.new({url: options.fetch(:base, "http://example.org/default-metadata")}),
                     no_found_metadata: true,
                     table_resource: table_resource
                 )) do |r|
@@ -299,7 +304,7 @@ module RDF::Tabular
     # @option options [::JSON::State] :state used when dumping
     # @option options [Boolean] :atd output Abstract Table representation instead
     # @return [String]
-    def to_json(options = {})
+    def to_json(options = @options)
       io = case options
       when IO, StringIO then options
       when Hash then options[:io]
@@ -360,18 +365,33 @@ module RDF::Tabular
 
             table_group['table'] = tables
 
-            input.each_resource do |table|
-              next if table.suppressOutput
-              Reader.open(table.url, options.merge(
-                format:             :tabular,
-                metadata:           table,
-                base:               table.url,
-                minimal:            minimal?,
-                no_found_metadata:  true
+            if input.resources.empty? && options[:original_input]
+              md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
+              Reader.new(options[:original_input], options.merge(
+                  metadata: md,
+                  base:               options.fetch(:base, "http://example.org/default-metadata"),
+                  minimal:            minimal?,
+                  no_found_metadata: true
               )) do |r|
                 case table = r.to_hash(options)
                 when Array then tables += table
                 when Hash  then tables << table
+                end
+              end
+            else
+              input.each_resource do |table|
+                next if table.suppressOutput
+                Reader.open(table.url, options.merge(
+                  format:             :tabular,
+                  metadata:           table,
+                  base:               table.url,
+                  minimal:            minimal?,
+                  no_found_metadata:  true
+                )) do |r|
+                  case table = r.to_hash(options)
+                  when Array then tables += table
+                  when Hash  then tables << table
+                  end
                 end
               end
             end

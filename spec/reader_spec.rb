@@ -79,6 +79,76 @@ describe RDF::Tabular::Reader do
     end
   end
 
+  context "non-file input" do
+    let(:expected) {
+      JSON.parse(%({
+        "table": [
+          {
+            "url": "http://example.org/default-metadata",
+            "row": [
+              {
+                "url": "http://example.org/default-metadata#row=2",
+                "rownum": 1,
+                "describes": [
+                  {
+                    "country": "AD",
+                    "name": "Andorra"
+                  }
+                ]
+              },
+              {
+                "url": "http://example.org/default-metadata#row=3",
+                "rownum": 2,
+                "describes": [
+                  {
+                    "country": "AF",
+                    "name": "Afghanistan"
+                  }
+                ]
+              },
+              {
+                "url": "http://example.org/default-metadata#row=4",
+                "rownum": 3,
+                "describes": [
+                  {
+                    "country": "AI",
+                    "name": "Anguilla"
+                  }
+                ]
+              },
+              {
+                "url": "http://example.org/default-metadata#row=5",
+                "rownum": 4,
+                "describes": [
+                  {
+                    "country": "AL",
+                    "name": "Albania"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }))
+    }
+    {
+      StringIO: StringIO.new(File.read(File.expand_path("../data/country-codes-and-names.csv", __FILE__))),
+      ArrayOfArrayOfString: CSV.new(File.open(File.expand_path("../data/country-codes-and-names.csv", __FILE__))).to_a,
+      String: File.read(File.expand_path("../data/country-codes-and-names.csv", __FILE__)),
+    }.each do |name, input|
+      it name do
+        RDF::Tabular::Reader.new(input, noProv: true, debug: @debug) do |reader|
+          expect(JSON.parse(reader.to_json)).to produce(expected,
+            debug: @debug,
+            result: expected,
+            noProv: true,
+            metadata: reader.metadata
+          )
+        end
+      end
+    end
+  end
+
   context "Test Files" do
     test_files = {
       "tree-ops.csv" => "tree-ops-standard.ttl",
