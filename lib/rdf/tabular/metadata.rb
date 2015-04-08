@@ -727,37 +727,14 @@ module RDF::Tabular
       when :lang
         "valid BCP47 language tag" unless BCP47::Language.identify(value.to_s)
       when :null
-        # To be valid, it must be a string or array, and must be compatible with any inherited value through being a subset
+        # To be valid, it must be a string or array
         "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
       when :ordered
         "boolean" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
       when :separator
         "single character" unless value.nil? || value.is_a?(String) && value.length == 1
       when :textDirection
-        # A value for this property is compatible with an inherited value only if they are identical.
         "rtl or ltr" unless %(rtl ltr).include?(value)
-      end ||
-
-      case key
-        # Compatibility
-      when :aboutUrl, :propertyUrl, :valueUrl
-        # No restrictions
-      when :default, :ordered, :separator, :textDirection
-        "same as that defined on parent" if pv && pv != value
-      when :datatype
-        if pv
-          # Normalization usually redundant
-          dt = normalize_datatype(value)
-          pvdt = normalize_datatype(pv)
-          vl = RDF::Literal.new("", datatype: DATATYPES[dt[:base].to_sym])
-          pvvl = RDF::Literal.new("", datatype: DATATYPES[pvdt[:base].to_sym])
-          # must be a subclass of some type defined on parent
-          "compatible datatype of that defined on parent" unless vl.is_a?(pvvl.class)
-        end
-      when :lang
-        "lang expected to restrict #{pv}" if pv && !value.start_with?(pv)
-      when :null
-        "subset of that defined on parent" if pv && (Array(value) & Array(pv)) != Array(value)
       end
 
       if error
