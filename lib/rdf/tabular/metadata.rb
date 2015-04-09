@@ -471,7 +471,7 @@ module RDF::Tabular
     # Validation warnings, available only after validating or finding warnings
     # @return [Array<String>]
     def warnings
-      (@warnings + object.
+      ((@warnings || []) + object.
         values.
         flatten.
         select {|v| v.is_a?(Metadata)}.

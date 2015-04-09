@@ -118,80 +118,86 @@ module RDF::Tabular
         if input.is_a?(Metadata)
           debug("each_statement: metadata") {input.inspect}
 
-          # Validate metadata
-          input.validate!
-
           depth do
             # Get Metadata to invoke and open referenced files
             case input.type
             when :TableGroup
-              # Use resolved @id of TableGroup, if available
-              table_group = input.id || RDF::Node.new
-              add_statement(0, table_group, RDF.type, CSVW.TableGroup) unless minimal?
+              begin
+                # Validate metadata
+                input.validate!
 
-              # Common Properties
-              input.each do |key, value|
-                next unless key.to_s.include?(':') || key == :notes
-                input.common_properties(table_group, key, value) do |statement|
-                  add_statement(0, statement)
-                end
-              end unless minimal?
+                # Use resolved @id of TableGroup, if available
+                table_group = input.id || RDF::Node.new
+                add_statement(0, table_group, RDF.type, CSVW.TableGroup) unless minimal?
 
-              # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
-              if input.tables.empty? && options[:original_input]
-                table_resource = RDF::Node.new
-                add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
-                Reader.new(options[:original_input], options.merge(
-                    metadata: Table.new({url: options.fetch(:base, "http://example.org/default-metadata")}),
-                    no_found_metadata: true,
-                    table_resource: table_resource
-                )) do |r|
-                  r.each_statement(&block)
-                end
-              else
-                input.each_table do |table|
-                  next if table.suppressOutput
-                  table_resource = table.id || RDF::Node.new
+                # Common Properties
+                input.each do |key, value|
+                  next unless key.to_s.include?(':') || key == :notes
+                  input.common_properties(table_group, key, value) do |statement|
+                    add_statement(0, statement)
+                  end
+                end unless minimal?
+
+                # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
+                if input.tables.empty? && options[:original_input]
+                  table_resource = RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
-                  Reader.open(table.url, options.merge(
-                      format: :tabular,
-                      metadata: table,
-                      base: table.url,
+                  Reader.new(options[:original_input], options.merge(
+                      metadata: Table.new({url: options.fetch(:base, "http://example.org/default-metadata")}),
                       no_found_metadata: true,
                       table_resource: table_resource
                   )) do |r|
                     r.each_statement(&block)
                   end
-                end
-              end
-
-              # Provenance
-              if prov?
-                activity = RDF::Node.new
-                add_statement(0, table_group, RDF::PROV.wasGeneratedBy, activity)
-                add_statement(0, activity, RDF.type, RDF::PROV.Activity)
-                add_statement(0, activity, RDF::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
-                add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
-                add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
-
-                unless (urls = input.tables.map(&:url)).empty?
-                  usage = RDF::Node.new
-                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-                  urls.each do |url|
-                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(url))
+                else
+                  input.each_table do |table|
+                    next if table.suppressOutput
+                    table_resource = table.id || RDF::Node.new
+                    add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
+                    Reader.open(table.url, options.merge(
+                        format: :tabular,
+                        metadata: table,
+                        base: table.url,
+                        no_found_metadata: true,
+                        table_resource: table_resource
+                    )) do |r|
+                      r.each_statement(&block)
+                    end
                   end
-                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.csvEncodedTabularData)
                 end
 
-                unless Array(input.filenames).empty?
-                  usage = RDF::Node.new
-                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-                  Array(input.filenames).each do |fn|
-                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(fn))
+                # Provenance
+                if prov?
+                  activity = RDF::Node.new
+                  add_statement(0, table_group, RDF::PROV.wasGeneratedBy, activity)
+                  add_statement(0, activity, RDF.type, RDF::PROV.Activity)
+                  add_statement(0, activity, RDF::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
+                  add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
+                  add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
+
+                  unless (urls = input.tables.map(&:url)).empty?
+                    usage = RDF::Node.new
+                    add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+                    add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                    urls.each do |url|
+                      add_statement(0, usage, RDF::PROV.entity, RDF::URI(url))
+                    end
+                    add_statement(0, usage, RDF::PROV.hadRole, CSVW.csvEncodedTabularData)
                   end
-                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.tabularMetadata)
+
+                  unless Array(input.filenames).empty?
+                    usage = RDF::Node.new
+                    add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+                    add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                    Array(input.filenames).each do |fn|
+                      add_statement(0, usage, RDF::PROV.entity, RDF::URI(fn))
+                    end
+                    add_statement(0, usage, RDF::PROV.hadRole, CSVW.tabularMetadata)
+                  end
+                end
+              ensure
+                if validate? && !input.warnings.empty?
+                  $stderr.puts "Warnings: #{input.warnings.join("\n")}"
                 end
               end
             when :Table
@@ -349,55 +355,61 @@ module RDF::Tabular
           # Get Metadata to invoke and open referenced files
           case input.type
           when :TableGroup
-            # Validate metadata
-            input.validate!
+            begin
+              # Validate metadata
+              input.validate!
 
-            tables = []
-            table_group = {}
-            table_group['@id'] = input.id.to_s if input.id
+              tables = []
+              table_group = {}
+              table_group['@id'] = input.id.to_s if input.id
 
-            # Common Properties
-            input.each do |key, value|
-              next unless key.to_s.include?(':') || key == :notes
-              table_group[key] = input.common_properties(nil, key, value)
-              table_group[key] = [table_group[key]] if key == :notes && !table_group[key].is_a?(Array)
-            end
-
-            table_group['table'] = tables
-
-            if input.tables.empty? && options[:original_input]
-              md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
-              Reader.new(options[:original_input], options.merge(
-                  metadata: md,
-                  base:               options.fetch(:base, "http://example.org/default-metadata"),
-                  minimal:            minimal?,
-                  no_found_metadata: true
-              )) do |r|
-                case table = r.to_hash(options)
-                when Array then tables += table
-                when Hash  then tables << table
-                end
+              # Common Properties
+              input.each do |key, value|
+                next unless key.to_s.include?(':') || key == :notes
+                table_group[key] = input.common_properties(nil, key, value)
+                table_group[key] = [table_group[key]] if key == :notes && !table_group[key].is_a?(Array)
               end
-            else
-              input.each_table do |table|
-                next if table.suppressOutput
-                Reader.open(table.url, options.merge(
-                  format:             :tabular,
-                  metadata:           table,
-                  base:               table.url,
-                  minimal:            minimal?,
-                  no_found_metadata:  true
+
+              table_group['table'] = tables
+
+              if input.tables.empty? && options[:original_input]
+                md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
+                Reader.new(options[:original_input], options.merge(
+                    metadata: md,
+                    base:               options.fetch(:base, "http://example.org/default-metadata"),
+                    minimal:            minimal?,
+                    no_found_metadata: true
                 )) do |r|
                   case table = r.to_hash(options)
                   when Array then tables += table
                   when Hash  then tables << table
                   end
                 end
+              else
+                input.each_table do |table|
+                  next if table.suppressOutput
+                  Reader.open(table.url, options.merge(
+                    format:             :tabular,
+                    metadata:           table,
+                    base:               table.url,
+                    minimal:            minimal?,
+                    no_found_metadata:  true
+                  )) do |r|
+                    case table = r.to_hash(options)
+                    when Array then tables += table
+                    when Hash  then tables << table
+                    end
+                  end
+                end
+              end
+
+              # Result is table_group or array
+              minimal? ? tables : table_group
+            ensure
+              if validate? && !input.warnings.empty?
+                $stderr.puts "Warnings: #{input.warnings.join("\n")}"
               end
             end
-
-            # Result is table_group or array
-            minimal? ? tables : table_group
           when :Table
             table = nil
             Reader.open(input.url, options.merge(
