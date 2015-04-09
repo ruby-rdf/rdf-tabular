@@ -86,20 +86,22 @@ describe RDF::Tabular::Metadata do
             params[:valid].each do |v|
               subject.send("#{prop}=".to_sym, v)
               expect(subject.errors).to be_empty
+              expect(subject.warnings).to be_empty
             end
           end
           it "invalidates" do
             params[:invalid].each do |v|
               subject.send("#{prop}=".to_sym, v)
-              subject.valid?
-              expect(subject.errors).not_to be_empty
+              expect(subject.errors).to be_empty
+              expect(subject.warnings).not_to be_empty
             end
           end
         else
           it "does not allow" do
             params[:valid].each do |v|
               subject.send("#{prop}=".to_sym, v)
-              expect(subject.errors).not_to be_empty
+              expect(subject.errors).to be_empty
+              expect(subject.warnings).not_to be_empty
             end
           end
         end
@@ -144,7 +146,8 @@ describe RDF::Tabular::Metadata do
         it "Does not allow unknown prefxies or unprefixed names" do
           invalid.each do |v|
             subject[v.to_sym] = "foo"
-            expect(subject.errors).not_to be_empty
+            expect(subject.errors).to be_empty
+            expect(subject.warnings).not_to be_empty
           end
         end
 
@@ -167,7 +170,8 @@ describe RDF::Tabular::Metadata do
       it "Does not allow defined prefixed names and absolute URIs" do
         (valid + invalid).each do |v|
           subject[v.to_sym] = "foo"
-          expect(subject.errors).not_to be_empty
+          expect(subject.errors).to be_empty
+          expect(subject.warnings).not_to be_empty
         end
       end
     end
@@ -203,15 +207,15 @@ describe RDF::Tabular::Metadata do
       },
       required: {
         valid: [true, false],
-        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+        warning: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       suppressOutput: {
         valid: [true, false],
-        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+        warning: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       virtual: {
         valid: [true, false],
-        invalid: [nil, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0", "foo"],
+        warning: [nil, 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0", "foo"],
       },
     }.each do |prop, params|
       context prop.to_s do
@@ -226,7 +230,14 @@ describe RDF::Tabular::Metadata do
             subject.send("#{prop}=".to_sym, v)
             expect(subject).not_to be_valid
           end
-        end
+        end if params[:invalid]
+        it "warnings" do
+          params[:warning].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).to be_valid
+            expect(subject.warnings).not_to be_empty
+          end
+        end if params[:warning]
       end
     end
 
@@ -577,7 +588,7 @@ describe RDF::Tabular::Metadata do
       },
       suppressOutput: {
         valid: [true, false],
-        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+        warning: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
     }.each do |prop, params|
       context prop.to_s do
@@ -592,7 +603,14 @@ describe RDF::Tabular::Metadata do
             subject.send("#{prop}=".to_sym, v)
             expect(subject).not_to be_valid
           end
-        end
+        end if params[:invalid]
+        it "warnings" do
+          params[:warning].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).to be_valid
+            expect(subject.warnings).not_to be_empty
+          end
+        end if params[:warning]
       end
     end
   end

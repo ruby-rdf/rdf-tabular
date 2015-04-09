@@ -313,13 +313,7 @@ module RDF::Tabular
               value
             end
           when :datatype
-            # If in object form, normalize keys to symbols
-            object[key] = case value
-            when Hash
-              value.inject({}) {|memo, (k,v)| memo[k.to_sym] = v; memo}
-            else
-              value
-            end
+            self.datatype = value
           when :dialect
             # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
             object[key] = case value
@@ -438,6 +432,15 @@ module RDF::Tabular
       end
     end
 
+    # Set new datatype
+    # @return [Dialect]
+    def datatype=(value)
+      object[:datatype] = case value
+      when Hash then Datatype.new(value)
+      else           Datatype.new({base: value})
+      end
+    end
+
     # Type of this Metadata
     # @return [:TableGroup, :Table, :Transformation, :Schema, :Column]
     def type; self.class.name.split('::').last.to_sym; end
@@ -465,12 +468,24 @@ module RDF::Tabular
     end
 
     ##
+    # Validation warnings, available only after validating or finding warnings
+    # @return [Array<String>]
+    def warnings
+      (@warnings + object.
+        values.
+        flatten.
+        select {|v| v.is_a?(Metadata)}.
+        map(&:warnings).
+        flatten).compact
+    end
+
+    ##
     # Validate metadata, raising an error containing all errors detected during validation
     # @raise [Error] Raise error if metadata has any unexpected properties
     # @return [self]
     def validate!
       expected_props, required_props = @properties.keys, @required
-      errors = []
+      errors, @warnings = [], []
 
       unless is_a?(Dialect) || is_a?(Transformation)
         expected_props = expected_props + INHERITED_PROPERTIES.keys
@@ -479,7 +494,7 @@ module RDF::Tabular
       # It has only expected properties (exclude metadata)
       check_keys = object.keys - [:"@id", :"@context"]
       check_keys = check_keys.reject {|k| k.to_s.include?(':')} unless is_a?(Dialect)
-      errors << "#{type} has unexpected keys: #{(check_keys - expected_props).map(&:to_s)}" unless check_keys.all? {|k| expected_props.include?(k)}
+      @warnings << "#{type} has unexpected keys: #{(check_keys - expected_props).map(&:to_s)}" unless check_keys.all? {|k| expected_props.include?(k)}
 
       # It has required properties
       errors << "#{type} missing required keys: #{(required_props & check_keys).map(&:to_s)}"  unless (required_props & check_keys) == required_props
@@ -488,8 +503,10 @@ module RDF::Tabular
       object.keys.each do |key|
         value = object[key]
         case key
-        when :aboutUrl, :datatype, :default, :lang, :null, :ordered, :propertyUrl, :separator, :textDirection, :valueUrl
-          valid_inherited_property?(key, value) {|m| errors << m}
+        when :aboutUrl, :default, :lang, :null, :ordered, :propertyUrl, :separator, :textDirection, :valueUrl
+          valid_inherited_property?(key, value) do |m|
+            @warnings << m
+          end
         when :columns
           if value.is_a?(Array) && value.all? {|v| v.is_a?(Column)}
             value.each do |v|
@@ -506,11 +523,24 @@ module RDF::Tabular
           end
         when :commentPrefix, :delimiter, :quoteChar
           unless value.is_a?(String) && value.length == 1
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected a single character string"
+            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a single character string"
+            object[key] = Dialect::DIALECT_DEFAULTS[key]
           end
-        when :format, :lineTerminators, :uriTemplate
+        when :lineTerminators
           unless value.is_a?(String)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
+            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
+            object[key] = Dialect::DIALECT_DEFAULTS[key]
+          end
+        when :datatype
+          if value.is_a?(Datatype)
+            begin
+              value.validate!
+            rescue Error => e
+              errors << e.message
+            end
+          else
+            @warnings << "#{type} has invalid property '#{key}': expected a Datatype"
+            value = object[key] = nil
           end
         when :dialect
           unless value.is_a?(Dialect)
@@ -521,13 +551,19 @@ module RDF::Tabular
           rescue Error => e
             errors << e.message
           end
-        when :doubleQuote, :header, :required, :skipInitialSpace, :skipBlankRows, :suppressOutput, :virtual
+        when :doubleQuote, :header, :skipInitialSpace, :skipBlankRows
           unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
-            errors << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
+            @warnings << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
+            object[key] = Dialect::DIALECT_DEFAULTS[key]
+          end
+        when :required, :suppressOutput, :virtual
+          unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
+            @warnings << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
+            object.delete(key)
           end
         when :encoding
           unless (Encoding.find(value) rescue false)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected a valid encoding"
+            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a valid encoding"
           end
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
@@ -584,11 +620,20 @@ module RDF::Tabular
           end
         when :headerRowCount, :skipColumns, :skipRows
           unless value.is_a?(Numeric) && value.integer? && value > 0
-            errors << "#{type} has invalid property '#{key}': #{value.inspect} must be a positive integer"
+            @warnings << "#{type} has invalid property '#{key}': #{value.inspect} must be a positive integer"
+            object[key] = Dialect::DIALECT_DEFAULTS[key]
+          end
+        when :base
+          @warnings << "#{type} has invalid base '#{key}': #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value) || RDF::URI(value).absolute?
+        when :format
+          unless value.is_a?(String)
+            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
+            object.delete(key)
           end
         when :length, :minLength, :maxLength
           unless value.is_a?(Numeric) && value.integer? && value > 0
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected a positive integer"
+            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a positive integer"
+            object.delete(key)
           end
           unless key == :length || value != object[:length]
             # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
@@ -599,7 +644,8 @@ module RDF::Tabular
             RDF::Literal::Date.new(value.to_s).valid? ||
             RDF::Literal::Time.new(value.to_s).valid? ||
             RDF::Literal::DateTime.new(value.to_s).valid?
-            errors << "#{type} has invalid property '#{key}': #{value}, expected numeric or valid date/time"
+            @warnings << "#{type} has invalid property '#{key}': #{value}, expected numeric or valid date/time"
+            object.delete(key)
           end
         when :name
           unless value.is_a?(String) && name.match(NAME_SYNTAX)
@@ -689,7 +735,7 @@ module RDF::Tabular
             errors << "#{type} has invalid content '#{key}': #{e.message}"
           end
         else
-          errors << "#{type} has invalid property '#{key}': unsupported property"
+          warnings << "#{type} has invalid property '#{key}': unsupported property"
         end
       end
 
@@ -715,15 +761,9 @@ module RDF::Tabular
     # @yield message error message
     # @return [Boolean]
     def valid_inherited_property?(key, value)
-      pv = parent.send(key) if parent
       error = case key
       when :aboutUrl, :default, :propertyUrl, :valueUrl
         "string" unless value.is_a?(String)
-      when :datatype
-        # Normalization usually redundant
-        dt = normalize_datatype(value)
-        # FIXME: support arrays of datatypes?
-        "valid datatype" unless DATATYPES.keys.map(&:to_s).include?(dt[:base]) || RDF::URI(dt[:base]).absolute?
       when :lang
         "valid BCP47 language tag" unless BCP47::Language.identify(value.to_s)
       when :null
@@ -738,7 +778,7 @@ module RDF::Tabular
       end
 
       if error
-        yield "#{type} has invalid property '#{key}' ('#{value}'): expected #{error}"
+        yield "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{error}"
         false
       else
         true
@@ -1106,37 +1146,11 @@ module RDF::Tabular
           end
         when :natural_language
           value.is_a?(Hash) ? value : {(context.default_language || 'und') => Array(value)}
-        when :atomic
-          case key
-          when :datatype then normalize_datatype(value)
-          else                value
-          end
         else
           value
         end
       end
       self
-    end
-
-    ##
-    # Normalize datatype to Object/Hash representation
-    # @param [String, Hash{Symbol => String}] value
-    # @return [Hash{Symbol => String}]
-    def normalize_datatype(value)
-      # Normalize datatype to array of object form
-      value = {base: value} unless value.is_a?(Hash)
-      # Create a new representation using symbols and transformed values
-      nv = {}
-      value.each do |kk, vv|
-        case kk.to_sym
-        when :base, :decimalChar, :format, :groupChar, :pattern then nv[kk.to_sym] = vv
-        when :length, :minLength, :maxLength, :minimum, :maximum,
-          :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
-          nv[kk.to_sym] = vv.to_i
-        end
-      end
-      nv[:base] ||= 'string'
-      nv
     end
 
     ##
@@ -1664,6 +1678,41 @@ module RDF::Tabular
     end
   end
 
+  class Datatype < Metadata
+    PROPERTIES = {
+      base:         :atomic,
+      format:       :atomic,
+      length:       :atomic,
+      minLength:    :atomic,
+      maxLength:    :atomic,
+      minimum:      :atomic,
+      maximum:      :atomic,
+      minInclusive: :atomic,
+      maxInclusive: :atomic,
+      minExclusive: :atomic,
+      maxExclusive: :atomic,
+      decimalChar:  :atomic,
+      groupChar:    :atomic,
+      pattern:      :atomic,
+    }.freeze
+    REQUIRED = [].freeze
+
+    # Override `base` in Metadata
+    def base; object[:base]; end
+
+    # Setters
+    PROPERTIES.each do |a, type|
+      define_method("#{a}=".to_sym) do |value|
+        object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+      end
+    end
+
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
+    end
+  end
+
   # Wraps each resulting row
   class Row
     # Class for returning values
@@ -1762,22 +1811,22 @@ module RDF::Tabular
 
         @values << cell = Cell.new(metadata, column, self, value)
 
-        datatype = metadata.normalize_datatype(column.datatype || 'string')
-        value = value.gsub(/\r\t\a/, ' ') unless %w(string json xml html anyAtomicType any).include?(datatype[:base])
-        value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType any normalizedString).include?(datatype[:base])
+        datatype = column.datatype || Datatype.new(base: "string")
+        value = value.gsub(/\r\t\a/, ' ') unless %w(string json xml html anyAtomicType any).include?(datatype.base)
+        value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType any normalizedString).include?(datatype.base)
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
         value = column.default || '' if value.empty?
 
         cell_values = column.separator ? value.split(column.separator) : [value]
 
         cell_values = cell_values.map do |v|
-          v = v.strip unless %w(string anyAtomicType any).include?(datatype[:base])
+          v = v.strip unless %w(string anyAtomicType any).include?(datatype.base)
           v = column.default || '' if v.empty?
           if Array(column.null).include?(v)
             nil
           else
             # Trim value
-            if %w(string anyAtomicType any).include?(datatype[:base])
+            if %w(string anyAtomicType any).include?(datatype.base)
               v.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
               v.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
             else
@@ -1785,7 +1834,7 @@ module RDF::Tabular
               v.strip!
             end
 
-            expanded_dt = metadata.context.expand_iri(datatype[:base], vocab: true)
+            expanded_dt = metadata.context.expand_iri(datatype.base, vocab: true)
             if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt, column.lang)).is_a?(RDF::Literal)
               lit_or_errors
             else
@@ -1837,36 +1886,36 @@ module RDF::Tabular
       value_errors = []
 
       # Check constraints
-      if datatype[:length] && value.length != datatype[:length]
-        value_errors << "#{value} does not have length #{datatype[:length]}"
+      if datatype.length && value.length != datatype.length
+        value_errors << "#{value} does not have length #{datatype.length}"
       end
-      if datatype[:minLength] && value.length < datatype[:minLength]
-        value_errors << "#{value} does not have length >= #{datatype[:minLength]}"
+      if datatype.minLength && value.length < datatype.minLength
+        value_errors << "#{value} does not have length >= #{datatype.minLength}"
       end
-      if datatype[:maxLength] && value.length > datatype[:maxLength]
-        value_errors << "#{value} does not have length <= #{datatype[:maxLength]}"
+      if datatype.maxLength && value.length > datatype.maxLength
+        value_errors << "#{value} does not have length <= #{datatype.maxLength}"
       end
 
-      format = datatype[:format]
+      format = datatype.format
       # Datatype specific constraints and conversions
-      case datatype[:base].to_sym
+      case datatype.base.to_sym
       when :decimal, :integer, :long, :int, :short, :byte,
            :nonNegativeInteger, :positiveInteger,
            :unsignedLong, :unsignedInt, :unsignedShort, :unsignedByte,
            :nonPositiveInteger, :negativeInteger,
            :double, :float, :number
         # Normalize representation based on numeric-specific facets
-        groupChar = datatype.fetch(:groupChar, ',')
-        if datatype[:pattern] && !value.match(Regexp.new(datatype[:pattern]))
+        groupChar = datatype.groupChar || ','
+        if datatype.pattern && !value.match(Regexp.new(datatype.pattern))
           # pattern facet failed
-          value_errors << "#{value} does not match pattern #{datatype[:pattern]}"
+          value_errors << "#{value} does not match pattern #{datatype.pattern}"
         end
         if value.include?(groupChar*2)
           # pattern facet failed
           value_errors << "#{value} has repeating #{groupChar.inspect}"
         end
         value.gsub!(groupChar, '')
-        value.sub!(datatype.fetch(:decimalChar, '.'), '.')
+        value.sub!(datatype.decimalChar, '.') if datatype.decimalChar
 
         # Extract percent or per-mille sign
         percent = permille = false
@@ -1917,7 +1966,7 @@ module RDF::Tabular
 
         if format
           date_format, time_format = format.split(' ')
-          if datatype[:base].to_sym == :time
+          if datatype.base.to_sym == :time
             date_format, time_format = nil, date_format
           end
 
@@ -1984,7 +2033,7 @@ module RDF::Tabular
         lit = RDF::Literal(value, datatype: expanded_dt)
       when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,
            :ENTITY, :ID, :IDREF, :NOTATION
-        value_errors << "#{value} uses unsupported datatype: #{datatype[:base]}"
+        value_errors << "#{value} uses unsupported datatype: #{datatype.base}"
       else
         # For other types, format is a regexp
         unless format.nil? || value.match(Regexp.new(format))
@@ -2001,7 +2050,7 @@ module RDF::Tabular
       end
 
       # Final value is a valid literal, or a plain literal otherwise
-      value_errors << "#{value} is not a valid #{datatype[:base]}" if lit && !lit.valid?
+      value_errors << "#{value} is not a valid #{datatype.base}" if lit && !lit.valid?
 
       # FIXME Value constraints
 
