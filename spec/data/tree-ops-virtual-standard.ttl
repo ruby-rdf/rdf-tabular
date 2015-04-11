@@ -8,12 +8,14 @@
    csvw:table [
      a csvw:Table;
      csvw:row [
+       a csvw:Row;
        csvw:describes <http://example.org/tree-ops.csv#gid-1>,
          <http://example.org/tree-ops.csv#location-1>,
          <http://example.org/tree-ops.csv#event-2010-10-18>;
        csvw:rownum 1;
        csvw:url <http://example.org/tree-ops.csv#row=2>
      ],  [
+       a csvw:Row;
        csvw:describes <http://example.org/tree-ops.csv#gid-2>,
          <http://example.org/tree-ops.csv#location-2>,
          <http://example.org/tree-ops.csv#event-2010-06-02>;

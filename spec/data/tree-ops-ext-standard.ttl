@@ -21,7 +21,7 @@
     schema:name "Example Municipality"@en ;
     schema:url <http://example.org>
   ] ;
-  csvw:notes [
+  csvw:note [
     a oa:Annotation ;
     oa:hasBody [
       a oa:EmbeddedContent ;
@@ -31,14 +31,17 @@
     oa:hasTarget <http://example.org/tree-ops-ext>
   ] ;
   csvw:row [
+    a csvw:Row;
     csvw:rownum 1 ;
     csvw:url <#row=2> ;
     csvw:describes <http://example.org/tree-ops-ext#gid-1>
   ], [
+    a csvw:Row;
     csvw:rownum 2 ;
     csvw:url <#row=3> ;
     csvw:describes <http://example.org/tree-ops-ext#gid-2>
   ], [
+    a csvw:Row;
     csvw:rownum 3 ;
     csvw:url <#row=4> ;
     csvw:describes <http://example.org/tree-ops-ext#gid-6>

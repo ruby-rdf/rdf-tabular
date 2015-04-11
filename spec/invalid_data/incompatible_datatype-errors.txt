@@ -1,1 +1,0 @@
-Column has invalid property 'datatype' ('float'): expected compatible datatype of that defined on parent
