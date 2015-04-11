@@ -492,12 +492,12 @@ module RDF::Tabular
               cell.value.object
             when cell.value.is_a?(RDF::Literal::Boolean)
               cell.value.object
-            else
+            when cell.value
               cell.value
             end
 
             # Add or merge value
-            merge_compacted_value(co, prop, value)
+            merge_compacted_value(co, prop, value) unless value.nil?
           end
 
           # Check for nesting
