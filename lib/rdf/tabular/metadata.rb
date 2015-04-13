@@ -37,12 +37,15 @@ module RDF::Tabular
       valueUrl:           :uri_template,
     }.freeze
     INHERITED_DEFAULTS = {
-      default:            "",
+      aboutUrl:           "".freeze,
+      default:            "".freeze,
       lang:               "und",
-      null:               "",
+      null:               "".freeze,
       ordered:            false,
+      propertyUrl:        "".freeze,
       required:           false,
-      textDirection:      "ltr",
+      textDirection:      "ltr".freeze,
+      valueUrl:           "".freeze,
     }.freeze
 
     # Valid datatypes
@@ -742,7 +745,12 @@ module RDF::Tabular
           end
         when :tableDirection
           unless %w(rtl ltr default).include?(value)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected rtl, ltr, or default"
+            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected rtl, ltr, or default"
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :tableSchema
           if value.is_a?(Schema)
@@ -1236,7 +1244,8 @@ module RDF::Tabular
           elsif (value.keys.sort & %w(@language @type)) == %w(@language @type)
             raise Error, "Value object may not contain both @type and @language: #{value.to_json}"
           elsif value['@language'] && !BCP47::Language.identify(value['@language'])
-            raise Error, "Value object with @language must use valid language: #{value.to_json}"
+            @warnings << "Value object with @language must use valid language: #{value.to_json}" if @warnings
+            value.delete('@language')
           elsif value['@type'] && !context.expand_iri(value['@type'], vocab: true).absolute?
             raise Error, "Value object with @type must defined type: #{value.to_json}"
           end
@@ -1333,7 +1342,7 @@ module RDF::Tabular
       transformations:     :array,
     }.freeze
     DEFAULTS = {
-      tableDirection:      "default",
+      tableDirection:      "default".freeze,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1414,7 +1423,7 @@ module RDF::Tabular
     }.freeze
     DEFAULTS = {
       suppressOutput:      false,
-      tableDirection:      "default",
+      tableDirection:      "default".freeze,
     }.freeze
     REQUIRED = [:url].freeze
 
@@ -1620,14 +1629,14 @@ module RDF::Tabular
   class Dialect < Metadata
     # Defaults for dialects
     DEFAULTS = {
-      commentPrefix:      "#",
+      commentPrefix:      "#".freeze,
       delimiter:          ",".freeze,
       doubleQuote:        true,
       encoding:           "utf-8".freeze,
       header:             true,
       headerRowCount:     1,
       lineTerminators:    :auto,
-      quoteChar:          '"',
+      quoteChar:          '"'.freeze,
       skipBlankRows:      false,
       skipColumns:        0,
       skipInitialSpace:   false,
