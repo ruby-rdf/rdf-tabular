@@ -575,7 +575,7 @@ describe RDF::Tabular::Metadata do
       },
       tableDirection: {
         valid: %w(rtl ltr default),
-        invalid: %w(foo true 1)
+        warning: %w(foo true 1)
       },
       transformations: {
         valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
@@ -632,7 +632,7 @@ describe RDF::Tabular::Metadata do
       },
       tableDirection: {
         valid: %w(rtl ltr default),
-        invalid: %w(foo true 1)
+        warning: %w(foo true 1)
       },
       dialect: {
         valid: [{skipRows: 1}],
@@ -660,7 +660,14 @@ describe RDF::Tabular::Metadata do
             subject.send("#{prop}=".to_sym, v)
             expect(subject).not_to be_valid
           end
-        end
+        end if params[:invalid]
+        it "warnings" do
+          params[:warning].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).to be_valid
+            expect(subject.warnings).not_to be_empty
+          end
+        end if params[:warning]
       end
     end
   end
@@ -1149,7 +1156,7 @@ describe RDF::Tabular::Metadata do
         "validate date dd-MM-yyyy" => {base: "date", value: "22-03-2015", format: "dd-MM-yyyy", result: "2015-03-22"},
         "validate date d-M-yyyy" => {base: "date", value: "22-3-2015", format: "d-M-yyyy", result: "2015-03-22"},
         "validate date MM-dd-yyyy" => {base: "date", value: "03-22-2015", format: "MM-dd-yyyy", result: "2015-03-22"},
-        "validate date M/d/yyyy" => {base: "date", value: "3/22/2015", format: "M-d-yyyy", result: "2015-03-22"},
+        "validate date M-d-yyyy" => {base: "date", value: "3-22-2015", format: "M-d-yyyy", result: "2015-03-22"},
         "validate date dd/MM/yyyy" => {base: "date", value: "22/03/2015", format: "dd/MM/yyyy", result: "2015-03-22"},
         "validate date d/M/yyyy" => {base: "date", value: "22/3/2015", format: "d/M/yyyy", result: "2015-03-22"},
         "validate date MM/dd/yyyy" => {base: "date", value: "03/22/2015", format: "MM/dd/yyyy", result: "2015-03-22"},

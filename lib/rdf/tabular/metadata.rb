@@ -790,8 +790,13 @@ module RDF::Tabular
           unless @url.valid?
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected valid absolute URL"
           end
-        when :@id, :@context
+        when :@context
           # Skip these
+        when :@id
+          # Must not be a BNode
+          if value.to_s.start_with?("_:")
+            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:"
+          end
         when :@type
           unless value.to_sym == type
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected #{type}"
