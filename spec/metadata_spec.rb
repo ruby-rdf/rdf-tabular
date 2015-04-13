@@ -29,29 +29,9 @@ describe RDF::Tabular::Metadata do
 
   shared_examples "inherited properties" do |allowed = true|
     {
-      null: {
-        valid: ["foo", %w(foo bar)],
-        invalid: [1, true, {}]
-      },
-      lang: {
-        valid: %w(en en-US),
-        invalid: %w(1 foo)
-      },
-      "textDirection" => {
-        valid: %w(rtl ltr),
-        invalid: %w(foo default)
-      },
-      separator: {
-        valid: %w(, a | :) + [nil],
-        invalid: [1, false] + %w(foo ::)
-      },
-      ordered: {
-        valid: [true, false],
-        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
-      },
-      default: {
-        valid: ["foo"],
-        invalid: [1, %w(foo bar), true, nil]
+      aboutUrl: {
+        valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row.{_row}"],
+        invalid: [1, true, nil, %w(foo bar)]
       },
       datatype: {
         valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
@@ -59,9 +39,21 @@ describe RDF::Tabular::Metadata do
                ),
         invalid: [1, true, "foo", "anyType", "anySimpleType", "IDREFS"]
       },
-      aboutUrl: {
-        valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row.{_row}"],
-        invalid: [1, true, nil, %w(foo bar)]
+      default: {
+        valid: ["foo"],
+        invalid: [1, %w(foo bar), true, nil]
+      },
+      lang: {
+        valid: %w(en en-US),
+        invalid: %w(1 foo)
+      },
+      null: {
+        valid: ["foo", %w(foo bar)],
+        invalid: [1, true, {}]
+      },
+      ordered: {
+        valid: [true, false],
+        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       propertyUrl: {
         valid: [
@@ -70,6 +62,18 @@ describe RDF::Tabular::Metadata do
           "#row.{_row}"
         ],
         invalid: [1, true, %w(foo bar)]
+      },
+      required: {
+        valid: [true, false],
+        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+      },
+      separator: {
+        valid: %w(, a | :) + [nil],
+        invalid: [1, false] + %w(foo ::)
+      },
+      "textDirection" => {
+        valid: %w(rtl ltr),
+        invalid: %w(foo default)
       },
       valueUrl: {
         valid: [
@@ -204,10 +208,6 @@ describe RDF::Tabular::Metadata do
       titles: {
         valid: ["foo", %w(foo bar), {"en" => "foo", "de" => "bar"}],
         invalid: [1, true, nil]
-      },
-      required: {
-        valid: [true, false],
-        warning: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       suppressOutput: {
         valid: [true, false],
@@ -472,7 +472,7 @@ describe RDF::Tabular::Metadata do
     it_behaves_like("common properties", false)
     its(:type) {is_expected.to eql :Dialect}
 
-    described_class.const_get(:DIALECT_DEFAULTS).each do |p, v|
+    described_class.const_get(:DEFAULTS).each do |p, v|
       context "#{p}" do
         it "retrieves #{v.inspect} by default" do
           expect(subject.send(p)).to eql v

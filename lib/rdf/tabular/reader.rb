@@ -30,6 +30,8 @@ module RDF::Tabular
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
     # @option options [Boolean] :minimal includes only the information gleaned from the cells of the tabular data
     # @option options [Boolean] :noProv do not output optional provenance information
+    # @option options [Array] :warnings
+    #   array for placing warnings found when processing metadata. If not set, and validating, warnings are output to `$stderr`
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored
@@ -196,8 +198,9 @@ module RDF::Tabular
                   end
                 end
               ensure
-                if validate? && !input.warnings.empty?
-                  $stderr.puts "Warnings: #{input.warnings.join("\n")}"
+                warnings = @options.fetch(:warnings, []).concat(input.warnings)
+                if validate? && !warnings.empty? && !@options[:warnings]
+                  $stderr.puts "Warnings: #{warnings.join("\n")}"
                 end
               end
             when :Table
@@ -406,8 +409,9 @@ module RDF::Tabular
               # Result is table_group or array
               minimal? ? tables : table_group
             ensure
-              if validate? && !input.warnings.empty?
-                $stderr.puts "Warnings: #{input.warnings.join("\n")}"
+              warnings = options.fetch(:warnings, []).concat(input.warnings)
+              if validate? && !warnings.empty? && !@options[:warnings]
+                $stderr.puts "Warnings: #{warnings.join("\n")}"
               end
             end
           when :Table

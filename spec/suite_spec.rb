@@ -16,13 +16,16 @@ describe RDF::Tabular::Reader do
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
+            #next unless t.id.include?("manifest-json#test07")
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               t.debug = []
+              t.warnings = []
               RDF::Tabular::Reader.open(t.action,
                 t.reader_options.merge(
                   base_uri: t.base,
                   validate: t.validation?,
-                  debug:    t.debug
+                  debug:    t.debug,
+                  warnings: t.warnings
                 )
               ) do |reader|
                 expect(reader).to be_a RDF::Reader
@@ -56,8 +59,14 @@ describe RDF::Tabular::Reader do
                     elsif t.evaluate?
                       output_graph = RDF::Repository.load(t.result, format: :ttl, base_uri:  t.base)
                       expect(graph).to be_equivalent_graph(output_graph, t)
-                    else
+                    elsif t.validation?
                       expect(graph).to be_a(RDF::Enumerable)
+
+                      if t.warning?
+                        expect(t.warnings).not_to be_empty
+                      else
+                        expect(t.warnings).to be_empty
+                      end
                     end
                   end
                 else

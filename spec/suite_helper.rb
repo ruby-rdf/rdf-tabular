@@ -93,6 +93,7 @@ module Fixtures
  
     class Entry < JSON::LD::Resource
       attr_accessor :debug
+      attr_accessor :warnings
       attr_accessor :metadata
 
       def id
@@ -138,6 +139,10 @@ module Fixtures
 
       def validation?
         type.include?("Validation")
+      end
+
+      def warning?
+        type.include?("Warning")
       end
 
       def positive_test?

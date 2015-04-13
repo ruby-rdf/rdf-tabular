@@ -24,16 +24,25 @@ module RDF::Tabular
 
     # Inheritect properties, valid for all types
     INHERITED_PROPERTIES = {
-      null:               :atomic,
-      lang:               :atomic,
-      textDirection:      :atomic,
-      separator:          :atomic,
-      default:            :atomic,
-      ordered:            :atomic,
-      datatype:           :atomic,
       aboutUrl:           :uri_template,
+      datatype:           :atomic,
+      default:            :atomic,
+      lang:               :atomic,
+      null:               :atomic,
+      ordered:            :atomic,
       propertyUrl:        :uri_template,
+      required:           :atomic,
+      separator:          :atomic,
+      textDirection:      :atomic,
       valueUrl:           :uri_template,
+    }.freeze
+    INHERITED_DEFAULTS = {
+      default:            "",
+      lang:               "und",
+      null:               "",
+      ordered:            false,
+      required:           false,
+      textDirection:      "ltr",
     }.freeze
 
     # Valid datatypes
@@ -506,6 +515,11 @@ module RDF::Tabular
         when :aboutUrl, :default, :lang, :null, :ordered, :propertyUrl, :separator, :textDirection, :valueUrl
           valid_inherited_property?(key, value) do |m|
             @warnings << m
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :columns
           if value.is_a?(Array) && value.all? {|v| v.is_a?(Column)}
@@ -524,12 +538,20 @@ module RDF::Tabular
         when :commentPrefix, :delimiter, :quoteChar
           unless value.is_a?(String) && value.length == 1
             @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a single character string"
-            object[key] = Dialect::DIALECT_DEFAULTS[key]
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :lineTerminators
           unless value.is_a?(String)
             @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
-            object[key] = Dialect::DIALECT_DEFAULTS[key]
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :datatype
           if value.is_a?(Datatype)
@@ -540,7 +562,11 @@ module RDF::Tabular
             end
           else
             @warnings << "#{type} has invalid property '#{key}': expected a Datatype"
-            value = object[key] = nil
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :dialect
           unless value.is_a?(Dialect)
@@ -554,16 +580,29 @@ module RDF::Tabular
         when :doubleQuote, :header, :skipInitialSpace, :skipBlankRows
           unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
             @warnings << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
-            object[key] = Dialect::DIALECT_DEFAULTS[key]
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :required, :suppressOutput, :virtual
           unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
             @warnings << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
-            object.delete(key)
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :encoding
           unless (Encoding.find(value) rescue false)
             @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a valid encoding"
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
@@ -621,19 +660,31 @@ module RDF::Tabular
         when :headerRowCount, :skipColumns, :skipRows
           unless value.is_a?(Numeric) && value.integer? && value > 0
             @warnings << "#{type} has invalid property '#{key}': #{value.inspect} must be a positive integer"
-            object[key] = Dialect::DIALECT_DEFAULTS[key]
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :base
           @warnings << "#{type} has invalid base '#{key}': #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value) || RDF::URI(value).absolute?
         when :format
           unless value.is_a?(String)
             @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
-            object.delete(key)
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :length, :minLength, :maxLength
           unless value.is_a?(Numeric) && value.integer? && value > 0
             @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a positive integer"
-            object.delete(key)
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
           unless key == :length || value != object[:length]
             # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
@@ -645,7 +696,11 @@ module RDF::Tabular
             RDF::Literal::Time.new(value.to_s).valid? ||
             RDF::Literal::DateTime.new(value.to_s).valid?
             @warnings << "#{type} has invalid property '#{key}': #{value}, expected numeric or valid date/time"
-            object.delete(key)
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :name
           unless value.is_a?(String) && name.match(NAME_SYNTAX)
@@ -714,8 +769,13 @@ module RDF::Tabular
         when :titles
           valid_natural_language_property?(:titles, value) {|m| errors << m}
         when :trim
-          unless %w(true false 1 0 start end).include?(value.to_s.downcase)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected true, false, 1, 0, start or end"
+          unless %w(true false start end).include?(value.to_s.downcase)
+            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected true, false, 1, 0, start or end"
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
           end
         when :url
           # Only validate URL in validation mode; this allows for a nil URL
@@ -1228,6 +1288,10 @@ module RDF::Tabular
       end
     end
 
+    def default_value(prop)
+      self.class.const_get(:DEFAULTS).merge(INHERITED_DEFAULTS)[prop]
+    end
+
     ##
     # Get the root metadata object
     # @return [TableGroup, Table]
@@ -1267,6 +1331,9 @@ module RDF::Tabular
       tableDirection:      :atomic,
       dialect:             :object,
       transformations:     :array,
+    }.freeze
+    DEFAULTS = {
+      tableDirection:      "default",
     }.freeze
     REQUIRED = [].freeze
 
@@ -1345,6 +1412,10 @@ module RDF::Tabular
       transformations:     :array,
       url:                 :link,
     }.freeze
+    DEFAULTS = {
+      suppressOutput:      false,
+      tableDirection:      "default",
+    }.freeze
     REQUIRED = [:url].freeze
 
     # Setters
@@ -1387,36 +1458,6 @@ module RDF::Tabular
     end
   end
 
-  class Transformation < Metadata
-    PROPERTIES = {
-      :@id         => :link,
-      :@type       => :atomic,
-      source:         :atomic,
-      targetFormat:   :link,
-      scriptFormat:   :link,
-      titles:         :natural_language,
-      url:            :link,
-    }.freeze
-    REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
-
-    # Setters
-    PROPERTIES.each do |a, type|
-      define_method("#{a}=".to_sym) do |value|
-        case type
-        when :natural_language
-          set_nl(a, value)
-        else
-          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
-        end
-      end
-    end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
-    end
-  end
-
   class Schema < Metadata
     PROPERTIES = {
       :@id       => :link,
@@ -1425,6 +1466,7 @@ module RDF::Tabular
       foreignKeys:  :array,
       primaryKey:   :column_reference,
     }.freeze
+    DEFAULTS = {}.freeze
     REQUIRED = [].freeze
 
     # Setters
@@ -1456,8 +1498,11 @@ module RDF::Tabular
       name:           :atomic,
       suppressOutput: :atomic,
       titles:         :natural_language,
-      required:       :atomic,
       virtual:        :atomic,
+    }.freeze
+    DEFAULTS = {
+      suppressOutput:      false,
+      virtual:             false,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1541,10 +1586,41 @@ module RDF::Tabular
     end
   end
 
+  class Transformation < Metadata
+    PROPERTIES = {
+      :@id         => :link,
+      :@type       => :atomic,
+      source:         :atomic,
+      targetFormat:   :link,
+      scriptFormat:   :link,
+      titles:         :natural_language,
+      url:            :link,
+    }.freeze
+    DEFAULTS = {}.freeze
+    REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
+
+    # Setters
+    PROPERTIES.each do |a, type|
+      define_method("#{a}=".to_sym) do |value|
+        case type
+        when :natural_language
+          set_nl(a, value)
+        else
+          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+        end
+      end
+    end
+
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
+    end
+  end
+
   class Dialect < Metadata
     # Defaults for dialects
-    DIALECT_DEFAULTS = {
-      commentPrefix:      nil,
+    DEFAULTS = {
+      commentPrefix:      "#",
       delimiter:          ",".freeze,
       doubleQuote:        true,
       encoding:           "utf-8".freeze,
@@ -1669,9 +1745,9 @@ module RDF::Tabular
 
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
-      if DIALECT_DEFAULTS.has_key?(method.to_sym)
+      if DEFAULTS.has_key?(method.to_sym)
         # As set, or with default
-        object.fetch(method.to_sym, DIALECT_DEFAULTS[method.to_sym])
+        object.fetch(method.to_sym, DEFAULTS[method.to_sym])
       else
         super
       end
