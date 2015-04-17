@@ -378,7 +378,7 @@ module RDF::Tabular
               if input.tables.empty? && options[:original_input]
                 md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
                 Reader.new(options[:original_input], options.merge(
-                    metadata: md,
+                    metadata:           md,
                     base:               options.fetch(:base, "http://example.org/default-metadata"),
                     minimal:            minimal?,
                     no_found_metadata: true
@@ -541,21 +541,24 @@ module RDF::Tabular
           case input.type
           when :TableGroup
             table_group = input.to_atd
-
-            input.each_table do |table|
-              Reader.open(table.url, options.merge(
-                format:             :tabular,
-                metadata:           table,
-                base:               table.url,
-                no_found_metadata:  true, # FIXME: remove
-                noProv:             true
+            if input.tables.empty? && options[:original_input]
+              md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
+              Reader.new(options[:original_input], options.merge(
+                  metadata:           md,
+                  base:               options.fetch(:base, "http://example.org/default-metadata"),
+                  no_found_metadata: true
               )) do |r|
-                table = r.to_atd(options)
-                
-                # Fill in columns and rows in table_group entry from returned table
-                t = table_group[:tables].detect {|tab| tab["url"] == table["url"]}
-                t["columns"] = table["columns"]
-                t["rows"] = table["rows"]
+                table_group["tables"] << r.to_atd(options)
+              end
+            else
+              input.each_table do |table|
+                Reader.open(table.url, options.merge(
+                  metadata:           table,
+                  base:               table.url,
+                  no_found_metadata:  true
+                )) do |r|
+                  table_group["tables"] << r.to_atd(options)
+                end
               end
             end
 
@@ -564,11 +567,9 @@ module RDF::Tabular
           when :Table
             table = nil
             Reader.open(input.url, options.merge(
-              format:             :tabular,
               metadata:           input,
               base:               input.url,
-              no_found_metadata:  true,
-              noProv:             true
+              no_found_metadata:  true
             )) do |r|
               table = r.to_atd(options)
             end
@@ -588,7 +589,7 @@ module RDF::Tabular
         metadata.each_row(input) do |row|
           rows << row.to_atd
           row.values.each_with_index do |cell, colndx|
-            columns[colndx]["cells"] << cell.id
+            columns[colndx]["cells"] << cell.to_atd
           end
         end
         table

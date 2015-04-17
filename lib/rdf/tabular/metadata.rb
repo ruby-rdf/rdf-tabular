@@ -1407,11 +1407,14 @@ module RDF::Tabular
 
     # Return Annotated Table Group representation
     def to_atd
-      {
-        "@id" => id,
+      object.inject({
+        "@id" => (id.to_s if id),
         "@type" => "AnnotatedTableGroup",
-        "tables" => tables.map(&:to_atd)
-      }
+        "tables" => []
+      }) do |memo, (k, v)|
+        memo[k.to_s] ||= v
+        memo
+      end.delete_if {|k,v| v.nil? || v.is_a?(Metadata) || k.to_s == "@context"}
     end
   end
 
@@ -1454,13 +1457,16 @@ module RDF::Tabular
 
     # Return Annotated Table representation
     def to_atd
-      {
-        "@id" => id,
+      object.inject({
+        "@id" => (id.to_s if id),
         "@type" => "AnnotatedTable",
+        "url" => self.url.to_s,
         "columns" => tableSchema.columns.map(&:to_atd),
-        "rows" => [],
-        "url" => self.url.to_s
-      }
+        "rows" => []
+      }) do |memo, (k, v)|
+        memo[k.to_s] ||= v
+        memo
+      end.delete_if {|k,v| v.nil? || v.is_a?(Metadata) || k.to_s == "@context"}
     end
 
     # Logic for accessing elements as accessors
@@ -1578,17 +1584,20 @@ module RDF::Tabular
 
     # Return Annotated Column representation
     def to_atd
-      {
-        "@id" => id,
+      object.inject({
+        "@id" => id.to_s,
         "@type" => "Column",
-        "table" => (table.id if table),
+        "table" => (table.id.to_s if table.id),
         "number" => self.number,
         "sourceNumber" => self.sourceNumber,
         "cells" => [],
         "virtual" => self.virtual,
         "name" => self.name,
         "titles" => self.titles
-      }
+      }) do |memo, (k, v)|
+        memo[k.to_s] ||= v
+        memo
+      end.delete_if {|k,v| v.nil?}
     end
 
     # Logic for accessing elements as accessors
@@ -1832,14 +1841,15 @@ module RDF::Tabular
       # Return Annotated Cell representation
       def to_atd
         {
-          "@id" => self.id,
+          "@id" => id.to_s,
           "@type" => "Cell",
-          "column" => column.id,
-          "row" => row.id,
+          "column" => column.id.to_s,
+          "row" => row.id.to_s,
           "stringValue" => self.stringValue,
-          "value" => self.value,
+          "table" => (table.id.to_s if table.id),
+          "value" => table.context.expand_value(nil, self.value),
           "errors" => self.errors
-        }
+        }.delete_if {|k,v| Array(v).empty?}
       end
     end
 
@@ -1960,13 +1970,13 @@ module RDF::Tabular
     # Return Annotated Row representation
     def to_atd
       {
-        "@id" => self.id,
+        "@id" => id.to_s,
         "@type" => "Row",
-        "table" => table.id,
+        "table" => (table.id.to_s if table.id),
         "number" => self.number,
         "sourceNumber" => self.sourceNumber,
         "cells" => @values.map(&:to_atd)
-      }
+      }.delete_if {|k,v| v.nil?}
     end
 
   private
