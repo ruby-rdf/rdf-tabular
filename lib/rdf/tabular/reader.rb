@@ -141,7 +141,7 @@ module RDF::Tabular
                 end unless minimal?
 
                 # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
-                if input.tables.empty? && options[:original_input]
+                if Array(input.tables).empty? && options[:original_input]
                   table_resource = RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                   Reader.new(options[:original_input], options.merge(

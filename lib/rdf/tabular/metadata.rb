@@ -3,6 +3,7 @@ require 'json/ld'
 require 'bcp47'
 require 'addressable/template'
 require 'rdf/xsd'
+require 'yaml'  # used by BCP47, which should have required it.
 
 ##
 # CSVM Metadata processor
@@ -230,9 +231,6 @@ module RDF::Tabular
             type
           end
 
-          # Figure out type by @type
-          type ||= object['@type']
-
           # Figure out type by site
           object_keys = object.keys.map(&:to_s)
           type ||= case
@@ -245,8 +243,11 @@ module RDF::Tabular
           when %w(lineTerminators quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
           end
 
+          # Otherwise, Figure out type by @type
+          type ||= object['@type'].to_sym if object['@type']
+
           case type.to_s.to_sym
-          when :TableGroup then RDF::Tabular::TableGroup
+          when :TableGroup, :"" then RDF::Tabular::TableGroup
           when :Table then RDF::Tabular::Table
           when :Transformation then RDF::Tabular::Transformation
           when :Schema then RDF::Tabular::Schema
@@ -509,7 +510,7 @@ module RDF::Tabular
       @warnings << "#{type} has unexpected keys: #{(check_keys - expected_props).map(&:to_s)}" unless check_keys.all? {|k| expected_props.include?(k)}
 
       # It has required properties
-      errors << "#{type} missing required keys: #{(required_props & check_keys).map(&:to_s)}"  unless (required_props & check_keys) == required_props
+      errors << "#{type} missing required keys: #{(required_props - check_keys).map(&:to_s)}"  unless (required_props & check_keys) == required_props
 
       # Every property is valid
       object.keys.each do |key|
@@ -1107,7 +1108,7 @@ module RDF::Tabular
               # The number of non-virtual columns in A and B MUST be the same
               nA = object[key].reject(&:virtual).length
               nB = Array(value).reject(&:virtual).length
-              raise Error, "Columns must have the same number of non-virtual columns" unless nA == nB || nB == 0
+              raise Error, "Columns must have the same number of non-virtual columns: #{object[key].reject(&:virtual).map(&:name).inspect} vs #{Array(value).reject(&:virtual).map(&:name).inspect}" unless nA == nB || nB == 0
             when :foreignKeys
               # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
               # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
@@ -1349,7 +1350,7 @@ module RDF::Tabular
     DEFAULTS = {
       tableDirection:      "default".freeze,
     }.freeze
-    REQUIRED = [].freeze
+    REQUIRED = [:tables].freeze
 
     # Setters
     PROPERTIES.each do |a, type|
@@ -2111,8 +2112,8 @@ module RDF::Tabular
           tz_part = value if tz
 
           # Compose normalized value
-          vd = ("%04d-%02d-%02d" % [date_part[:yr], date_part[:mo], date_part[:da]]) if date_part
-          vt = ("%02d:%02d:%02d" % [time_part[:hr], time_part[:mi], time_part[:se].to_i]) if time_part
+          vd = ("%04d-%02d-%02d" % [date_part[:yr].to_i, date_part[:mo].to_i, date_part[:da].to_i]) if date_part
+          vt = ("%02d:%02d:%02d" % [time_part[:hr].to_i, time_part[:mi].to_i, time_part[:se].to_i]) if time_part
           value = [vd, vt].compact.join('T')
           value += tz_part.to_s
         end
