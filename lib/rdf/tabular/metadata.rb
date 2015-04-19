@@ -330,8 +330,8 @@ module RDF::Tabular
           when :dialect
             # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
             object[key] = case value
-            when String then Dialect.open(base.join(value), @options.merge(parent: self, context: nil))
-            when Hash   then Dialect.new(value, @options.merge(parent: self, context: nil))
+            when String then Metadata.open(base.join(value), @options.merge(parent: self, context: nil))
+            when Hash   then Metadata.new(value, @options.merge(parent: self, context: nil))
             else
               # Invalid, but preserve value
               value
@@ -354,7 +354,7 @@ module RDF::Tabular
               s = Schema.open(link, @options.merge(parent: self, context: nil))
               s[:@id] ||= link
               s
-            when Hash   then Schema.new(value, @options.merge(parent: self, context: nil))
+            when Hash   then Metadata.new(value, @options.merge(parent: self, context: nil))
             else
               # Invalid, but preserve value
               value
@@ -362,7 +362,7 @@ module RDF::Tabular
           when :transformations
             # An array of template specifications that provide mechanisms to transform the tabular data into other formats
             object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              value.map {|v| Transformation.new(v, @options.merge(parent: self, context: nil))}
+              value.map {|v| Metadata.new(v, @options.merge(parent: self, context: nil))}
             else
               # Invalid, but preserve value
               value
@@ -526,7 +526,16 @@ module RDF::Tabular
             end
           end
         when :columns
-          if value.is_a?(Array) && value.all? {|v| v.is_a?(Column)}
+          if !value.is_a?(Array)
+            # If the supplied value of an array property is not an array (eg if it is an integer), compliant applications must issue a warning and proceed as if the property had been supplied with an empty array.
+            @warnings << "#{type} has invalid property '#{key}': expected array of Columns"
+            object[key] = []
+          else
+            unless value.all? {|v| v.is_a?(Column)}
+              @warnings << "#{type} has invalid property '#{key}': expected array of Columns"
+              # Remove elements that aren't of the right types
+              object[key] = value.select! {|v| v.is_a?(Hash)}
+            end
             value.each do |v|
               begin
                 v.validate!
@@ -536,8 +545,6 @@ module RDF::Tabular
             end
             column_names = value.map(&:name)
             errors << "#{type} has invalid property '#{key}': must have unique names: #{column_names.inspect}" unless column_names.uniq == column_names
-          else
-            errors << "#{type} has invalid property '#{key}': expected array of Columns"
           end
         when :commentPrefix, :delimiter, :quoteChar
           unless value.is_a?(String) && value.length == 1
@@ -610,8 +617,17 @@ module RDF::Tabular
           end
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
-          value.is_a?(Array) && value.each do |fk|
-            if fk.is_a?(Hash)
+          if !value.is_a?(Array)
+            # If the supplied value of an array property is not an array (eg if it is an integer), compliant applications must issue a warning and proceed as if the property had been supplied with an empty array.
+            @warnings << "#{type} has invalid property '#{key}': expected array of ForeignKeys"
+            object[key] = []
+          else
+            unless value.all? {|v| v.is_a?(Hash)}
+              @warnings << "#{type} has invalid property '#{key}': expected array of ForeignKeys"
+              # Remove elements that aren't of the right types
+              object[key] = value.select! {|v| v.is_a?(Hash)}
+            end
+            value.each do |fk|
               columnReference, reference = fk['columnReference'], fk['reference']
               errors << "#{type} has invalid property '#{key}': missing columnReference and reference" unless columnReference && reference
               errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
@@ -657,8 +673,6 @@ module RDF::Tabular
               else
                 errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
               end
-            else
-              errors << "#{type} has invalid property '#{key}': reference must be an object: #{reference.inspect}" 
             end
           end
         when :headerRowCount, :skipColumns, :skipRows
@@ -725,7 +739,16 @@ module RDF::Tabular
             errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c.name == k}
           end
         when :tables
-          if value.is_a?(Array) && value.all? {|v| v.is_a?(Table)}
+          if !value.is_a?(Array)
+            # If the supplied value of an array property is not an array (eg if it is an integer), compliant applications must issue a warning and proceed as if the property had been supplied with an empty array.
+            @warnings << "#{type} has invalid property '#{key}': expected array of Tables"
+            object[key] = []
+          else
+            unless value.all? {|v| v.is_a?(Table)}
+              @warnings << "#{type} has invalid property '#{key}': expected array of Tables"
+              # Remove elements that aren't of the right types
+              object[key] = value.select! {|v| v.is_a?(Table)}
+            end
             value.each do |t|
               begin
                 t.validate!
@@ -733,8 +756,6 @@ module RDF::Tabular
                 errors << e.message
               end
             end
-          else
-            errors << "#{type} has invalid property '#{key}': expected array of Tables"
           end
         when :scriptFormat, :targetFormat
           unless RDF::URI(value).valid?
@@ -764,7 +785,16 @@ module RDF::Tabular
             errors << "#{type} has invalid property '#{key}': expected Schema"
           end
         when :transformations
-          if value.is_a?(Array) && value.all? {|v| v.is_a?(Transformation)}
+          if !value.is_a?(Array)
+            # If the supplied value of an array property is not an array (eg if it is an integer), compliant applications must issue a warning and proceed as if the property had been supplied with an empty array.
+            @warnings << "#{type} has invalid property '#{key}': expected array of Transformations"
+            object[key] = []
+          else
+            unless value.all? {|v| v.is_a?(Table)}
+              @warnings << "#{type} has invalid property '#{key}': expected array of Transformations"
+              # Remove elements that aren't of the right types
+              object[key] = value.select! {|v| v.is_a?(Transformation)}
+            end
             value.each do |t|
               begin
                 t.validate!
@@ -772,8 +802,6 @@ module RDF::Tabular
                 errors << e.message
               end
             end
-          else
-            errors << "#{type} has invalid property '#{key}': expected array of Transformations"
           end
         when :titles
           valid_natural_language_property?(:titles, value) {|m| errors << m}

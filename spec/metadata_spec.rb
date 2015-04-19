@@ -579,7 +579,7 @@ describe RDF::Tabular::Metadata do
       },
       transformations: {
         valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
-        invalid: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+        warning: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
                  %w(foo true 1)
       },
       dialect: {
@@ -640,7 +640,7 @@ describe RDF::Tabular::Metadata do
       },
       transformations: {
         valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
-        invalid: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+        warning: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
                  %w(foo true 1)
       },
       notes: {
