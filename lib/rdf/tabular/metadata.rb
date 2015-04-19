@@ -1895,15 +1895,14 @@ module RDF::Tabular
       map_values = {"_row" => number, "_sourceRow" => source_number}
 
       columns = metadata.tableSchema.columns ||= []
+      non_virtual_columns = columns.reject(&:virtual)
+
+      if row.length < non_virtual_columns.length
+        raise Error, "Row #{source_number} has #{row.length} columns, expected #{non_virtual_columns.length}"
+      end
 
       # Make sure that the row length is at least as long as the number of column definitions, to implicitly include virtual columns
-      columns.each_with_index do |c, index|
-        if c.virtual
-          row[index] ||= (c.null || '')
-        elsif row[index].nil?
-          raise Error, "Row #{source_number} has #{row.length} columns, expected #{columns.reject(&:virtual).length}"
-        end
-      end
+      columns.each_with_index {|c, index| row[index] ||= (c.null || '')}
 
       row.each_with_index do |value, index|
 
