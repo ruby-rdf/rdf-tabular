@@ -449,8 +449,8 @@ module RDF::Tabular
     # @return [Dialect]
     def datatype=(value)
       object[:datatype] = case value
-      when Hash then Datatype.new(value)
-      else           Datatype.new({base: value})
+      when Hash then Datatype.new(value, parent: self)
+      else           Datatype.new({base: value}, parent: self)
       end
     end
 
@@ -1897,7 +1897,14 @@ module RDF::Tabular
       columns = metadata.tableSchema.columns ||= []
 
       # Make sure that the row length is at least as long as the number of column definitions, to implicitly include virtual columns
-      columns.each_with_index {|c, index| row[index] ||= (c.null || '')}
+      columns.each_with_index do |c, index|
+        if c.virtual
+          row[index] ||= (c.null || '')
+        elsif row[index].nil?
+          raise Error, "Row #{source_number} has #{row.length} columns, expected #{columns.reject(&:virtual).length}"
+        end
+      end
+
       row.each_with_index do |value, index|
 
         next if index < skipColumns
@@ -1912,7 +1919,7 @@ module RDF::Tabular
 
         @values << cell = Cell.new(metadata, column, self, value)
 
-        datatype = column.datatype || Datatype.new(base: "string")
+        datatype = column.datatype || Datatype.new(base: "string", parent: column)
         value = value.gsub(/\r\t\a/, ' ') unless %w(string json xml html anyAtomicType any).include?(datatype.base)
         value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType any normalizedString).include?(datatype.base)
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
