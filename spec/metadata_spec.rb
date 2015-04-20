@@ -194,7 +194,10 @@ describe RDF::Tabular::Metadata do
     end
 
     it "detects invalid names" do
-      [1, true, nil, "_foo", "_col=1"].each {|v| expect(described_class.new("name" => v)).not_to be_valid}
+      [1, true, nil, "_foo", "_col=1"].each do |v|
+        md = described_class.new("name" => v)
+        expect(md.warnings).not_to be_empty
+      end
     end
 
     it "allows absence of name" do
@@ -207,7 +210,7 @@ describe RDF::Tabular::Metadata do
     {
       titles: {
         valid: ["foo", %w(foo bar), {"en" => "foo", "de" => "bar"}],
-        invalid: [1, true, nil]
+        warning: [1, true, nil]
       },
       suppressOutput: {
         valid: [true, false],
@@ -247,7 +250,7 @@ describe RDF::Tabular::Metadata do
       }.each do |name, (input, output)|
         it name do
           subject.titles = input
-          expect(subject.titles).to produce(output)
+          expect(subject.normalize!.titles).to produce(output)
         end
       end
     end
@@ -274,7 +277,7 @@ describe RDF::Tabular::Metadata do
 
       it "is invalid with an invalid column" do
         v = described_class.new({"columns" => [{"name" => "_invalid"}]}, base: RDF::URI("http://example.org/base"), debug: @debug)
-        expect(v.errors).not_to be_empty
+        expect(v.warnings).not_to be_empty
       end
 
       it "is invalid with an non-unique columns" do
@@ -434,7 +437,7 @@ describe RDF::Tabular::Metadata do
     {
       source: {
         valid: %w(json rdf) + [nil],
-        invalid: [1, true, {}]
+        warning: [1, true, {}]
       },
     }.each do |prop, params|
       context prop.to_s do
@@ -444,10 +447,10 @@ describe RDF::Tabular::Metadata do
             expect(subject).to be_valid
           end
         end
-        it "invalidates" do
-          params[:invalid].each do |v|
+        it "warnings" do
+          params[:warning].each do |v|
             subject.send("#{prop}=".to_sym, v)
-            expect(subject).not_to be_valid
+            expect(subject.warnings).not_to be_empty
           end
         end
       end
@@ -459,7 +462,7 @@ describe RDF::Tabular::Metadata do
       }.each do |name, (input, output)|
         it name do
           subject.titles = input
-          expect(subject.titles).to produce(output)
+          expect(subject.normalize!.titles).to produce(output)
         end
       end
     end
@@ -567,7 +570,7 @@ describe RDF::Tabular::Metadata do
     {
       tableSchema: {
         valid: [RDF::Tabular::Schema.new({})],
-        invalid: [1, true, nil]
+        warning: [1, true, nil]
       },
       notes: {
         valid: [{}, [{}]],
@@ -584,7 +587,7 @@ describe RDF::Tabular::Metadata do
       },
       dialect: {
         valid: [{skipRows: 1}],
-        invalid: ["http://location-of-dialect", "foo"]
+        warning: [1]
       },
       suppressOutput: {
         valid: [true, false],
@@ -628,7 +631,7 @@ describe RDF::Tabular::Metadata do
     {
       tableSchema: {
         valid: [RDF::Tabular::Schema.new({})],
-        invalid: [1, true, nil]
+        warning: [1, true, nil]
       },
       tableDirection: {
         valid: %w(rtl ltr default),
@@ -636,7 +639,7 @@ describe RDF::Tabular::Metadata do
       },
       dialect: {
         valid: [{skipRows: 1}],
-        invalid: ["http://location-of-dialect", "foo"]
+        warning: [1]
       },
       transformations: {
         valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
@@ -766,7 +769,6 @@ describe RDF::Tabular::Metadata do
         "columns Schema" => [{"columns" => []}, RDF::Tabular::Schema],
         "primaryKey Schema" => [{"primaryKey" => "foo"}, RDF::Tabular::Schema],
         "foreignKeys Schema" => [{"foreignKeys" => []}, RDF::Tabular::Schema],
-        "urlTemplate Schema" => [{"urlTemplate" => "foo"}, RDF::Tabular::Schema],
         "commentPrefix Dialect" => [{"commentPrefix" => "#"}, RDF::Tabular::Dialect],
         "delimiter Dialect" => [{"delimiter" => ","}, RDF::Tabular::Dialect],
         "doubleQuote Dialect" => [{"doubleQuote" => true}, RDF::Tabular::Dialect],
@@ -1055,12 +1057,12 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with matching pattern" => {
           base: "decimal",
-          pattern: '\d{3}',
+          format: {pattern: '\d{3}'},
           value: "123"
         },
         "decimal with wrong pattern" => {
           base: "decimal",
-          pattern: '\d{4}',
+          format: {pattern: '\d{4}'},
           value: "123",
           errors: [/123 does not match pattern/]
         },
@@ -1071,20 +1073,20 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with explicit groupChar" => {
           base: "decimal",
-          groupChar: ";",
+          format: {groupChar: ";"},
           value: "123;456.789",
           result: "123456.789"
         },
         "decimal with repeated groupChar" => {
           base: "decimal",
-          groupChar: ";",
+          format: {groupChar: ";"},
           value: "123;;456.789",
           result: "123;;456.789",
           errors: [/has repeating/]
         },
         "decimal with explicit decimalChar" => {
           base: "decimal",
-          decimalChar: ";",
+          format: {decimalChar: ";"},
           value: "123456;789",
           result: "123456.789"
         },
@@ -1690,10 +1692,10 @@ describe RDF::Tabular::Metadata do
         B: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
         R: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}, {"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
       },
-      "Schema with urlTemplate always takes A" => {
-        A: %({"@type": "Schema", "urlTemplate": "foo"}),
-        B: %({"@type": "Schema", "urlTemplate": "bar"}),
-        R: %({"@type": "Schema", "urlTemplate": "foo"}),
+      "Schema with aboutUrl always takes A" => {
+        A: %({"@type": "Schema", "aboutUrl": "foo"}),
+        B: %({"@type": "Schema", "aboutUrl": "bar"}),
+        R: %({"@type": "Schema", "aboutUrl": "foo"}),
       },
     }.each do |name, props|
       it name do
