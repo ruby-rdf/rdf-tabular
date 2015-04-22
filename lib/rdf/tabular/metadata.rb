@@ -1589,7 +1589,7 @@ module RDF::Tabular
         when :encoding
           "a valid encoding" unless (Encoding.find(value) rescue false)
         when :headerRowCount, :skipColumns, :skipRows
-          "a positive integer" unless value.is_a?(Numeric) && value.integer? && value > 0
+          "a non-negative integer" unless value.is_a?(Numeric) && value.integer? && value >= 0
         when :trim
           "true, false, start or end" unless %w(true false start end).include?(value.to_s.downcase)
         when :titles
@@ -1740,8 +1740,8 @@ module RDF::Tabular
             end
           end
         when :length, :minLength, :maxLength
-          if !(value.is_a?(Numeric) && value.integer? && value > 0)
-            "a positive integer" 
+          if !(value.is_a?(Numeric) && value.integer? && value >= 0)
+            "a non-negative integer" 
           elsif key != :length && object[:length] && value != object[:length]
             # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
             "both length and #{key} requires they be equal"
