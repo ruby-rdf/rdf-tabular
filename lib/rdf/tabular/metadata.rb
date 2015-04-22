@@ -200,12 +200,12 @@ module RDF::Tabular
       when user_metadata && found_metadata then user_metadata.merge(found_metadata)
       when user_metadata                   then user_metadata
       when found_metadata                  then found_metadata
-      when base                            then TableGroup.new({tables: [{url: base}]}, options)
-      else                                      TableGroup.new({tables: []}, options)
+      when base                            then TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: base}]}, options)
+      else                                      TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: []}, options)
       end
 
       # Make TableGroup, if not already
-      metadata.is_a?(TableGroup) ? metadata : metadata.merge(TableGroup.new({}))
+      metadata.is_a?(TableGroup) ? metadata : metadata.merge(TableGroup.new({"@context" => "http://www.w3.org/ns/csvw"}))
     end
 
     ##
@@ -222,7 +222,7 @@ module RDF::Tabular
 
       unless options[:parent]
         # Add context, if not set (which it should be)
-        object['@context'] ||= options.delete(:@context) || options[:context] || 'http://www.w3.org/ns/csvw'
+        object['@context'] ||= options.delete(:@context) || options[:context]
       end
 
       klass = case
@@ -278,14 +278,26 @@ module RDF::Tabular
     # @return [Metadata]
     def initialize(input, options = {})
       @options = options.dup
+      @options[:depth] ||= 0
+
+      # Parent of this Metadata, if any
+      @parent = @options[:parent]
 
       # Get context from input
       # Optimize by using built-in version of context, and just extract @base, @lang
       @context = case input['@context']
-      when Array then LOCAL_CONTEXT.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
-      when Hash  then LOCAL_CONTEXT.parse(input['@context'])
-      when nil   then nil
-      else            LOCAL_CONTEXT
+      when Array
+        warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
+        LOCAL_CONTEXT.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
+      when Hash
+        warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
+        LOCAL_CONTEXT.parse(input['@context'])
+      when "http://www.w3.org/ns/csvw" then LOCAL_CONTEXT
+      else
+        if self.is_a?(TableGroup) || self.is_a?(Table) && !@parent
+          warn "Context missing required value 'http://www.w3.org/ns/csvw'"
+          LOCAL_CONTEXT
+        end
       end
 
       reason = @options.delete(:reason)
@@ -297,15 +309,16 @@ module RDF::Tabular
 
       @context.base = @options[:base] if @context
 
-      @options[:depth] ||= 0
+      if @context && @context.default_language && !BCP47::Language.identify(@context.default_language.to_s)
+        warn "Context has invalid @language (#{@context.default_language.inspect}): expected valid BCP47 language tag"
+        @context.default_language = nil
+      end
+
       @filenames = Array(@options[:filenames]).map {|fn| RDF::URI(fn)} if @options[:filenames]
       @properties = self.class.const_get(:PROPERTIES)
       @required = self.class.const_get(:REQUIRED)
 
       @object = {}
-
-      # Parent of this Metadata, if any
-      @parent = @options[:parent]
 
       depth do
         # Input was parsed in .new
@@ -320,8 +333,13 @@ module RDF::Tabular
             @context.base = @url if @context # Use as base for expanding IRIs
           when :@id
             # metadata identifier
-            object[:@id] = value
-            @id = base.join(value)
+            object[:@id] = if value.is_a?(String)
+              value
+            else
+              warn "#{type} has invalid property '@id' (#{value.inspect}): expected a string"
+              ""
+            end
+            @id = base.join(object[:@id])
           else
             if @properties.has_key?(key) || INHERITED_PROPERTIES.has_key?(key)
               self.send("#{key}=".to_sym, value)
@@ -435,6 +453,8 @@ module RDF::Tabular
         object[:dialect] = Metadata.open(base.join(value), @options.merge(parent: self, context: nil))
       when Hash
         object[:dialect] = Metadata.new(value, @options.merge(parent: self, context: nil))
+      when Dialect
+        object[:dialect] = value
       else
         warn "#{type} has invalid property 'dialect' (#{value.inspect}): expected a URL or object"
         nil
@@ -491,7 +511,7 @@ module RDF::Tabular
         flatten.
         select {|v| v.is_a?(Metadata)}.
         map(&:warnings).
-        flatten).compact
+        flatten).compact.uniq
     end
 
     ##
@@ -542,62 +562,53 @@ module RDF::Tabular
           end
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
-          if !value.is_a?(Array)
-            # If the supplied value of an array property is not an array (eg if it is an integer), compliant applications must issue a warning and proceed as if the property had been supplied with an empty array.
-            warn "#{type} has invalid property '#{key}': expected array of ForeignKeys"
-            object[key] = []
-          else
-            unless value.all? {|v| v.is_a?(Hash)}
-              warn "#{type} has invalid property '#{key}': expected array of ForeignKeys"
-              # Remove elements that aren't of the right types
-              object[key] = value.select! {|v| v.is_a?(Hash)}
+          value.each do |fk|
+            columnReference, reference = fk['columnReference'], fk['reference']
+            errors << "#{type} has invalid property '#{key}': missing columnReference and reference" unless columnReference && reference
+            errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
+
+            # Verify that columns exist in this schema
+            errors << "#{type} has invalid property '#{key}': no columnReference found" unless Array(columnReference).length > 0
+            Array(columnReference).each do |k|
+              errors << "#{type} has invalid property '#{key}': columnReference not found #{k}" unless self.columns.any? {|c| c[:name] == k}
             end
-            value.each do |fk|
-              columnReference, reference = fk['columnReference'], fk['reference']
-              errors << "#{type} has invalid property '#{key}': missing columnReference and reference" unless columnReference && reference
-              errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
 
-              # Verify that columns exist in this schema
-              Array(columnReference).each do |k|
-                errors << "#{type} has invalid property '#{key}': columnReference not found #{k}" unless self.columns.any? {|c| c.name == k}
+            if reference.is_a?(Hash)
+              ref_cols = reference['columnReference']
+              schema = if reference.has_key?('resource')
+                if reference.has_key?('schemaReference')
+                  errors << "#{type} has invalid property '#{key}': reference has a schemaReference: #{reference.inspect}" 
+                end
+                # resource is the URL of a Table in the TableGroup
+                ref = base.join(reference['resource']).to_s
+                table = root.is_a?(TableGroup) && root.tables.detect {|t| t.url == ref}
+                errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
+                table.tableSchema if table
+              elsif reference.has_key?('schemaReference')
+                # resource is the @id of a Schema in the TableGroup
+                ref = base.join(reference['schemaReference']).to_s
+                tables = root.is_a?(TableGroup) ? root.tables.select {|t| t.tableSchema[:@id] == ref} : []
+                case tables.length
+                when 0
+                  errors << "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
+                  nil
+                when 1
+                  tables.first.tableSchema
+                else
+                  errors << "#{type} has invalid property '#{key}': multiple schemas found from #{ref}"
+                  nil
+                end
               end
 
-              if reference.is_a?(Hash)
-                ref_cols = reference['columnReference']
-                schema = if reference.has_key?('resource')
-                  if reference.has_key?('schemaReference')
-                    errors << "#{type} has invalid property '#{key}': reference has a schemaReference: #{reference.inspect}" 
-                  end
-                  # resource is the URL of a Table in the TableGroup
-                  ref = base.join(reference['resource']).to_s
-                  table = root.is_a?(TableGroup) && root.tables.detect {|t| t.url == ref}
-                  errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
-                  table.tableSchema if table
-                elsif reference.has_key?('schemaReference')
-                  # resource is the @id of a Schema in the TableGroup
-                  ref = base.join(reference['schemaReference']).to_s
-                  tables = root.is_a?(TableGroup) ? root.tables.select {|t| t.tableSchema[:@id] == ref} : []
-                  case tables.length
-                  when 0
-                    errors << "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
-                    nil
-                  when 1
-                    tables.first.tableSchema
-                  else
-                    errors << "#{type} has invalid property '#{key}': multiple schemas found from #{ref}"
-                    nil
-                  end
+              if schema
+                # ref_cols must exist in schema
+                errors << "#{type} has invalid property '#{key}': no columnReference found" unless Array(ref_cols).length > 0
+                Array(ref_cols).each do |k|
+                  errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless schema.columns.any? {|c| c[:name] == k}
                 end
-
-                if schema
-                  # ref_cols must exist in schema
-                  Array(ref_cols).each do |k|
-                    errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless schema.columns.any? {|c| c.name == k}
-                  end
-                end
-              else
-                errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
               end
+            else
+              errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
             end
           end
         when :notes
@@ -611,8 +622,9 @@ module RDF::Tabular
           end
         when :primaryKey
           # A column reference property that holds either a single reference to a column description object or an array of references.
+          "#{type} has invalid property '#{key}': no column references found" unless Array(value).length > 0
           Array(value).each do |k|
-            errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c.name == k}
+            errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c[:name] == k}
           end
         when :@context
           # Skip these
@@ -1084,6 +1096,7 @@ module RDF::Tabular
 
     # Add a warning on this object
     def warn(string)
+      debug("warn: #{string}")
       (@warnings ||= []) << string
     end
 
@@ -1346,7 +1359,17 @@ module RDF::Tabular
     # Setters
     PROPERTIES.each do |key, type|
       define_method("#{key}=".to_sym) do |value|
-        object[key] = value
+        invalid = case key
+        when :primaryKey
+          "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
+        end
+
+        if invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
+        else
+          object[key] = value
+        end
       end
     end
 
@@ -1368,7 +1391,7 @@ module RDF::Tabular
           end
         end
       else
-        warn "#{type} has invalid property '#{key}': expected array of Column"
+        warn "#{type} has invalid property 'columns': expected array of Column"
         []
       end
 
@@ -1376,6 +1399,21 @@ module RDF::Tabular
         warn "#{type} has invalid property 'columns': expected array of Column"
         # Remove elements that aren't of the right types
         object[:columns] = object[:columns].select! {|v| v.is_a?(Column)}
+      end
+    end
+
+    def foreignKeys=(value)
+      object[:foreignKeys] = case value
+      when Array then value
+      else
+        warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
+        []
+      end
+
+      unless object[:foreignKeys].all? {|v| v.is_a?(Hash)}
+        warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
+        # Remove elements that aren't of the right types
+        object[:foreignKeys] = object[:foreignKeys].select! {|v| v.is_a?(Hash)}
       end
     end
 
@@ -1457,7 +1495,7 @@ module RDF::Tabular
 
     # Return or create a name for the column from titles, if it exists
     def name
-      object[:name] ||= if titles && (ts = titles[context.default_language || 'und'])
+      self[:name] || if titles && (ts = titles[context.default_language || 'und'])
         n = Array(ts).first
         n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
         n1 = URI.encode(n[1..-1], /[^\w\.]/)
@@ -1644,6 +1682,7 @@ module RDF::Tabular
       end
 
       table = {
+        "@context" => "http://www.w3.org/ns/csvw",
         "url" => (options.fetch(:base, "")),
         "@type" => "Table",
         "tableSchema" => {

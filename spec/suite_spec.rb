@@ -63,9 +63,9 @@ describe RDF::Tabular::Reader do
                         expect(graph).to be_a(RDF::Enumerable)
 
                         if t.warning?
-                          expect(t.warnings).not_to be_empty
+                          expect(t.warnings.length).to produce 1, t
                         else
-                          expect(t.warnings).to be_empty
+                          expect(t.warnings).to produce [], t
                         end
                       end
                     end
@@ -78,7 +78,7 @@ describe RDF::Tabular::Reader do
                 end
               rescue Exception => e
                 unless t.negative_test? && t.validation?
-                  fail "did not expect an error, got #{e}"
+                  raise
                 end
               end
             end

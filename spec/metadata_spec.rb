@@ -182,7 +182,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Column do
-    subject {described_class.new({"name" => "foo"}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"name" => "foo"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -257,7 +257,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Schema do
-    subject {described_class.new({}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -428,7 +428,15 @@ describe RDF::Tabular::Metadata do
   describe RDF::Tabular::Transformation do
     let(:targetFormat) {"http://example.org/targetFormat"}
     let(:scriptFormat) {"http://example.org/scriptFormat"}
-    subject {described_class.new({"url" => "http://example/", "targetFormat" => targetFormat, "scriptFormat" => scriptFormat}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {
+      described_class.new({
+        "url" => "http://example/",
+        "targetFormat" => targetFormat,
+        "scriptFormat" => scriptFormat},
+      context: "http://www.w3.org/ns/csvw",
+      base: RDF::URI("http://example.org/base"),
+      debug: @debug)
+    }
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties")
@@ -469,7 +477,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Dialect do
-    subject {described_class.new({}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties", false)
@@ -561,7 +569,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Table do
-    subject {described_class.new({"url" => "http://example.org/table.csv"}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"url" => "http://example.org/table.csv"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}      
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -620,7 +628,7 @@ describe RDF::Tabular::Metadata do
 
   describe RDF::Tabular::TableGroup do
     let(:table) {{"url" => "http://example.org/table.csv"}}
-    subject {described_class.new({"tables" => [table]}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"tables" => [table]}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     
     it_behaves_like("inherited properties")
@@ -1369,32 +1377,37 @@ describe RDF::Tabular::Metadata do
     {
       "two tables with same id" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table"
         }),
         B: [%({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table"
         })],
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
             "url": "http://example.org/table"
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
+          }]
         })
       },
       "two tables with different id" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table1"
         }),
         B: [%({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table2"
         })],
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
@@ -1402,16 +1415,17 @@ describe RDF::Tabular::Metadata do
           }, {
             "@type": "Table",
             "url": "http://example.org/table2"
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
+          }]
         })
       },
       "table and table-group" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table1"
         }),
         B: [%({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
@@ -1419,6 +1433,7 @@ describe RDF::Tabular::Metadata do
           }]
         })],
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
@@ -1426,12 +1441,12 @@ describe RDF::Tabular::Metadata do
           }, {
             "@type": "Table",
             "url": "http://example.org/table2"
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
+          }]
         })
       },
       "table-group and table" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
@@ -1439,10 +1454,12 @@ describe RDF::Tabular::Metadata do
           }]
         }),
         B: [%({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table2"
         })],
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
@@ -1450,12 +1467,12 @@ describe RDF::Tabular::Metadata do
           }, {
             "@type": "Table",
             "url": "http://example.org/table2"
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
+          }]
         })
       },
       "table-group and two tables" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
@@ -1463,15 +1480,18 @@ describe RDF::Tabular::Metadata do
           }]
         }),
         B: [%({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table2",
           "dc:label": "foo"
         }), %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table2",
           "dc:label": "bar"
         })],
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
@@ -1480,8 +1500,7 @@ describe RDF::Tabular::Metadata do
             "@type": "Table",
             "url": "http://example.org/table2",
             "dc:label": {"@value": "foo"}
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
+          }]
         })
       },
     }.each do |name, props|
@@ -1511,45 +1530,48 @@ describe RDF::Tabular::Metadata do
   describe "#merge!" do
     {
       "TableGroup with and without @id" => {
-        A: %({"@id": "http://example.org/foo", "tables": [], "@type": "TableGroup"}),
-        B: %({"tables": [], "@type": "TableGroup"}),
-        R: %({"@id": "http://example.org/foo", "tables": [], "@type": "TableGroup"})
+        A: %({"@context": "http://www.w3.org/ns/csvw","@id": "http://example.org/foo", "tables": [], "@type": "TableGroup"}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","tables": [], "@type": "TableGroup"}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@id": "http://example.org/foo", "tables": [], "@type": "TableGroup"})
       },
       "TableGroup with and without @type" => {
-        A: %({"tables": []}),
-        B: %({"tables": [], "@type": "TableGroup"}),
-        R: %({"tables": [], "@type": "TableGroup"})
+        A: %({"@context": "http://www.w3.org/ns/csvw","tables": []}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","tables": [], "@type": "TableGroup"}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","tables": [], "@type": "TableGroup"})
       },
       "TableGroup with matching tables" => {
-        A: %({"tables": [{"url": "http://example.org/foo", "dc:title": "foo"}]}),
-        B: %({"tables": [{"url": "http://example.org/foo", "dc:description": "bar"}]}),
-        R: %({"tables": [{
+        A: %({"@context": "http://www.w3.org/ns/csvw","tables": [{"url": "http://example.org/foo", "dc:title": "foo"}]}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","tables": [{"url": "http://example.org/foo", "dc:description": "bar"}]}),
+        R: %({"@context": "http://www.w3.org/ns/csvw",
+          "tables": [{
           "url": "http://example.org/foo",
           "dc:title": {"@value": "foo"},
           "dc:description": {"@value": "bar"}
         }]})
       },
       "TableGroup with differing tables" => {
-        A: %({"tables": [{"url": "http://example.org/foo", "dc:title": "foo"}]}),
-        B: %({"tables": [{"url": "http://example.org/bar", "dc:description": "bar"}]}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","tables": [{"url": "http://example.org/foo", "dc:title": "foo"}]}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","tables": [{"url": "http://example.org/bar", "dc:description": "bar"}]}),
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "tables": [
             {"url": "http://example.org/foo", "dc:title": {"@value": "foo"}},
             {"url": "http://example.org/bar", "dc:description": {"@value": "bar"}}
           ]})
       },
       "Table with tableDirection always takes A" => {
-        A: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
-        B: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "rtl"}),
-        R: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","@type": "Table", "url": "http://example.com/foo", "tableDirection": "rtl"}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
       },
       "Table with dialect merges A and B" => {
-        A: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8"}}),
-        B: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"skipRows": 0}}),
-        R: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8", "skipRows": 0}}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8"}}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","@type": "Table", "url": "http://example.com/foo", "dialect": {"skipRows": 0}}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8", "skipRows": 0}}),
       },
       "Table with equivalent transformations uses A" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "transformations": [{
@@ -1560,6 +1582,7 @@ describe RDF::Tabular::Metadata do
           }]
         }),
         B: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "transformations": [{
@@ -1570,6 +1593,7 @@ describe RDF::Tabular::Metadata do
           }]
         }),
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "transformations": [{
@@ -1582,6 +1606,7 @@ describe RDF::Tabular::Metadata do
       },
       "Table with differing transformations appends B to A" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "transformations": [{
@@ -1591,6 +1616,7 @@ describe RDF::Tabular::Metadata do
           }]
         }),
         B: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "transformations": [{
@@ -1600,6 +1626,7 @@ describe RDF::Tabular::Metadata do
           }]
         }),
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "transformations": [{
@@ -1614,9 +1641,10 @@ describe RDF::Tabular::Metadata do
         }),
       },
       "Table with common properties keeps A" => {
-        A: %({"@type": "Table", "url": "http://example.com/foo", "rdfs:label": "foo"}),
-        B: %({"@type": "Table", "url": "http://example.com/foo", "rdfs:label": "bar"}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","@type": "Table", "url": "http://example.com/foo", "rdfs:label": "foo"}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","@type": "Table", "url": "http://example.com/foo", "rdfs:label": "bar"}),
         R: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.com/foo",
           "rdfs:label": {"@value": "foo"}
@@ -1670,32 +1698,32 @@ describe RDF::Tabular::Metadata do
       "Schema with matching columns merges A and B" => {
         A: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
         B: %({"@type": "Schema", "columns": [{"name": "foo", "required": false}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
       },
       "Schema with matching column titles" => {
-        A: %({"@type": "Schema", "columns": [{"titles": "Foo"}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo", "titles": "Foo"}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo", "titles": {"und": ["Foo"]}}]}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"titles": "Foo"}]}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo", "titles": "Foo"}]}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo", "titles": {"und": ["Foo"]}}]}),
       },
       "Schema with primaryKey always takes A" => {
-        A: %({"@type": "Schema", "primaryKey": "foo"}),
-        B: %({"@type": "Schema", "primaryKey": "bar"}),
-        R: %({"@type": "Schema", "primaryKey": "foo"}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "primaryKey": "foo"}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "primaryKey": "bar"}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "primaryKey": "foo"}),
       },
       "Schema with matching foreignKey uses A" => {
-        A: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
       },
       "Schema with differing foreignKey uses A and B" => {
-        A: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}, {"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}, {"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
       },
       "Schema with aboutUrl always takes A" => {
-        A: %({"@type": "Schema", "aboutUrl": "foo"}),
-        B: %({"@type": "Schema", "aboutUrl": "bar"}),
-        R: %({"@type": "Schema", "aboutUrl": "foo"}),
+        A: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "aboutUrl": "foo"}),
+        B: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "aboutUrl": "bar"}),
+        R: %({"@context": "http://www.w3.org/ns/csvw","@type": "Schema", "aboutUrl": "foo"}),
       },
     }.each do |name, props|
       it name do
