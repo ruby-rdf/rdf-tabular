@@ -161,8 +161,8 @@ module RDF::Tabular
     def self.for_input(input, options = {})
       base = options[:base]
 
-      # Use user metadata
-      user_metadata = case options[:metadata]
+      # Use user metadata, if provided
+      metadata = case options[:metadata]
       when Metadata then options[:metadata]
       when Hash
         Metadata.new(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
@@ -170,42 +170,37 @@ module RDF::Tabular
         Metadata.open(options[:metadata], options.merge(filenames: options[:metadata], reason: "load user metadata: #{options[:metadata].inspect}"))
       end
 
-      found_metadata = nil
+      # Search for metadata until found
 
-      # If user_metadata does not describe input, get the first found from linked-, file-, and directory-specific metadata
-      unless user_metadata.is_a?(Table) || user_metadata.is_a?(TableGroup) && user_metadata.for_table(base)
-        # load link metadata, if available
-        locs = []
-        if input.respond_to?(:links) && 
-          link = input.links.find_link(%w(rel describedby))
-          locs << RDF::URI(base).join(link.href)
-        end
+      # load link metadata, if available
+      locs = []
+      if input.respond_to?(:links) && 
+        link = input.links.find_link(%w(rel describedby))
+        locs << RDF::URI(base).join(link.href)
+      end
 
-        if base
-          locs += [RDF::URI("#{base}-metadata.json"), RDF::URI(base).join("metadata.json")]
-        end
+      if base
+        locs += [RDF::URI("#{base}-metadata.json"), RDF::URI(base).join("metadata.json")]
+      end
 
-        locs.each do |loc|
-          found_metadata ||= begin
-            Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
-          rescue
-            debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
-            nil
-          end
+      locs.each do |loc|
+        metadata ||= begin
+          Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
+        rescue
+          debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
+          nil
         end
       end
 
       # Return either the merge or user- and found-metadata, any of these, or an empty TableGroup
       metadata = case
-      when user_metadata && found_metadata then user_metadata.merge(found_metadata)
-      when user_metadata                   then user_metadata
-      when found_metadata                  then found_metadata
-      when base                            then TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: base}]}, options)
-      else                                      TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: []}, options)
+      when metadata then metadata
+      when base     then TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: base}]}, options)
+      else               TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: []}, options)
       end
 
       # Make TableGroup, if not already
-      metadata.is_a?(TableGroup) ? metadata : metadata.merge(TableGroup.new({"@context" => "http://www.w3.org/ns/csvw"}))
+      metadata.is_a?(TableGroup) ? metadata : metadata.to_table_group
     end
 
     ##
@@ -779,228 +774,50 @@ module RDF::Tabular
       object.keys.any? {|k| k.to_s.include?(':')}
     end
 
-    # Merge metadata into this a copy of this metadata
-    # @param [Array<Metadata>] metadata
-    # @return [Metadata]
-    def merge(*metadata)
-      return self if metadata.empty?
-      # If the top-level object of any of the metadata files are table descriptions, these are treated as if they were table group descriptions containing a single table description (ie having a single resource property whose value is the same as the original table description).
-      this = case self
-      when TableGroup then self.dup
-      when Table
-        if self.is_a?(Table) && self.parent
-          self.parent
-        else
-          content = {"@type" => "TableGroup", "tables" => [self]}
-          content['@context'] = object.delete(:@context) if object[:@context]
-          ctx = @context
-          self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context)
-          tg = TableGroup.new(content, filenames: @filenames, base: base)
-          @parent = tg  # Link from parent
-          tg
-        end
-      else self.dup
-      end
-
-      # Merge all passed metadata into this
-      merged = metadata.reduce(this) do |memo, md|
-        md = case md
-        when TableGroup then md
-        when Table
-          if md.parent
-            md.parent
-          else
-            content = {"@type" => "TableGroup", "tables" => [md]}
-            ctx = md.context
-            content['@context'] = md.object.delete(:@context) if md.object[:@context]
-            md.remove_instance_variable(:@context) if md.instance_variables.include?(:@context) 
-            tg = TableGroup.new(content, filenames: md.filenames, base: md.base)
-            md.instance_variable_set(:@parent, tg)  # Link from parent
-            tg
-          end
-        else
-          md
-        end
-
-        raise "Can't merge #{memo.class} with #{md.class}" unless memo.class == md.class
-
-        memo.merge!(md)
-      end
-
-      # Set @context of merged
-      merged[:@context] = 'http://www.w3.org/ns/csvw'
-      merged
-    end
-
     # Verify that the metadata we're using is compatible with embedded metadata
     # @param [Table] other
     # @raise [Error] if not compatible
     def verify_compatible!(other)
       if self.is_a?(TableGroup)
-        tables.any? {|t| t.url = other.url && t.verify_compatible!(other)}
+        unless tables.any? {|t| t.url == other.url && t.verify_compatible!(other)}
+          raise Error, "TableGroups must have Table with matching url #{tables.map(&:url).inspect} vs #{other.url.inspect}"
+        end
       else
+        # Tables must have the same url
+        raise Error, "Tables must have the same url: #{url.inspect} vs #{other.url.inspect}}" unless
+          url == other.url
+
         # Each column description within B MUST match the corresponding column description in A for non-virtual columns
         non_virtual_columns = Array(tableSchema.columns).reject(&:virtual)
-        raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{Array(other.tableSchema.columns).map(&:name).inspect}" if
-          non_virtual_columns.length != Array(other.tableSchema.columns).length
+        object_columns = Array(other.tableSchema.columns)
+
+        # Special case, if there is no header, then there are no column definitions, allow this as being compatile
+        raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}" if
+          non_virtual_columns.length != object_columns.length && !object_columns.empty?
         index = 0
-        Array(other.tableSchema.columns).all? do |cb|
+        object_columns.all? do |cb|
           ca = non_virtual_columns[index]
-          va = ([ca[:name]] + (ca[:titles] || {}).values.flatten).compact.map(&:downcase)
-          vb = ([cb[:name]] + (cb[:titles] || {}).values.flatten).compact.map(&:downcase)
+          va = ([ca[:name]] + case ca[:titles]
+          when String then [ca[:titles]]
+          when Array then ca[:titles]
+          when Hash then ca[:titles].values.flatten
+          else []
+          end).compact.map(&:downcase)
+
+          vb = ([cb[:name]] + case cb[:titles]
+          when String then [cb[:titles]]
+          when Array then cb[:titles]
+          when Hash then cb[:titles].values.flatten
+          else []
+          end).compact.map(&:downcase)
+
           # If there's a non-empty case-insensitive intersection between the name and titles values for the column description at the same index within A and B, the column description in B is compatible with the matching column description in A
           raise Error, "Columns don't match: va: #{va}, vb: #{vb}" if (va & vb).empty?
           debug("merge!: columns") {"index: #{index}, va: #{va}, vb: #{vb}"}
           index += 1
         end
       end
-    end
-
-    # Merge metadata into self
-    def merge!(metadata)
-      raise "Merging non-equivalent metadata types: #{self.class} vs #{metadata.class}" unless self.class == metadata.class
-
-      depth do
-        # Merge filenames
-        if @filenames || metadata.filenames
-          @filenames = (Array(@filenames) | Array(metadata.filenames)).uniq
-        end
-
-        # Normalize A (this) and B (metadata) values into normal form
-        self.normalize!
-        metadata = metadata.dup.normalize!
-
-        @dialect = nil  # So that it is re-built when needed
-        # Merge each property from metadata into self
-        metadata.each do |key, value|
-          case @properties[key]
-          when :array
-            # If the property is an array property, the way in which values are merged depends on the property; see the relevant property for this definition.
-            object[key] = case object[key]
-            when nil then []
-            when Hash then [object[key]]  # Shouldn't happen if well formed
-            else object[key]
-            end
-
-            value = [value] if value.is_a?(Hash)
-            case key
-            when :notes
-              # If the property is notes, the result is an array containing values from A followed by values from B.
-              a = object[key].is_a?(Array) ? object[key] : [object[key]].compact
-              b = value.is_a?(Array) ? value : [value]
-              object[key] = a + b
-            when :tables
-              # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
-              value.each do |tb|
-                if ta = object[key].detect {|e| e.url == tb.url}
-                  # if there is a table description with the same url in A, the table description from B is imported into the matching table description in A
-                  debug("merge!: tables") {"TA: #{ta.inspect}, TB: #{tb.inspect}"}
-                  ta.merge!(tb)
-                else
-                  # otherwise, the table description from B is appended to the array of table descriptions A
-                  tb = tb.dup
-                  tb.instance_variable_set(:@parent, self)
-                  debug("merge!: tables") {"add TB: #{tb.inspect}"}
-                  object[key] << tb
-                end
-              end
-            when :transformations
-              # SPEC CONFUSION: differing transformations with same @id?
-              # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
-              value.each do |t|
-                if ta = object[key].detect {|e| e.targetFormat == t.targetFormat && e.scriptFormat == t.scriptFormat}
-                  # if there is a template specification with the same targetFormat and scriptFormat in A, the template specification from B is imported into the matching template specification in A
-                  ta.merge!(t)
-                else
-                  # otherwise, the template specification from B is appended to the array of template specifications A
-                  t = t.dup
-                  t.instance_variable_set(:@parent, self) if self
-                  object[key] << t
-                end
-              end
-            when :columns
-              # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
-              Array(value).each_with_index do |cb, index|
-                ca = object[key][index] || {}
-                va = ([ca[:name]] + (ca[:titles] || {}).values.flatten).compact.map(&:downcase)
-                vb = ([cb[:name]] + (cb[:titles] || {}).values.flatten).compact.map(&:downcase)
-                if !(va & vb).empty?
-                  debug("merge!: columns") {"index: #{index}, va: #{va}, vb: #{vb}"}
-                  # If there's a non-empty case-insensitive intersection between the name and titles values for the column description at the same index within A and B, the column description from B is imported into the matching column description in A
-                  ca.merge!(cb)
-                elsif ca.nil? && cb.virtual
-                  debug("merge!: columns") {"index: #{index}, virtual"}
-                  # otherwise, if at a given index there is no column description within A, but there is a column description within B.
-                  cb = cb.dup
-                  cb.instance_variable_set(:@parent, self) if self
-                  object[key][index] = cb
-                else
-                  debug("merge!: columns") {"index: #{index}, ignore"}
-                  raise Error, "Columns at same index don't match: #{ca.to_json} vs. #{cb.to_json}"
-                end
-              end
-              # The number of non-virtual columns in A and B MUST be the same
-              nA = object[key].reject(&:virtual).length
-              nB = Array(value).reject(&:virtual).length
-              raise Error, "Columns must have the same number of non-virtual columns: #{object[key].reject(&:virtual).map(&:name).inspect} vs #{Array(value).reject(&:virtual).map(&:name).inspect}" unless nA == nB || nB == 0
-            when :foreignKeys
-              # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
-              # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
-              object[key] = object[key] + (metadata[key] - object[key])
-            end
-          when :object
-            case key
-            when :notes
-              # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
-              a = object[key] || []
-              object[key] = (a + value).uniq
-            else
-              # if the property only accepts single objects
-              if object[key].is_a?(String) || value.is_a?(String)
-                # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
-                object[key] ||= value
-              elsif object[key].is_a?(Metadata)
-                # otherwise (if both values as objects) the objects are merged as described here
-                object[key].merge!(value)
-              elsif object[key].is_a?(Hash)
-                # otherwise (if both values as objects) the objects are merged as described here
-                object[key].merge!(value)
-              else
-                value = value.dup
-                value.instance_variable_set(:@parent, self) if self
-                object[key] = value
-              end
-            end
-          when :natural_language
-            # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
-            a = object[key] || {}
-            b = value
-            debug("merge!: natural_language") {
-              "A: #{a.inspect}, B: #{b.inspect}"
-            }
-            b.each do |k, v|
-              a[k] = Array(a[k]) + (Array(b[k]) - Array(a[k]))
-            end
-            # eliminate titles with no language where the same string exists with a language
-            if a.has_key?("und")
-              a["und"] = a["und"].reject do |v|
-                a.any? {|lang, values| lang != 'und' && values.include?(v)}
-              end
-              a.delete("und") if a["und"].empty?
-            end
-            object[key] = a
-          when ->(k) {key == :@id}
-            object[key] ||= value
-            @id ||= metadata.id
-          else
-            # Otherwise, the value from A overrides that from B
-            object[key] ||= value
-          end
-        end
-      end
-
-      debug("merge!") {self.inspect}
-      self
+      true
     end
 
     def inspect
@@ -1981,7 +1798,7 @@ module RDF::Tabular
         cell.errors = cell_errors
         metadata.send(:debug, "#{self.number}: each_cell ##{self.sourceNumber},#{cell.column.sourceNumber}", cell.errors.join("\n")) unless cell_errors.empty?
 
-        map_values[columns[index - skipColumns].name] =  (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
+        map_values[columns[index - skipColumns].name] = (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
 
       # Map URLs for row

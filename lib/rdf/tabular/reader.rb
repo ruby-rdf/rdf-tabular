@@ -85,7 +85,7 @@ module RDF::Tabular
             if (@metadata = @options[:metadata]) && @metadata.tableSchema
               @metadata.verify_compatible!(embedded_metadata)
             else
-              @metadata = embedded_metadata
+              @metadata = embedded_metadata.normalize!
             end
 
             lang = input.headers[:content_language] rescue nil
@@ -97,7 +97,7 @@ module RDF::Tabular
           else
             # It's tabluar data. Find metadata and proceed as if it was specified in the first place
             @options[:original_input] = @input
-            @input = @metadata = Metadata.for_input(@input, @options)
+            @input = @metadata = Metadata.for_input(@input, @options).normalize!
           end
 
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
