@@ -832,6 +832,30 @@ module RDF::Tabular
       merged
     end
 
+    # Verify that the metadata we're using is compatible with embedded metadata
+    # @param [Table] other
+    # @raise [Error] if not compatible
+    def verify_compatible!(other)
+      if self.is_a?(TableGroup)
+        tables.any? {|t| t.url = other.url && t.verify_compatible!(other)}
+      else
+        # Each column description within B MUST match the corresponding column description in A for non-virtual columns
+        non_virtual_columns = Array(tableSchema.columns).reject(&:virtual)
+        raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{Array(other.tableSchema.columns).map(&:name).inspect}" if
+          non_virtual_columns.length != Array(other.tableSchema.columns).length
+        index = 0
+        Array(other.tableSchema.columns).all? do |cb|
+          ca = non_virtual_columns[index]
+          va = ([ca[:name]] + (ca[:titles] || {}).values.flatten).compact.map(&:downcase)
+          vb = ([cb[:name]] + (cb[:titles] || {}).values.flatten).compact.map(&:downcase)
+          # If there's a non-empty case-insensitive intersection between the name and titles values for the column description at the same index within A and B, the column description in B is compatible with the matching column description in A
+          raise Error, "Columns don't match: va: #{va}, vb: #{vb}" if (va & vb).empty?
+          debug("merge!: columns") {"index: #{index}, va: #{va}, vb: #{vb}"}
+          index += 1
+        end
+      end
+    end
+
     # Merge metadata into self
     def merge!(metadata)
       raise "Merging non-equivalent metadata types: #{self.class} vs #{metadata.class}" unless self.class == metadata.class
@@ -1321,6 +1345,17 @@ module RDF::Tabular
       super || tableSchema && tableSchema.has_annotations?
     end
 
+    # Return a new TableGroup based on this Table
+    def to_table_group
+      content = {"@type" => "TableGroup", "tables" => [self]}
+      content['@context'] = object.delete(:@context) if object[:@context]
+      ctx = @context
+      self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context)
+      tg = TableGroup.new(content, context: ctx, filenames: @filenames, base: base)
+      @parent = tg  # Link from parent
+      tg
+    end
+
     # Return Annotated Table representation
     def to_atd
       object.inject({
@@ -1671,6 +1706,7 @@ module RDF::Tabular
     # @param [#read, #to_s] input IO, or file path or URL
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Util::File.open_file`)
+    # @option options [String] :lang, language to set in table, if any
     # @return [Metadata] Tabular metadata
     # @see http://w3c.github.io/csvw/syntax/#parsing
     def embedded_metadata(input, options = {})
@@ -1690,6 +1726,7 @@ module RDF::Tabular
           "columns" => []
         }
       }
+      table["lang"] = options[:lang] if options[:lang]
 
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)

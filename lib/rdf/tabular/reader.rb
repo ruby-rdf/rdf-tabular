@@ -66,29 +66,34 @@ module RDF::Tabular
           if @options[:base] =~ /\.json(?:ld)?$/ ||
              @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
             @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
-            # If @metadata is for a Table, merge with something empty to create a TableGroup metadata
-            if @metadata.is_a?(TableGroup)
-              @metadata.normalize!
-            else
-              @metadata = @metadata.merge(TableGroup.new({}))
-            end
+            # If @metadata is for a Table, turn it into a TableGroup
+            @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
+            @metadata.normalize!
             @input = @metadata
           elsif @options[:no_found_metadata]
             # Extract embedded metadata and merge
-            table_metadata = @options[:metadata]
-            dialect = table_metadata.dialect.dup
+            dialect_metadata = @options[:metadata] || Table.new({}, context: "http://www.w3.org/ns/csvw")
+            dialect = dialect_metadata.dialect.dup
 
             # HTTP flags for setting header values
             dialect.header = false if (input.headers.fetch(:content_type, '').split(';').include?('header=absent') rescue false)
             dialect.encoding = input.charset if (input.charset rescue nil)
             dialect.separator = "\t" if (input.content_type == "text/tsv" rescue nil)
+            embed_options = {base: "http://example.org/default-metadata"}.merge(@options)
+            embedded_metadata = dialect.embedded_metadata(input, embed_options)
 
-            embedded_metadata = dialect.embedded_metadata(input, @options)
-            if lang = (input.headers[:content_language] rescue "")
-              embedded_metadata.lang = lang unless lang.include?(',')
+            if (@metadata = @options[:metadata]) && @metadata.tableSchema
+              @metadata.verify_compatible!(embedded_metadata)
+            else
+              @metadata = embedded_metadata
             end
 
-            @metadata = table_metadata.dup.merge!(embedded_metadata)
+            lang = input.headers[:content_language] rescue nil
+            lang = nil if lang.to_s.include?(',') # Not for multiple languages
+            # Set language, if unset and provided
+            @metadata.lang ||= lang if lang 
+              
+            @metadata.dialect = dialect
           else
             # It's tabluar data. Find metadata and proceed as if it was specified in the first place
             @options[:original_input] = @input
@@ -145,7 +150,6 @@ module RDF::Tabular
                   table_resource = RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                   Reader.new(options[:original_input], options.merge(
-                      metadata: Table.new({url: options.fetch(:base, "http://example.org/default-metadata")}),
                       no_found_metadata: true,
                       table_resource: table_resource
                   )) do |r|
@@ -376,9 +380,7 @@ module RDF::Tabular
               table_group['table'] = tables
 
               if input.tables.empty? && options[:original_input]
-                md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
                 Reader.new(options[:original_input], options.merge(
-                    metadata:           md,
                     base:               options.fetch(:base, "http://example.org/default-metadata"),
                     minimal:            minimal?,
                     no_found_metadata: true
@@ -542,9 +544,7 @@ module RDF::Tabular
           when :TableGroup
             table_group = input.to_atd
             if input.tables.empty? && options[:original_input]
-              md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
               Reader.new(options[:original_input], options.merge(
-                  metadata:           md,
                   base:               options.fetch(:base, "http://example.org/default-metadata"),
                   no_found_metadata: true
               )) do |r|
