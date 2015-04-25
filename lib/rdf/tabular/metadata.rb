@@ -1531,7 +1531,7 @@ module RDF::Tabular
       options.delete(:context) # Don't accidentally use a passed context
       # Normalize input to an IO object
       if input.is_a?(String)
-        return ::RDF::Util::File.open_file(input) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
+        return ::RDF::Util::File.open_file(input) {|f| embedded_metadata(f, metadata, options.merge(base: input.to_s))}
       end
 
       table = {

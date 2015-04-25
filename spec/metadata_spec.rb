@@ -556,12 +556,12 @@ describe RDF::Tabular::Metadata do
       }.each do |name, props|
         it name do
           dialect = if props[:dialect]
-            described_class.new(props[:dialect], base: RDF::URI("http://example.org/base"), debug: @debug)
+            described_class.new(props[:dialect], debug: @debug)
           else
             subject
           end
 
-          result = dialect.embedded_metadata(props[:input])
+          result = dialect.embedded_metadata(props[:input], nil, base: RDF::URI("http://example.org/base"))
           expect(::JSON.parse(result.to_json(JSON_STATE))).to produce(::JSON.parse(props[:result]), @debug)
         end
       end
