@@ -7,7 +7,7 @@ gem 'rdf-xsd',  git: "git://github.com/ruby-rdf/rdf-xsd.git", branch: "develop"
 gem 'json-ld',  git: "git://github.com/ruby-rdf/json-ld.git", branch: "develop"
 
 group :development do
-  gem "linkeddata"
+  gem "linkeddata",  git: "git://github.com/ruby-rdf/linkeddata.git", branch: "develop"
 end
 
 group :debug do
