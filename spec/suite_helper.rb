@@ -24,11 +24,11 @@ module RDF::Util
     # @return [IO] File stream
     # @yield [IO] File stream
     def self.open_file(filename_or_url, options = {}, &block)
-      case filename_or_url.to_s
-      when /^file:/
+      case
+      when filename_or_url.to_s =~ /^file:/
         path = filename_or_url.to_s[5..-1]
         Kernel.open(path.to_s, &block)
-      when -> (k) {k =~ %r{^#{REMOTE_PATH}} && ::File.exist?(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH))}
+      when (filename_or_url.to_s =~ %r{^#{REMOTE_PATH}} && ::File.exist?(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)))
         begin
           #puts "attempt to open #{filename_or_url} locally"
           localpath = filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)

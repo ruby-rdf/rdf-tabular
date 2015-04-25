@@ -1,3 +1,5 @@
+# encoding: UTF-8
+
 require 'json'
 require 'json/ld'
 require 'bcp47'
@@ -1166,7 +1168,7 @@ module RDF::Tabular
       content = {"@type" => "TableGroup", "tables" => [self]}
       content['@context'] = object.delete(:@context) if object[:@context]
       ctx = @context
-      self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context)
+      remove_instance_variable(:@context) if instance_variables.include?(:@context)
       tg = TableGroup.new(content, context: ctx, filenames: @filenames, base: base)
       @parent = tg  # Link from parent
       tg
