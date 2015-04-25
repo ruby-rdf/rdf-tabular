@@ -29,29 +29,9 @@ describe RDF::Tabular::Metadata do
 
   shared_examples "inherited properties" do |allowed = true|
     {
-      null: {
-        valid: ["foo", %w(foo bar)],
-        invalid: [1, true, {}]
-      },
-      lang: {
-        valid: %w(en en-US),
-        invalid: %w(1 foo)
-      },
-      "textDirection" => {
-        valid: %w(rtl ltr),
-        invalid: %w(foo default)
-      },
-      separator: {
-        valid: %w(, a | :) + [nil],
-        invalid: [1, false] + %w(foo ::)
-      },
-      ordered: {
-        valid: [true, false],
-        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
-      },
-      default: {
-        valid: ["foo"],
-        invalid: [1, %w(foo bar), true, nil]
+      aboutUrl: {
+        valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row.{_row}"],
+        invalid: [1, true, nil, %w(foo bar)]
       },
       datatype: {
         valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
@@ -59,9 +39,21 @@ describe RDF::Tabular::Metadata do
                ),
         invalid: [1, true, "foo", "anyType", "anySimpleType", "IDREFS"]
       },
-      aboutUrl: {
-        valid: ["http://example.org/example.csv#row={_row}", "http://example.org/tree/{on%2Dstreet}/{GID}", "#row.{_row}"],
-        invalid: [1, true, nil, %w(foo bar)]
+      default: {
+        valid: ["foo"],
+        invalid: [1, %w(foo bar), true, nil]
+      },
+      lang: {
+        valid: %w(en en-US),
+        invalid: %w(1 foo)
+      },
+      null: {
+        valid: ["foo", %w(foo bar)],
+        invalid: [1, true, {}]
+      },
+      ordered: {
+        valid: [true, false],
+        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       propertyUrl: {
         valid: [
@@ -70,6 +62,18 @@ describe RDF::Tabular::Metadata do
           "#row.{_row}"
         ],
         invalid: [1, true, %w(foo bar)]
+      },
+      required: {
+        valid: [true, false],
+        invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+      },
+      separator: {
+        valid: %w(, a | :) + [nil],
+        invalid: [1, false] + %w(foo ::)
+      },
+      "textDirection" => {
+        valid: %w(rtl ltr),
+        invalid: %w(foo default)
       },
       valueUrl: {
         valid: [
@@ -178,7 +182,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Column do
-    subject {described_class.new({"name" => "foo"}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"name" => "foo"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -190,7 +194,10 @@ describe RDF::Tabular::Metadata do
     end
 
     it "detects invalid names" do
-      [1, true, nil, "_foo", "_col=1"].each {|v| expect(described_class.new("name" => v)).not_to be_valid}
+      [1, true, nil, "_foo", "_col=1"].each do |v|
+        md = described_class.new("name" => v)
+        expect(md.warnings).not_to be_empty
+      end
     end
 
     it "allows absence of name" do
@@ -203,11 +210,7 @@ describe RDF::Tabular::Metadata do
     {
       titles: {
         valid: ["foo", %w(foo bar), {"en" => "foo", "de" => "bar"}],
-        invalid: [1, true, nil]
-      },
-      required: {
-        valid: [true, false],
-        warning: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
+        warning: [1, true, nil]
       },
       suppressOutput: {
         valid: [true, false],
@@ -247,14 +250,14 @@ describe RDF::Tabular::Metadata do
       }.each do |name, (input, output)|
         it name do
           subject.titles = input
-          expect(subject.titles).to produce(output)
+          expect(subject.normalize!.titles).to produce(output)
         end
       end
     end
   end
 
   describe RDF::Tabular::Schema do
-    subject {described_class.new({}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -274,7 +277,7 @@ describe RDF::Tabular::Metadata do
 
       it "is invalid with an invalid column" do
         v = described_class.new({"columns" => [{"name" => "_invalid"}]}, base: RDF::URI("http://example.org/base"), debug: @debug)
-        expect(v.errors).not_to be_empty
+        expect(v.warnings).not_to be_empty
       end
 
       it "is invalid with an non-unique columns" do
@@ -425,7 +428,15 @@ describe RDF::Tabular::Metadata do
   describe RDF::Tabular::Transformation do
     let(:targetFormat) {"http://example.org/targetFormat"}
     let(:scriptFormat) {"http://example.org/scriptFormat"}
-    subject {described_class.new({"url" => "http://example/", "targetFormat" => targetFormat, "scriptFormat" => scriptFormat}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {
+      described_class.new({
+        "url" => "http://example/",
+        "targetFormat" => targetFormat,
+        "scriptFormat" => scriptFormat},
+      context: "http://www.w3.org/ns/csvw",
+      base: RDF::URI("http://example.org/base"),
+      debug: @debug)
+    }
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties")
@@ -434,7 +445,7 @@ describe RDF::Tabular::Metadata do
     {
       source: {
         valid: %w(json rdf) + [nil],
-        invalid: [1, true, {}]
+        warning: [1, true, {}]
       },
     }.each do |prop, params|
       context prop.to_s do
@@ -444,10 +455,10 @@ describe RDF::Tabular::Metadata do
             expect(subject).to be_valid
           end
         end
-        it "invalidates" do
-          params[:invalid].each do |v|
+        it "warnings" do
+          params[:warning].each do |v|
             subject.send("#{prop}=".to_sym, v)
-            expect(subject).not_to be_valid
+            expect(subject.warnings).not_to be_empty
           end
         end
       end
@@ -459,20 +470,20 @@ describe RDF::Tabular::Metadata do
       }.each do |name, (input, output)|
         it name do
           subject.titles = input
-          expect(subject.titles).to produce(output)
+          expect(subject.normalize!.titles).to produce(output)
         end
       end
     end
   end
 
   describe RDF::Tabular::Dialect do
-    subject {described_class.new({}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties", false)
     its(:type) {is_expected.to eql :Dialect}
 
-    described_class.const_get(:DIALECT_DEFAULTS).each do |p, v|
+    described_class.const_get(:DEFAULTS).each do |p, v|
       context "#{p}" do
         it "retrieves #{v.inspect} by default" do
           expect(subject.send(p)).to eql v
@@ -545,12 +556,12 @@ describe RDF::Tabular::Metadata do
       }.each do |name, props|
         it name do
           dialect = if props[:dialect]
-            described_class.new(props[:dialect], base: RDF::URI("http://example.org/base"), debug: @debug)
+            described_class.new(props[:dialect], debug: @debug)
           else
             subject
           end
 
-          result = dialect.embedded_metadata(props[:input])
+          result = dialect.embedded_metadata(props[:input], nil, base: RDF::URI("http://example.org/base"))
           expect(::JSON.parse(result.to_json(JSON_STATE))).to produce(::JSON.parse(props[:result]), @debug)
         end
       end
@@ -558,16 +569,19 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Table do
-    subject {described_class.new({"url" => "http://example.org/table.csv"}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"url" => "http://example.org/table.csv"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}      
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
     its(:type) {is_expected.to eql :Table}
 
+    describe "#to_table_group" do
+    end
+
     {
       tableSchema: {
         valid: [RDF::Tabular::Schema.new({})],
-        invalid: [1, true, nil]
+        warning: [1, true, nil]
       },
       notes: {
         valid: [{}, [{}]],
@@ -575,16 +589,16 @@ describe RDF::Tabular::Metadata do
       },
       tableDirection: {
         valid: %w(rtl ltr default),
-        invalid: %w(foo true 1)
+        warning: %w(foo true 1)
       },
       transformations: {
         valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
-        invalid: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+        warning: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
                  %w(foo true 1)
       },
       dialect: {
         valid: [{skipRows: 1}],
-        invalid: ["http://location-of-dialect", "foo"]
+        warning: [1]
       },
       suppressOutput: {
         valid: [true, false],
@@ -617,30 +631,28 @@ describe RDF::Tabular::Metadata do
 
   describe RDF::Tabular::TableGroup do
     let(:table) {{"url" => "http://example.org/table.csv"}}
-    subject {described_class.new({"tables" => [table]}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"tables" => [table]}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
     specify {is_expected.to be_valid}
     
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
     its(:type) {is_expected.to eql :TableGroup}
-
-
     {
       tableSchema: {
         valid: [RDF::Tabular::Schema.new({})],
-        invalid: [1, true, nil]
+        warning: [1, true, nil]
       },
       tableDirection: {
         valid: %w(rtl ltr default),
-        invalid: %w(foo true 1)
+        warning: %w(foo true 1)
       },
       dialect: {
         valid: [{skipRows: 1}],
-        invalid: ["http://location-of-dialect", "foo"]
+        warning: [1]
       },
       transformations: {
         valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
-        invalid: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+        warning: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
                  %w(foo true 1)
       },
       notes: {
@@ -660,7 +672,14 @@ describe RDF::Tabular::Metadata do
             subject.send("#{prop}=".to_sym, v)
             expect(subject).not_to be_valid
           end
-        end
+        end if params[:invalid]
+        it "warnings" do
+          params[:warning].each do |v|
+            subject.send("#{prop}=".to_sym, v)
+            expect(subject).to be_valid
+            expect(subject.warnings).not_to be_empty
+          end
+        end if params[:warning]
       end
     end
   end
@@ -759,7 +778,6 @@ describe RDF::Tabular::Metadata do
         "columns Schema" => [{"columns" => []}, RDF::Tabular::Schema],
         "primaryKey Schema" => [{"primaryKey" => "foo"}, RDF::Tabular::Schema],
         "foreignKeys Schema" => [{"foreignKeys" => []}, RDF::Tabular::Schema],
-        "urlTemplate Schema" => [{"urlTemplate" => "foo"}, RDF::Tabular::Schema],
         "commentPrefix Dialect" => [{"commentPrefix" => "#"}, RDF::Tabular::Dialect],
         "delimiter Dialect" => [{"delimiter" => ","}, RDF::Tabular::Dialect],
         "doubleQuote Dialect" => [{"doubleQuote" => true}, RDF::Tabular::Dialect],
@@ -862,7 +880,7 @@ describe RDF::Tabular::Metadata do
 
     context "URL expansion" do
       subject {
-        described_class.new(JSON.parse(%({
+        JSON.parse(%({
           "url": "https://example.org/countries.csv",
           "tableSchema": {
             "columns": [
@@ -872,7 +890,7 @@ describe RDF::Tabular::Metadata do
               {"titles": "name"}
             ]
           }
-        })), base: RDF::URI("http://example.org/base"), debug: @debug)
+        }))
       }
       let(:input) {RDF::Util::File.open_file("https://example.org/countries.csv")}
 
@@ -881,33 +899,16 @@ describe RDF::Tabular::Metadata do
           aboutUrl: [RDF::Node, RDF::Node, RDF::Node, RDF::Node],
           propertyUrl: [nil, nil, nil, nil],
           valueUrl: [nil, nil, nil, nil],
-          md: {"url" => "https://example.org/countries.csv", "tableSchema" => {
-              "columns" => [
-                {"titles" => "addressCountry"},
-                {"titles" => "latitude"},
-                {"titles" => "longitude"},
-                {"titles" => "name"}
-              ]
-            }
-          }
+          md: {}
         },
         "schema transformations" => {
           aboutUrl: %w(#addressCountry #latitude #longitude #name),
           propertyUrl: %w(?_name=addressCountry ?_name=latitude ?_name=longitude ?_name=name),
           valueUrl: %w(addressCountry latitude longitude name),
           md: {
-            "url" => "https://example.org/countries.csv",
-            "tableSchema" => {
-              "aboutUrl" => "{#_name}",
-              "propertyUrl" => '{?_name}',
-              "valueUrl" => '{_name}',
-              "columns" => [
-                {"titles" => "addressCountry"},
-                {"titles" => "latitude"},
-                {"titles" => "longitude"},
-                {"titles" => "name"}
-              ]
-            }
+            "aboutUrl" => "{#_name}",
+            "propertyUrl" => '{?_name}',
+            "valueUrl" => '{_name}'
           }
         },
         "PNames" => {
@@ -915,23 +916,14 @@ describe RDF::Tabular::Metadata do
           propertyUrl: [RDF::SCHEMA.addressCountry, RDF::SCHEMA.latitude, RDF::SCHEMA.longitude, RDF::SCHEMA.name],
           valueUrl: [RDF::SCHEMA.addressCountry, RDF::SCHEMA.latitude, RDF::SCHEMA.longitude, RDF::SCHEMA.name],
           md: {
-            "url" => "https://example.org/countries.csv",
-            "tableSchema" => {
-              "aboutUrl" => 'http://schema.org/{_name}',
-              "propertyUrl" => 'schema:{_name}',
-              "valueUrl" => 'schema:{_name}',
-              "columns" => [
-                {"titles" => "addressCountry"},
-                {"titles" => "latitude"},
-                {"titles" => "longitude"},
-                {"titles" => "name"}
-              ]
-            }
+            "aboutUrl" => "http://schema.org/{_name}",
+            "propertyUrl" => 'schema:{_name}',
+            "valueUrl" => 'schema:{_name}'
           }
         },
       }.each do |name, props|
         context name do
-          let(:md) {RDF::Tabular::Table.new(props[:md]).merge(subject).tables.first}
+          let(:md) {RDF::Tabular::Table.new(subject.merge(props[:md]), base: RDF::URI("http://example.org/base")).normalize!}
           let(:cells) {md.to_enum(:each_row, input).to_a.first.values}
           let(:aboutUrls) {props[:aboutUrl].map {|u| u.is_a?(String) ? md.url.join(u) : u}}
           let(:propertyUrls) {props[:propertyUrl].map {|u| u.is_a?(String) ? md.url.join(u) : u}}
@@ -1048,12 +1040,12 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with matching pattern" => {
           base: "decimal",
-          pattern: '\d{3}',
+          format: {pattern: '\d{3}'},
           value: "123"
         },
         "decimal with wrong pattern" => {
           base: "decimal",
-          pattern: '\d{4}',
+          format: {pattern: '\d{4}'},
           value: "123",
           errors: [/123 does not match pattern/]
         },
@@ -1064,20 +1056,20 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with explicit groupChar" => {
           base: "decimal",
-          groupChar: ";",
+          format: {groupChar: ";"},
           value: "123;456.789",
           result: "123456.789"
         },
         "decimal with repeated groupChar" => {
           base: "decimal",
-          groupChar: ";",
+          format: {groupChar: ";"},
           value: "123;;456.789",
           result: "123;;456.789",
           errors: [/has repeating/]
         },
         "decimal with explicit decimalChar" => {
           base: "decimal",
-          decimalChar: ";",
+          format: {decimalChar: ";"},
           value: "123456;789",
           result: "123456.789"
         },
@@ -1149,7 +1141,7 @@ describe RDF::Tabular::Metadata do
         "validate date dd-MM-yyyy" => {base: "date", value: "22-03-2015", format: "dd-MM-yyyy", result: "2015-03-22"},
         "validate date d-M-yyyy" => {base: "date", value: "22-3-2015", format: "d-M-yyyy", result: "2015-03-22"},
         "validate date MM-dd-yyyy" => {base: "date", value: "03-22-2015", format: "MM-dd-yyyy", result: "2015-03-22"},
-        "validate date M/d/yyyy" => {base: "date", value: "3/22/2015", format: "M-d-yyyy", result: "2015-03-22"},
+        "validate date M-d-yyyy" => {base: "date", value: "3-22-2015", format: "M-d-yyyy", result: "2015-03-22"},
         "validate date dd/MM/yyyy" => {base: "date", value: "22/03/2015", format: "dd/MM/yyyy", result: "2015-03-22"},
         "validate date d/M/yyyy" => {base: "date", value: "22/3/2015", format: "d/M/yyyy", result: "2015-03-22"},
         "validate date MM/dd/yyyy" => {base: "date", value: "03/22/2015", format: "MM/dd/yyyy", result: "2015-03-22"},
@@ -1356,356 +1348,179 @@ describe RDF::Tabular::Metadata do
     end
   end
 
-  describe "#merge" do
+  describe "#verify_compatible!" do
     {
       "two tables with same id" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
-          "url": "http://example.org/table"
+          "url": "http://example.org/table",
+          "tableSchema": {"columns": []}
         }),
-        B: [%({
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
-          "url": "http://example.org/table"
-        })],
-        R: %({
-          "@type": "TableGroup",
-          "tables": [{
-            "@type": "Table",
-            "url": "http://example.org/table"
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
-        })
+          "url": "http://example.org/table",
+          "tableSchema": {"columns": []}
+        }),
+        R: true
       },
       "two tables with different id" => {
         A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
-          "url": "http://example.org/table1"
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": []}
         }),
-        B: [%({
-          "@type": "Table",
-          "url": "http://example.org/table2"
-        })],
-        R: %({
-          "@type": "TableGroup",
-          "tables": [{
-            "@type": "Table",
-            "url": "http://example.org/table1"
-          }, {
-            "@type": "Table",
-            "url": "http://example.org/table2"
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
-        })
-      },
-      "table and table-group" => {
-        A: %({
-          "@type": "Table",
-          "url": "http://example.org/table1"
-        }),
-        B: [%({
-          "@type": "TableGroup",
-          "tables": [{
-            "@type": "Table",
-            "url": "http://example.org/table2"
-          }]
-        })],
-        R: %({
-          "@type": "TableGroup",
-          "tables": [{
-            "@type": "Table",
-            "url": "http://example.org/table1"
-          }, {
-            "@type": "Table",
-            "url": "http://example.org/table2"
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
-        })
-      },
-      "table-group and table" => {
-        A: %({
-          "@type": "TableGroup",
-          "tables": [{
-            "@type": "Table",
-            "url": "http://example.org/table1"
-          }]
-        }),
-        B: [%({
-          "@type": "Table",
-          "url": "http://example.org/table2"
-        })],
-        R: %({
-          "@type": "TableGroup",
-          "tables": [{
-            "@type": "Table",
-            "url": "http://example.org/table1"
-          }, {
-            "@type": "Table",
-            "url": "http://example.org/table2"
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
-        })
-      },
-      "table-group and two tables" => {
-        A: %({
-          "@type": "TableGroup",
-          "tables": [{
-            "@type": "Table",
-            "url": "http://example.org/table1"
-          }]
-        }),
-        B: [%({
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "Table",
           "url": "http://example.org/table2",
-          "dc:label": "foo"
-        }), %({
-          "@type": "Table",
-          "url": "http://example.org/table2",
-          "dc:label": "bar"
-        })],
-        R: %({
+          "tableSchema": {"columns": []}
+        }),
+        R: false
+      },
+      "table-group and table with same url" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
           "@type": "TableGroup",
           "tables": [{
             "@type": "Table",
-            "url": "http://example.org/table1"
+            "url": "http://example.org/table1",
+            "tableSchema": {"columns": []}
+          }]
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": []}
+        }),
+        R: true
+      },
+      "table-group and table with different url" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "TableGroup",
+          "tables": [{
+            "@type": "Table",
+            "url": "http://example.org/table1",
+            "tableSchema": {"columns": []}
+          }]
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table2",
+          "tableSchema": {"columns": []}
+        }),
+        R: false
+      },
+      "table-group with two tables" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "TableGroup",
+          "tables": [{
+            "@type": "Table",
+            "url": "http://example.org/table1",
+            "tableSchema": {"columns": []}
           }, {
             "@type": "Table",
             "url": "http://example.org/table2",
-            "dc:label": {"@value": "foo"}
-          }],
-          "@context": "http://www.w3.org/ns/csvw"
-        })
+            "tableSchema": {"columns": []}
+          }]
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table2",
+          "tableSchema": {"columns": []}
+        }),
+        R: true
+      },
+      "tables with matching columns" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}]}
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}]}
+        }),
+        R: true
+      },
+      "tables with virtual columns otherwise matching" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}, {"virtual": true}]}
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}]}
+        }),
+        R: true
+      },
+      "tables with differing columns" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}]}
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "bar"}]}
+        }),
+        R: false
+      },
+      "tables with different column count" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}, {"name": "bar"}]}
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "bar"}]}
+        }),
+        R: false
+      },
+      "tables with matching columns on name/titles" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}]}
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"titles": "foo"}]}
+        }),
+        R: true
       },
     }.each do |name, props|
       it name do
         a = described_class.new(::JSON.parse(props[:A]))
-        b = props[:B].map {|md| described_class.new(::JSON.parse(md))}
-        r = described_class.new(::JSON.parse(props[:R]))
-        expect(a.merge(*b)).to produce(r, @debug)
-      end
-    end
-
-    %w(Transformation Schema Transformation Column Dialect).each do |t|
-      it "does not merge into a #{t}" do
-        a = described_class.new({}, type: t.to_sym)
-        b = described_class.new({}, type: :TableGroup)
-        expect {a.merge(b)}.to raise_error
-      end
-
-      it "does not merge from a #{t}" do
-        a = described_class.new({}, type: :TableGroup)
-        b = described_class.new({}, type: t.to_sym)
-        expect {a.merge(b)}.to raise_error
-      end
-    end
-  end
-
-  describe "#merge!" do
-    {
-      "TableGroup with and without @id" => {
-        A: %({"@id": "http://example.org/foo", "tables": [], "@type": "TableGroup"}),
-        B: %({"tables": [], "@type": "TableGroup"}),
-        R: %({"@id": "http://example.org/foo", "tables": [], "@type": "TableGroup"})
-      },
-      "TableGroup with and without @type" => {
-        A: %({"tables": []}),
-        B: %({"tables": [], "@type": "TableGroup"}),
-        R: %({"tables": [], "@type": "TableGroup"})
-      },
-      "TableGroup with matching tables" => {
-        A: %({"tables": [{"url": "http://example.org/foo", "dc:title": "foo"}]}),
-        B: %({"tables": [{"url": "http://example.org/foo", "dc:description": "bar"}]}),
-        R: %({"tables": [{
-          "url": "http://example.org/foo",
-          "dc:title": {"@value": "foo"},
-          "dc:description": {"@value": "bar"}
-        }]})
-      },
-      "TableGroup with differing tables" => {
-        A: %({"tables": [{"url": "http://example.org/foo", "dc:title": "foo"}]}),
-        B: %({"tables": [{"url": "http://example.org/bar", "dc:description": "bar"}]}),
-        R: %({
-          "tables": [
-            {"url": "http://example.org/foo", "dc:title": {"@value": "foo"}},
-            {"url": "http://example.org/bar", "dc:description": {"@value": "bar"}}
-          ]})
-      },
-      "Table with tableDirection always takes A" => {
-        A: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
-        B: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "rtl"}),
-        R: %({"@type": "Table", "url": "http://example.com/foo", "tableDirection": "ltr"}),
-      },
-      "Table with dialect merges A and B" => {
-        A: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8"}}),
-        B: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"skipRows": 0}}),
-        R: %({"@type": "Table", "url": "http://example.com/foo", "dialect": {"encoding": "utf-8", "skipRows": 0}}),
-      },
-      "Table with equivalent transformations uses A" => {
-        A: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "transformations": [{
-            "url": "http://example.com/foo",
-            "targetFormat": "http://example.com/target",
-            "scriptFormat": "http://example.com/template",
-            "source": "json"
-          }]
-        }),
-        B: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "transformations": [{
-            "url": "http://example.com/foo",
-            "targetFormat": "http://example.com/target",
-            "scriptFormat": "http://example.com/template",
-            "source": "html"
-          }]
-        }),
-        R: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "transformations": [{
-            "url": "http://example.com/foo",
-            "targetFormat": "http://example.com/target",
-            "scriptFormat": "http://example.com/template",
-            "source": "json"
-          }]
-        }),
-      },
-      "Table with differing transformations appends B to A" => {
-        A: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "transformations": [{
-            "url": "http://example.com/foo",
-            "targetFormat": "http://example.com/target",
-            "scriptFormat": "http://example.com/template"
-          }]
-        }),
-        B: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "transformations": [{
-            "url": "http://example.com/bar",
-            "targetFormat": "http://example.com/targetb",
-            "scriptFormat": "http://example.com/templateb"
-          }]
-        }),
-        R: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "transformations": [{
-            "url": "http://example.com/foo",
-            "targetFormat": "http://example.com/target",
-            "scriptFormat": "http://example.com/template"
-          }, {
-            "url": "http://example.com/bar",
-            "targetFormat": "http://example.com/targetb",
-            "scriptFormat": "http://example.com/templateb"
-          }]
-        }),
-      },
-      "Table with common properties keeps A" => {
-        A: %({"@type": "Table", "url": "http://example.com/foo", "rdfs:label": "foo"}),
-        B: %({"@type": "Table", "url": "http://example.com/foo", "rdfs:label": "bar"}),
-        R: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "rdfs:label": {"@value": "foo"}
-        }),
-      },
-      "Table with common properties in different languages keeps A" => {
-        A: %({
-          "@context": {"@language": "en"},
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "rdfs:label": "foo"
-        }),
-        B: %({
-          "@context": {"@language": "fr"},
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "rdfs:label": "foo"
-        }),
-        R: %({
-          "@context": "http://www.w3.org/ns/csvw",
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "rdfs:label": {"@value": "foo", "@language": "en"}
-        }),
-      },
-      "Table with different languages merges A and B" => {
-        A: %({
-          "@context": {"@language": "en"},
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "tableSchema": {
-            "columns": [{"titles": "foo"}]
-          }
-        }),
-        B: %({
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "tableSchema": {
-            "columns": [{"titles": "foo"}]
-          }
-        }),
-        R: %({
-          "@context": "http://www.w3.org/ns/csvw",
-          "@type": "Table",
-          "url": "http://example.com/foo",
-          "tableSchema": {
-            "columns": [{"titles": {"en": ["foo"]}}]
-          }
-        }),
-      },
-      "Schema with matching columns merges A and B" => {
-        A: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo", "required": false}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo", "required": true}]}),
-      },
-      "Schema with matching column titles" => {
-        A: %({"@type": "Schema", "columns": [{"titles": "Foo"}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo", "titles": "Foo"}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo", "titles": {"und": ["Foo"]}}]}),
-      },
-      "Schema with primaryKey always takes A" => {
-        A: %({"@type": "Schema", "primaryKey": "foo"}),
-        B: %({"@type": "Schema", "primaryKey": "bar"}),
-        R: %({"@type": "Schema", "primaryKey": "foo"}),
-      },
-      "Schema with matching foreignKey uses A" => {
-        A: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
-      },
-      "Schema with differing foreignKey uses A and B" => {
-        A: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}]}),
-        B: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
-        R: %({"@type": "Schema", "columns": [{"name": "foo"}, {"name": "bar"}], "foreignKeys": [{"columnReference": "foo", "reference": {"columnReference": "foo"}}, {"columnReference": "bar", "reference": {"columnReference": "bar"}}]}),
-      },
-      "Schema with urlTemplate always takes A" => {
-        A: %({"@type": "Schema", "urlTemplate": "foo"}),
-        B: %({"@type": "Schema", "urlTemplate": "bar"}),
-        R: %({"@type": "Schema", "urlTemplate": "foo"}),
-      },
-    }.each do |name, props|
-      it name do
-        a = described_class.new(::JSON.parse(props[:A]), debug: @debug)
         b = described_class.new(::JSON.parse(props[:B]))
-        r = described_class.new(::JSON.parse(props[:R]))
-        m = a.merge!(b)
-        expect(m).to produce(r, @debug)
-        expect(a).to equal m
-      end
-    end
-
-    %w(TableGroup Table Transformation Schema Transformation Column Dialect).each do |ta|
-      %w(TableGroup Table Transformation Schema Transformation Column Dialect).each do |tb|
-        next if ta == tb
-        it "does not merge #{tb} into #{ta}" do
-          a = described_class.new({}, type: ta.to_sym)
-          b = described_class.new({}, type: tb.to_sym)
-          expect {a.merge!(b)}.to raise_error
+        if props[:R]
+          expect {a.verify_compatible!(b)}.not_to raise_error
+        else
+          expect {a.verify_compatible!(b)}.to raise_error(RDF::Tabular::Error)
         end
       end
     end

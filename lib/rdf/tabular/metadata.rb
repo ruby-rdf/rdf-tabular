@@ -3,6 +3,7 @@ require 'json/ld'
 require 'bcp47'
 require 'addressable/template'
 require 'rdf/xsd'
+require 'yaml'  # used by BCP47, which should have required it.
 
 ##
 # CSVM Metadata processor
@@ -20,20 +21,37 @@ module RDF::Tabular
     include Utils
 
     # Hash representation
+    # @return [Hash<Symbol,Object>]
     attr_accessor :object
+
+    # Warnings detected on initialization or when setting properties
+    # @return [Array<String>]
+    attr_accessor :warnings
 
     # Inheritect properties, valid for all types
     INHERITED_PROPERTIES = {
-      null:               :atomic,
-      lang:               :atomic,
-      textDirection:      :atomic,
-      separator:          :atomic,
-      default:            :atomic,
-      ordered:            :atomic,
-      datatype:           :atomic,
       aboutUrl:           :uri_template,
+      datatype:           :atomic,
+      default:            :atomic,
+      lang:               :atomic,
+      null:               :atomic,
+      ordered:            :atomic,
       propertyUrl:        :uri_template,
+      required:           :atomic,
+      separator:          :atomic,
+      textDirection:      :atomic,
       valueUrl:           :uri_template,
+    }.freeze
+    INHERITED_DEFAULTS = {
+      aboutUrl:           "".freeze,
+      default:            "".freeze,
+      lang:               "und",
+      null:               "".freeze,
+      ordered:            false,
+      propertyUrl:        "".freeze,
+      required:           false,
+      textDirection:      "ltr".freeze,
+      valueUrl:           "".freeze,
     }.freeze
 
     # Valid datatypes
@@ -143,8 +161,8 @@ module RDF::Tabular
     def self.for_input(input, options = {})
       base = options[:base]
 
-      # Use user metadata
-      user_metadata = case options[:metadata]
+      # Use user metadata, if provided
+      metadata = case options[:metadata]
       when Metadata then options[:metadata]
       when Hash
         Metadata.new(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
@@ -152,42 +170,37 @@ module RDF::Tabular
         Metadata.open(options[:metadata], options.merge(filenames: options[:metadata], reason: "load user metadata: #{options[:metadata].inspect}"))
       end
 
-      found_metadata = nil
+      # Search for metadata until found
 
-      # If user_metadata does not describe input, get the first found from linked-, file-, and directory-specific metadata
-      unless user_metadata.is_a?(Table) || user_metadata.is_a?(TableGroup) && user_metadata.for_table(base)
-        # load link metadata, if available
-        locs = []
-        if input.respond_to?(:links) && 
-          link = input.links.find_link(%w(rel describedby))
-          locs << RDF::URI(base).join(link.href)
-        end
+      # load link metadata, if available
+      locs = []
+      if input.respond_to?(:links) && 
+        link = input.links.find_link(%w(rel describedby))
+        locs << RDF::URI(base).join(link.href)
+      end
 
-        if base
-          locs += [RDF::URI("#{base}-metadata.json"), RDF::URI(base).join("metadata.json")]
-        end
+      if base
+        locs += [RDF::URI("#{base}-metadata.json"), RDF::URI(base).join("metadata.json")]
+      end
 
-        locs.each do |loc|
-          found_metadata ||= begin
-            Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
-          rescue
-            debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
-            nil
-          end
+      locs.each do |loc|
+        metadata ||= begin
+          Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
+        rescue
+          debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
+          nil
         end
       end
 
       # Return either the merge or user- and found-metadata, any of these, or an empty TableGroup
       metadata = case
-      when user_metadata && found_metadata then user_metadata.merge(found_metadata)
-      when user_metadata                   then user_metadata
-      when found_metadata                  then found_metadata
-      when base                            then TableGroup.new({tables: [{url: base}]}, options)
-      else                                      TableGroup.new({tables: []}, options)
+      when metadata then metadata
+      when base     then TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: base}]}, options)
+      else               TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: []}, options)
       end
 
       # Make TableGroup, if not already
-      metadata.is_a?(TableGroup) ? metadata : metadata.merge(TableGroup.new({}))
+      metadata.is_a?(TableGroup) ? metadata : metadata.to_table_group
     end
 
     ##
@@ -204,37 +217,32 @@ module RDF::Tabular
 
       unless options[:parent]
         # Add context, if not set (which it should be)
-        object['@context'] ||= options.delete(:@context) || options[:context] || 'http://www.w3.org/ns/csvw'
+        object['@context'] ||= options.delete(:@context) || options[:context]
       end
 
       klass = case
         when !self.equal?(RDF::Tabular::Metadata)
           self # subclasses can be directly constructed without type dispatch
         else
-          type = if options[:type]
-            type = options[:type].to_sym
-            raise Error, "If provided, type must be one of :TableGroup, :Table, :Transformation, :Schema, :Column, :Dialect]" unless
-              [:TableGroup, :Table, :Transformation, :Schema, :Column, :Dialect].include?(type)
-            type
-          end
+          type =  options[:type].to_sym if options[:type]
 
           # Figure out type by @type
-          type ||= object['@type']
+          type ||= object['@type'].to_sym if object['@type']
 
-          # Figure out type by site
+          # Otherwise, Figure out type by site
           object_keys = object.keys.map(&:to_s)
           type ||= case
           when %w(tables).any? {|k| object_keys.include?(k)} then :TableGroup
           when %w(dialect tableSchema transformations).any? {|k| object_keys.include?(k)} then :Table
           when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Transformation
-          when %w(columns primaryKey foreignKeys urlTemplate).any? {|k| object_keys.include?(k)} then :Schema
-          when %w(name required).any? {|k| object_keys.include?(k)} then :Column
+          when %w(columns primaryKey foreignKeys).any? {|k| object_keys.include?(k)} then :Schema
+          when %w(name virtual).any? {|k| object_keys.include?(k)} then :Column
           when %w(commentPrefix delimiter doubleQuote encoding header headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
           when %w(lineTerminators quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
           end
 
           case type.to_s.to_sym
-          when :TableGroup then RDF::Tabular::TableGroup
+          when :TableGroup, :"" then RDF::Tabular::TableGroup
           when :Table then RDF::Tabular::Table
           when :Transformation then RDF::Tabular::Transformation
           when :Schema then RDF::Tabular::Schema
@@ -265,14 +273,26 @@ module RDF::Tabular
     # @return [Metadata]
     def initialize(input, options = {})
       @options = options.dup
+      @options[:depth] ||= 0
+
+      # Parent of this Metadata, if any
+      @parent = @options[:parent]
 
       # Get context from input
       # Optimize by using built-in version of context, and just extract @base, @lang
       @context = case input['@context']
-      when Array then LOCAL_CONTEXT.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
-      when Hash  then LOCAL_CONTEXT.parse(input['@context'])
-      when nil   then nil
-      else            LOCAL_CONTEXT
+      when Array
+        warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
+        LOCAL_CONTEXT.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
+      when Hash
+        warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
+        LOCAL_CONTEXT.parse(input['@context'])
+      when "http://www.w3.org/ns/csvw" then LOCAL_CONTEXT
+      else
+        if self.is_a?(TableGroup) || self.is_a?(Table) && !@parent
+          warn "Context missing required value 'http://www.w3.org/ns/csvw'"
+          LOCAL_CONTEXT
+        end
       end
 
       reason = @options.delete(:reason)
@@ -284,15 +304,16 @@ module RDF::Tabular
 
       @context.base = @options[:base] if @context
 
-      @options[:depth] ||= 0
+      if @context && @context.default_language && !BCP47::Language.identify(@context.default_language.to_s)
+        warn "Context has invalid @language (#{@context.default_language.inspect}): expected valid BCP47 language tag"
+        @context.default_language = nil
+      end
+
       @filenames = Array(@options[:filenames]).map {|fn| RDF::URI(fn)} if @options[:filenames]
       @properties = self.class.const_get(:PROPERTIES)
       @required = self.class.const_get(:REQUIRED)
 
       @object = {}
-
-      # Parent of this Metadata, if any
-      @parent = @options[:parent]
 
       depth do
         # Input was parsed in .new
@@ -300,60 +321,6 @@ module RDF::Tabular
         input.each do |key, value|
           key = key.to_sym
           case key
-          when :columns
-            # An array of template specifications that provide mechanisms to transform the tabular data into other formats
-            object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              number = 0
-              value.map do |v|
-                number += 1
-                Column.new(v, @options.merge(table: (parent if parent.is_a?(Table)), parent: self, context: nil, number: number))
-              end
-            else
-              # Invalid, but preserve value
-              value
-            end
-          when :datatype
-            self.datatype = value
-          when :dialect
-            # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
-            object[key] = case value
-            when String then Dialect.open(base.join(value), @options.merge(parent: self, context: nil))
-            when Hash   then Dialect.new(value, @options.merge(parent: self, context: nil))
-            else
-              # Invalid, but preserve value
-              value
-            end
-            @type ||= :Table
-          when :tables
-            # An array of table descriptions for the tables in the group.
-            object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              value.map {|v| Table.new(v, @options.merge(parent: self, context: nil))}
-            else
-              # Invalid, but preserve value
-              value
-            end
-          when :tableSchema
-            # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
-            # SPEC SUGGESTION: when loading a remote schema, assign @id from it's location if not already set
-            object[key] = case value
-            when String
-              link = base.join(value).to_s
-              s = Schema.open(link, @options.merge(parent: self, context: nil))
-              s[:@id] ||= link
-              s
-            when Hash   then Schema.new(value, @options.merge(parent: self, context: nil))
-            else
-              # Invalid, but preserve value
-              value
-            end
-          when :transformations
-            # An array of template specifications that provide mechanisms to transform the tabular data into other formats
-            object[key] = if value.is_a?(Array) && value.all? {|v| v.is_a?(Hash)}
-              value.map {|v| Transformation.new(v, @options.merge(parent: self, context: nil))}
-            else
-              # Invalid, but preserve value
-              value
-            end
           when :url
             # URL of CSV relative to metadata
             object[:url] = value
@@ -361,10 +328,15 @@ module RDF::Tabular
             @context.base = @url if @context # Use as base for expanding IRIs
           when :@id
             # metadata identifier
-            object[:@id] = value
-            @id = base.join(value)
+            object[:@id] = if value.is_a?(String)
+              value
+            else
+              warn "#{type} has invalid property '@id' (#{value.inspect}): expected a string"
+              ""
+            end
+            @id = base.join(object[:@id])
           else
-            if @properties.has_key?(key)
+            if @properties.has_key?(key) || INHERITED_PROPERTIES.has_key?(key)
               self.send("#{key}=".to_sym, value)
             else
               object[key] = value
@@ -383,9 +355,32 @@ module RDF::Tabular
     end
 
     # Setters
-    INHERITED_PROPERTIES.keys.each do |a|
-      define_method("#{a}=".to_sym) do |value|
-        object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+    INHERITED_PROPERTIES.keys.each do |key|
+      define_method("#{key}=".to_sym) do |value|
+        invalid = case key
+        when :aboutUrl, :default, :propertyUrl, :valueUrl
+          "string" unless value.is_a?(String)
+        when :lang
+          "valid BCP47 language tag" unless BCP47::Language.identify(value.to_s)
+        when :null
+          # To be valid, it must be a string or array
+          "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
+        when :ordered, :required
+          "boolean" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
+        when :separator
+          "single character" unless value.nil? || value.is_a?(String) && value.length == 1
+        when :textDirection
+          "rtl or ltr" unless %(rtl ltr).include?(value)
+        when :datatype
+          # We handle this through a separate datatype= setter
+        end
+
+        if invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
+        else
+          object[key] = value
+        end
       end
     end
 
@@ -393,6 +388,32 @@ module RDF::Tabular
     # @return [JSON::LD::Context]
     def context
       @context || (parent.context if parent)
+    end
+
+    def tables=(value)
+      set_array_value(:tables, value, Table)
+    end
+
+    # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
+    # when loading a remote schema, assign @id from it's location if not already set
+    def tableSchema=(value)
+      case value
+      when String
+        link = base.join(value).to_s
+        s = Schema.open(link, @options.merge(parent: self, context: nil))
+        s[:@id] ||= link
+        object[:tableSchema] = s
+      when Hash
+        object[:tableSchema] = Metadata.new(value, @options.merge(parent: self, context: nil))
+      when Schema
+        object[:tableSchema] = value
+      else
+        warn "#{type} has invalid property 'tableSchema' (#{value.inspect}): expected a URL or object"
+      end
+    end
+
+    def transformations=(value)
+      set_array_value(:transformations, value, Metadata)
     end
 
     # Treat `dialect` similar to an inherited property, but merge together values from Table and TableGroup
@@ -421,23 +442,32 @@ module RDF::Tabular
         end
       end
 
-      if value.is_a?(Hash)
-        @dialect = object[:dialect] = Dialect.new(value)
-      elsif value
-        # Remember invalid dialect for validation purposes
+      # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
+      @dialect = case value
+      when String
+        object[:dialect] = Metadata.open(base.join(value), @options.merge(parent: self, context: nil))
+      when Hash
+        object[:dialect] = Metadata.new(value, @options.merge(parent: self, context: nil))
+      when Dialect
         object[:dialect] = value
       else
-        object.delete(:dialect)
-        @dialect = nil
+        warn "#{type} has invalid property 'dialect' (#{value.inspect}): expected a URL or object"
+        nil
       end
     end
 
     # Set new datatype
     # @return [Dialect]
     def datatype=(value)
-      object[:datatype] = case value
-      when Hash then Datatype.new(value)
-      else           Datatype.new({base: value})
+      val = case value
+      when Hash then Datatype.new(value, parent: self)
+      else           Datatype.new({base: value}, parent: self)
+      end
+
+      if val.valid?
+        object[:datatype] = val
+      else
+        warn "#{type} has invalid property 'datatype': expected a Datatype"
       end
     end
 
@@ -476,7 +506,7 @@ module RDF::Tabular
         flatten.
         select {|v| v.is_a?(Metadata)}.
         map(&:warnings).
-        flatten).compact
+        flatten).compact.uniq
     end
 
     ##
@@ -485,7 +515,7 @@ module RDF::Tabular
     # @return [self]
     def validate!
       expected_props, required_props = @properties.keys, @required
-      errors, @warnings = [], []
+      errors = []
 
       unless is_a?(Dialect) || is_a?(Transformation)
         expected_props = expected_props + INHERITED_PROPERTIES.keys
@@ -494,162 +524,87 @@ module RDF::Tabular
       # It has only expected properties (exclude metadata)
       check_keys = object.keys - [:"@id", :"@context"]
       check_keys = check_keys.reject {|k| k.to_s.include?(':')} unless is_a?(Dialect)
-      @warnings << "#{type} has unexpected keys: #{(check_keys - expected_props).map(&:to_s)}" unless check_keys.all? {|k| expected_props.include?(k)}
+      warn "#{type} has unexpected keys: #{(check_keys - expected_props).map(&:to_s)}" unless check_keys.all? {|k| expected_props.include?(k)}
 
       # It has required properties
-      errors << "#{type} missing required keys: #{(required_props & check_keys).map(&:to_s)}"  unless (required_props & check_keys) == required_props
+      errors << "#{type} missing required keys: #{(required_props - check_keys).map(&:to_s)}"  unless (required_props & check_keys) == required_props
+
+      self.normalize!
 
       # Every property is valid
       object.keys.each do |key|
         value = object[key]
         case key
-        when :aboutUrl, :default, :lang, :null, :ordered, :propertyUrl, :separator, :textDirection, :valueUrl
-          valid_inherited_property?(key, value) do |m|
-            @warnings << m
-          end
+        when :base
+          warn "#{type} has invalid base '#{key}': #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value) || RDF::URI(value).absolute?
         when :columns
-          if value.is_a?(Array) && value.all? {|v| v.is_a?(Column)}
-            value.each do |v|
-              begin
-                v.validate!
-              rescue Error => e
-                errors << e.message
-              end
-            end
-            column_names = value.map(&:name)
-            errors << "#{type} has invalid property '#{key}': must have unique names: #{column_names.inspect}" unless column_names.uniq == column_names
-          else
-            errors << "#{type} has invalid property '#{key}': expected array of Columns"
-          end
-        when :commentPrefix, :delimiter, :quoteChar
-          unless value.is_a?(String) && value.length == 1
-            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a single character string"
-            object[key] = Dialect::DIALECT_DEFAULTS[key]
-          end
-        when :lineTerminators
-          unless value.is_a?(String)
-            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
-            object[key] = Dialect::DIALECT_DEFAULTS[key]
-          end
-        when :datatype
-          if value.is_a?(Datatype)
+          value.each do |v|
             begin
-              value.validate!
+              v.validate!
             rescue Error => e
               errors << e.message
             end
-          else
-            @warnings << "#{type} has invalid property '#{key}': expected a Datatype"
-            value = object[key] = nil
           end
-        when :dialect
-          unless value.is_a?(Dialect)
-            errors << "#{type} has invalid property '#{key}': expected a Dialect Description"
-          end
-          begin
-            value.validate! if value
-          rescue Error => e
-            errors << e.message
-          end
-        when :doubleQuote, :header, :skipInitialSpace, :skipBlankRows
-          unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
-            @warnings << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
-            object[key] = Dialect::DIALECT_DEFAULTS[key]
-          end
-        when :required, :suppressOutput, :virtual
-          unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
-            @warnings << "#{type} has invalid property '#{key}': #{value}, expected boolean true or false"
-            object.delete(key)
-          end
-        when :encoding
-          unless (Encoding.find(value) rescue false)
-            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a valid encoding"
+          column_names = value.map(&:name)
+          errors << "#{type} has invalid property '#{key}': must have unique names: #{column_names.inspect}" unless column_names.uniq == column_names
+        when :dialect, :tables, :tableSchema, :transformations
+          Array(value).each do |t|
+            begin
+              t.validate!
+            rescue Error => e
+              errors << e.message
+            end
           end
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
-          value.is_a?(Array) && value.each do |fk|
-            if fk.is_a?(Hash)
-              columnReference, reference = fk['columnReference'], fk['reference']
-              errors << "#{type} has invalid property '#{key}': missing columnReference and reference" unless columnReference && reference
-              errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
+          value.each do |fk|
+            columnReference, reference = fk['columnReference'], fk['reference']
+            errors << "#{type} has invalid property '#{key}': missing columnReference and reference" unless columnReference && reference
+            errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
 
-              # Verify that columns exist in this schema
-              Array(columnReference).each do |k|
-                errors << "#{type} has invalid property '#{key}': columnReference not found #{k}" unless self.columns.any? {|c| c.name == k}
+            # Verify that columns exist in this schema
+            errors << "#{type} has invalid property '#{key}': no columnReference found" unless Array(columnReference).length > 0
+            Array(columnReference).each do |k|
+              errors << "#{type} has invalid property '#{key}': columnReference not found #{k}" unless self.columns.any? {|c| c[:name] == k}
+            end
+
+            if reference.is_a?(Hash)
+              ref_cols = reference['columnReference']
+              schema = if reference.has_key?('resource')
+                if reference.has_key?('schemaReference')
+                  errors << "#{type} has invalid property '#{key}': reference has a schemaReference: #{reference.inspect}" 
+                end
+                # resource is the URL of a Table in the TableGroup
+                ref = base.join(reference['resource']).to_s
+                table = root.is_a?(TableGroup) && root.tables.detect {|t| t.url == ref}
+                errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
+                table.tableSchema if table
+              elsif reference.has_key?('schemaReference')
+                # resource is the @id of a Schema in the TableGroup
+                ref = base.join(reference['schemaReference']).to_s
+                tables = root.is_a?(TableGroup) ? root.tables.select {|t| t.tableSchema[:@id] == ref} : []
+                case tables.length
+                when 0
+                  errors << "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
+                  nil
+                when 1
+                  tables.first.tableSchema
+                else
+                  errors << "#{type} has invalid property '#{key}': multiple schemas found from #{ref}"
+                  nil
+                end
               end
 
-              if reference.is_a?(Hash)
-                ref_cols = reference['columnReference']
-                schema = if reference.has_key?('resource')
-                  if reference.has_key?('schemaReference')
-                    errors << "#{type} has invalid property '#{key}': reference has a schemaReference: #{reference.inspect}" 
-                  end
-                  # resource is the URL of a Table in the TableGroup
-                  ref = base.join(reference['resource']).to_s
-                  table = root.is_a?(TableGroup) && root.tables.detect {|t| t.url == ref}
-                  errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
-                  table.tableSchema if table
-                elsif reference.has_key?('schemaReference')
-                  # resource is the @id of a Schema in the TableGroup
-                  ref = base.join(reference['schemaReference']).to_s
-                  tables = root.is_a?(TableGroup) ? root.tables.select {|t| t.tableSchema[:@id] == ref} : []
-                  case tables.length
-                  when 0
-                    errors << "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
-                    nil
-                  when 1
-                    tables.first.tableSchema
-                  else
-                    errors << "#{type} has invalid property '#{key}': multiple schemas found from #{ref}"
-                    nil
-                  end
+              if schema
+                # ref_cols must exist in schema
+                errors << "#{type} has invalid property '#{key}': no columnReference found" unless Array(ref_cols).length > 0
+                Array(ref_cols).each do |k|
+                  errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless schema.columns.any? {|c| c[:name] == k}
                 end
-
-                if schema
-                  # ref_cols must exist in schema
-                  Array(ref_cols).each do |k|
-                    errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless schema.columns.any? {|c| c.name == k}
-                  end
-                end
-              else
-                errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
               end
             else
-              errors << "#{type} has invalid property '#{key}': reference must be an object: #{reference.inspect}" 
+              errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
             end
-          end
-        when :headerRowCount, :skipColumns, :skipRows
-          unless value.is_a?(Numeric) && value.integer? && value > 0
-            @warnings << "#{type} has invalid property '#{key}': #{value.inspect} must be a positive integer"
-            object[key] = Dialect::DIALECT_DEFAULTS[key]
-          end
-        when :base
-          @warnings << "#{type} has invalid base '#{key}': #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value) || RDF::URI(value).absolute?
-        when :format
-          unless value.is_a?(String)
-            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
-            object.delete(key)
-          end
-        when :length, :minLength, :maxLength
-          unless value.is_a?(Numeric) && value.integer? && value > 0
-            @warnings << "#{type} has invalid property '#{key}': #{value.inspect}, expected a positive integer"
-            object.delete(key)
-          end
-          unless key == :length || value != object[:length]
-            # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
-            errors << "#{type} has invalid property '#{key}': Use of both length and #{key} requires they be equal"
-          end
-        when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
-          unless value.is_a?(Numeric) ||
-            RDF::Literal::Date.new(value.to_s).valid? ||
-            RDF::Literal::Time.new(value.to_s).valid? ||
-            RDF::Literal::DateTime.new(value.to_s).valid?
-            @warnings << "#{type} has invalid property '#{key}': #{value}, expected numeric or valid date/time"
-            object.delete(key)
-          end
-        when :name
-          unless value.is_a?(String) && name.match(NAME_SYNTAX)
-            errors << "#{type} has invalid property '#{key}': #{value}, expected proper name format"
           end
         when :notes
           unless value.is_a?(Hash) || value.is_a?(Array)
@@ -662,68 +617,17 @@ module RDF::Tabular
           end
         when :primaryKey
           # A column reference property that holds either a single reference to a column description object or an array of references.
+          "#{type} has invalid property '#{key}': no column references found" unless Array(value).length > 0
           Array(value).each do |k|
-            errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c.name == k}
+            errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c[:name] == k}
           end
-        when :tables
-          if value.is_a?(Array) && value.all? {|v| v.is_a?(Table)}
-            value.each do |t|
-              begin
-                t.validate!
-              rescue Error => e
-                errors << e.message
-              end
-            end
-          else
-            errors << "#{type} has invalid property '#{key}': expected array of Tables"
-          end
-        when :scriptFormat, :targetFormat
-          unless RDF::URI(value).valid?
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected valid absolute URL"
-          end
-        when :source
-          unless %w(json rdf).include?(value) || value.nil?
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected json or rdf"
-          end
-        when :tableDirection
-          unless %w(rtl ltr default).include?(value)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected rtl, ltr, or default"
-          end
-        when :tableSchema
-          if value.is_a?(Schema)
-            begin
-              value.validate!
-            rescue Error => e
-              errors << e.message
-            end
-          else
-            errors << "#{type} has invalid property '#{key}': expected Schema"
-          end
-        when :transformations
-          if value.is_a?(Array) && value.all? {|v| v.is_a?(Transformation)}
-            value.each do |t|
-              begin
-                t.validate!
-              rescue Error => e
-                errors << e.message
-              end
-            end
-          else
-            errors << "#{type} has invalid property '#{key}': expected array of Transformations"
-          end
-        when :titles
-          valid_natural_language_property?(:titles, value) {|m| errors << m}
-        when :trim
-          unless %w(true false 1 0 start end).include?(value.to_s.downcase)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected true, false, 1, 0, start or end"
-          end
-        when :url
-          # Only validate URL in validation mode; this allows for a nil URL
-          unless @url.valid?
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected valid absolute URL"
-          end
-        when :@id, :@context
+        when :@context
           # Skip these
+        when :@id
+          # Must not be a BNode
+          if value.to_s.start_with?("_:")
+            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:"
+          end
         when :@type
           unless value.to_sym == type
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected #{type}"
@@ -734,8 +638,6 @@ module RDF::Tabular
           rescue Error => e
             errors << "#{type} has invalid content '#{key}': #{e.message}"
           end
-        else
-          warnings << "#{type} has invalid property '#{key}': unsupported property"
         end
       end
 
@@ -747,41 +649,18 @@ module RDF::Tabular
     # Determine if a natural language property is valid
     # @param [String, Array<String>, Hash{String => String}] value
     # @yield message error message
-    # @return [Boolean]
-    def valid_natural_language_property?(key, value)
-      unless value.is_a?(Hash) && value.all? {|k, v| Array(v).all? {|vv| vv.is_a?(String)}}
-        yield "#{type} has invalid property '#{key}': #{value.inspect}, expected a valid natural language property" if block_given?
-        false
-      end
-    end
-
-    ##
-    # Determine if an inherited property is valid
-    # @param [String, Array<String>, Hash{String => String}] value
-    # @yield message error message
-    # @return [Boolean]
-    def valid_inherited_property?(key, value)
-      error = case key
-      when :aboutUrl, :default, :propertyUrl, :valueUrl
-        "string" unless value.is_a?(String)
-      when :lang
-        "valid BCP47 language tag" unless BCP47::Language.identify(value.to_s)
-      when :null
-        # To be valid, it must be a string or array
-        "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
-      when :ordered
-        "boolean" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
-      when :separator
-        "single character" unless value.nil? || value.is_a?(String) && value.length == 1
-      when :textDirection
-        "rtl or ltr" unless %(rtl ltr).include?(value)
-      end
-
-      if error
-        yield "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{error}"
-        false
+    # @return [String, nil]
+    def valid_natural_language_property?(value)
+      case value
+      when String
+      when Array
+        "a valid natural language property" unless value.all? {|v| v.is_a?(String)}
+      when Hash
+        "a valid natural language property" if
+          value.keys.any? {|k| k.to_s != "und" && !BCP47::Language.identify(k)} ||
+          value.values.any? {|v| valid_natural_language_property?(v).is_a?(String)}
       else
-        true
+        "a valid natural language property"
       end
     end
 
@@ -801,7 +680,6 @@ module RDF::Tabular
           v = data.join(' ')[1..-1].strip
           unless v.empty?
             (self["rdfs:comment"] ||= []) << v
-            yield RDF::Statement.new(nil, RDF::RDFS.comment, RDF::Literal(v))
           end
           skipped += 1
           next
@@ -895,204 +773,50 @@ module RDF::Tabular
       object.keys.any? {|k| k.to_s.include?(':')}
     end
 
-    # Merge metadata into this a copy of this metadata
-    # @param [Array<Metadata>] metadata
-    # @return [Metadata]
-    def merge(*metadata)
-      return self if metadata.empty?
-      # If the top-level object of any of the metadata files are table descriptions, these are treated as if they were table group descriptions containing a single table description (ie having a single resource property whose value is the same as the original table description).
-      this = case self
-      when TableGroup then self.dup
-      when Table
-        if self.is_a?(Table) && self.parent
-          self.parent
-        else
-          content = {"@type" => "TableGroup", "tables" => [self]}
-          content['@context'] = object.delete(:@context) if object[:@context]
-          ctx = @context
-          self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context)
-          tg = TableGroup.new(content, filenames: @filenames, base: base)
-          @parent = tg  # Link from parent
-          tg
+    # Verify that the metadata we're using is compatible with embedded metadata
+    # @param [Table] other
+    # @raise [Error] if not compatible
+    def verify_compatible!(other)
+      if self.is_a?(TableGroup)
+        unless tables.any? {|t| t.url == other.url && t.verify_compatible!(other)}
+          raise Error, "TableGroups must have Table with matching url #{tables.map(&:url).inspect} vs #{other.url.inspect}"
         end
-      else self.dup
-      end
+      else
+        # Tables must have the same url
+        raise Error, "Tables must have the same url: #{url.inspect} vs #{other.url.inspect}}" unless
+          url == other.url
 
-      # Merge all passed metadata into this
-      merged = metadata.reduce(this) do |memo, md|
-        md = case md
-        when TableGroup then md
-        when Table
-          if md.parent
-            md.parent
-          else
-            content = {"@type" => "TableGroup", "tables" => [md]}
-            ctx = md.context
-            content['@context'] = md.object.delete(:@context) if md.object[:@context]
-            md.remove_instance_variable(:@context) if md.instance_variables.include?(:@context) 
-            tg = TableGroup.new(content, filenames: md.filenames, base: md.base)
-            md.instance_variable_set(:@parent, tg)  # Link from parent
-            tg
-          end
-        else
-          md
-        end
+        # Each column description within B MUST match the corresponding column description in A for non-virtual columns
+        non_virtual_columns = Array(tableSchema.columns).reject(&:virtual)
+        object_columns = Array(other.tableSchema.columns)
 
-        raise "Can't merge #{memo.class} with #{md.class}" unless memo.class == md.class
+        # Special case, if there is no header, then there are no column definitions, allow this as being compatile
+        raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}" if
+          non_virtual_columns.length != object_columns.length && !object_columns.empty?
+        index = 0
+        object_columns.all? do |cb|
+          ca = non_virtual_columns[index]
+          va = ([ca[:name]] + case ca[:titles]
+          when String then [ca[:titles]]
+          when Array then ca[:titles]
+          when Hash then ca[:titles].values.flatten
+          else []
+          end).compact.map(&:downcase)
 
-        memo.merge!(md)
-      end
+          vb = ([cb[:name]] + case cb[:titles]
+          when String then [cb[:titles]]
+          when Array then cb[:titles]
+          when Hash then cb[:titles].values.flatten
+          else []
+          end).compact.map(&:downcase)
 
-      # Set @context of merged
-      merged[:@context] = 'http://www.w3.org/ns/csvw'
-      merged
-    end
-
-    # Merge metadata into self
-    def merge!(metadata)
-      raise "Merging non-equivalent metadata types: #{self.class} vs #{metadata.class}" unless self.class == metadata.class
-
-      depth do
-        # Merge filenames
-        if @filenames || metadata.filenames
-          @filenames = (Array(@filenames) | Array(metadata.filenames)).uniq
-        end
-
-        # Normalize A (this) and B (metadata) values into normal form
-        self.normalize!
-        metadata = metadata.dup.normalize!
-
-        @dialect = nil  # So that it is re-built when needed
-        # Merge each property from metadata into self
-        metadata.each do |key, value|
-          case @properties[key]
-          when :array
-            # If the property is an array property, the way in which values are merged depends on the property; see the relevant property for this definition.
-            object[key] = case object[key]
-            when nil then []
-            when Hash then [object[key]]  # Shouldn't happen if well formed
-            else object[key]
-            end
-
-            value = [value] if value.is_a?(Hash)
-            case key
-            when :notes
-              # If the property is notes, the result is an array containing values from A followed by values from B.
-              a = object[key].is_a?(Array) ? object[key] : [object[key]].compact
-              b = value.is_a?(Array) ? value : [value]
-              object[key] = a + b
-            when :tables
-              # When an array of table descriptions B is imported into an original array of table descriptions A, each table description within B is combined into the original array A by:
-              value.each do |tb|
-                if ta = object[key].detect {|e| e.url == tb.url}
-                  # if there is a table description with the same url in A, the table description from B is imported into the matching table description in A
-                  debug("merge!: tables") {"TA: #{ta.inspect}, TB: #{tb.inspect}"}
-                  ta.merge!(tb)
-                else
-                  # otherwise, the table description from B is appended to the array of table descriptions A
-                  tb = tb.dup
-                  tb.instance_variable_set(:@parent, self)
-                  debug("merge!: tables") {"add TB: #{tb.inspect}"}
-                  object[key] << tb
-                end
-              end
-            when :transformations
-              # SPEC CONFUSION: differing transformations with same @id?
-              # When an array of template specifications B is imported into an original array of template specifications A, each template specification within B is combined into the original array A by:
-              value.each do |t|
-                if ta = object[key].detect {|e| e.targetFormat == t.targetFormat && e.scriptFormat == t.scriptFormat}
-                  # if there is a template specification with the same targetFormat and scriptFormat in A, the template specification from B is imported into the matching template specification in A
-                  ta.merge!(t)
-                else
-                  # otherwise, the template specification from B is appended to the array of template specifications A
-                  t = t.dup
-                  t.instance_variable_set(:@parent, self) if self
-                  object[key] << t
-                end
-              end
-            when :columns
-              # When an array of column descriptions B is imported into an original array of column descriptions A, each column description within B is combined into the original array A by:
-              Array(value).each_with_index do |cb, index|
-                ca = object[key][index] || {}
-                va = ([ca[:name]] + (ca[:titles] || {}).values.flatten).compact.map(&:downcase)
-                vb = ([cb[:name]] + (cb[:titles] || {}).values.flatten).compact.map(&:downcase)
-                if !(va & vb).empty?
-                  debug("merge!: columns") {"index: #{index}, va: #{va}, vb: #{vb}"}
-                  # If there's a non-empty case-insensitive intersection between the name and titles values for the column description at the same index within A and B, the column description from B is imported into the matching column description in A
-                  ca.merge!(cb)
-                elsif ca.nil? && cb.virtual
-                  debug("merge!: columns") {"index: #{index}, virtual"}
-                  # otherwise, if at a given index there is no column description within A, but there is a column description within B.
-                  cb = cb.dup
-                  cb.instance_variable_set(:@parent, self) if self
-                  object[key][index] = cb
-                else
-                  debug("merge!: columns") {"index: #{index}, ignore"}
-                  raise Error, "Columns at same index don't match: #{ca.to_json} vs. #{cb.to_json}"
-                end
-              end
-              # The number of non-virtual columns in A and B MUST be the same
-              nA = object[key].reject(&:virtual).length
-              nB = Array(value).reject(&:virtual).length
-              raise Error, "Columns must have the same number of non-virtual columns" unless nA == nB || nB == 0
-            when :foreignKeys
-              # When an array of foreign key definitions B is imported into an original array of foreign key definitions A, each foreign key definition within B which does not appear within A is appended to the original array A.
-              # SPEC CONFUSION: If definitions vary only a little, they should probably be merged (e.g. common properties).
-              object[key] = object[key] + (metadata[key] - object[key])
-            end
-          when :object
-            case key
-            when :notes
-              # If the property accepts arrays, the result is an array of objects or strings: those from A followed by those from B that were not already a value in A.
-              a = object[key] || []
-              object[key] = (a + value).uniq
-            else
-              # if the property only accepts single objects
-              if object[key].is_a?(String) || value.is_a?(String)
-                # if the value of the property in A is a string or the value from B is a string then the value from A overrides that from B
-                object[key] ||= value
-              elsif object[key].is_a?(Metadata)
-                # otherwise (if both values as objects) the objects are merged as described here
-                object[key].merge!(value)
-              elsif object[key].is_a?(Hash)
-                # otherwise (if both values as objects) the objects are merged as described here
-                object[key].merge!(value)
-              else
-                value = value.dup
-                value.instance_variable_set(:@parent, self) if self
-                object[key] = value
-              end
-            end
-          when :natural_language
-            # If the property is a natural language property, the result is an object whose properties are language codes and where the values of those properties are arrays. The suitable language code for the values is either explicit within the existing value or determined through the default language in the metadata document; if it can't be determined the language code und should be used. The arrays should provide the values from A followed by those from B that were not already a value in A.
-            a = object[key] || {}
-            b = value
-            debug("merge!: natural_language") {
-              "A: #{a.inspect}, B: #{b.inspect}"
-            }
-            b.each do |k, v|
-              a[k] = Array(a[k]) + (Array(b[k]) - Array(a[k]))
-            end
-            # eliminate titles with no language where the same string exists with a language
-            if a.has_key?("und")
-              a["und"] = a["und"].reject do |v|
-                a.any? {|lang, values| lang != 'und' && values.include?(v)}
-              end
-              a.delete("und") if a["und"].empty?
-            end
-            object[key] = a
-          when ->(k) {key == :@id}
-            object[key] ||= value
-            @id ||= metadata.id
-          else
-            # Otherwise, the value from A overrides that from B
-            object[key] ||= value
-          end
+          # If there's a non-empty case-insensitive intersection between the name and titles values for the column description at the same index within A and B, the column description in B is compatible with the matching column description in A
+          raise Error, "Columns don't match: va: #{va}, vb: #{vb}" if (va & vb).empty?
+          debug("merge!: columns") {"index: #{index}, va: #{va}, vb: #{vb}"}
+          index += 1
         end
       end
-
-      debug("merge!") {self.inspect}
-      self
+      true
     end
 
     def inspect
@@ -1176,7 +900,8 @@ module RDF::Tabular
           elsif (value.keys.sort & %w(@language @type)) == %w(@language @type)
             raise Error, "Value object may not contain both @type and @language: #{value.to_json}"
           elsif value['@language'] && !BCP47::Language.identify(value['@language'])
-            raise Error, "Value object with @language must use valid language: #{value.to_json}"
+            warn "Value object with @language must use valid language: #{value.to_json}" if @warnings
+            value.delete('@language')
           elsif value['@type'] && !context.expand_iri(value['@type'], vocab: true).absolute?
             raise Error, "Value object with @type must defined type: #{value.to_json}"
           end
@@ -1209,15 +934,48 @@ module RDF::Tabular
     end
   protected
 
+    # Add a warning on this object
+    def warn(string)
+      debug("warn: #{string}")
+      (@warnings ||= []) << string
+    end
+
     # When setting a natural language property, always put in language-map form
-    # @param [Symbol] prop
     # @param [Hash{String => String, Array<String>}, Array<String>, String] value
     # @return [Hash{String => Array<String>}]
-    def set_nl(prop, value)
-      object[prop] = case value
-      when String then {(context.default_language || 'und') => [value]}
-      when Array then {(context.default_language || 'und') => value}
-      else value
+    def set_nl(value)
+      case value
+      when String then value
+      when Array then value.select {|v| v.is_a?(String)}
+      when Hash
+        value.delete_if {|k, v| !BCP47::Language.identify(k)}
+        value.each do |k, v|
+          value[k] = Array(v).select {|vv| vv.is_a?(String)}
+        end
+      else nil
+      end
+    end
+
+    # General setter for array properties
+    def set_array_value(key, value, klass, options={})
+      object[key] = case value
+      when Array
+        value.map do |v|
+          case v
+          when Hash
+            klass.new(v, @options.merge(options).merge(parent: self, context: nil))
+          else v
+          end
+        end
+      else
+        warn "#{type} has invalid property '#{key}': expected array of #{klass}"
+        []
+      end
+
+      unless object[key].all? {|v| v.is_a?(klass)}
+        warn "#{type} has invalid property '#{key}': expected array of #{klass}"
+        # Remove elements that aren't of the right types
+        object[key] = object[key].select! {|v| v.is_a?(klass)}
       end
     end
 
@@ -1226,6 +984,10 @@ module RDF::Tabular
       object.fetch(method.to_sym) do
         parent.send(method) if parent
       end
+    end
+
+    def default_value(prop)
+      self.class.const_get(:DEFAULTS).merge(INHERITED_DEFAULTS)[prop]
     end
 
     ##
@@ -1268,17 +1030,27 @@ module RDF::Tabular
       dialect:             :object,
       transformations:     :array,
     }.freeze
-    REQUIRED = [].freeze
+    DEFAULTS = {
+      tableDirection:      "default".freeze,
+    }.freeze
+    REQUIRED = [:tables].freeze
 
     # Setters
-    PROPERTIES.each do |a, type|
-      next if a == :dialect
-      define_method("#{a}=".to_sym) do |value|
-        case type
-        when :natural_language
-          set_nl(a, value)
+    PROPERTIES.each do |key, type|
+      next if [:tables, :tableSchema, :dialect, :transformations].include?(key)
+      define_method("#{key}=".to_sym) do |value|
+        invalid = case key
+        when :tableDirection
+          "rtl, ltr, or default" unless %(rtl ltr default).include?(value)
+        when :notes, :tables, :tableSchema, :dialect, :transformations
+          # We handle this through a separate setters
+        end
+
+        if invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
         else
-          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+          object[key] = value
         end
       end
     end
@@ -1325,11 +1097,14 @@ module RDF::Tabular
 
     # Return Annotated Table Group representation
     def to_atd
-      {
-        "@id" => id,
+      object.inject({
+        "@id" => (id.to_s if id),
         "@type" => "AnnotatedTableGroup",
-        "tables" => tables.map(&:to_atd)
-      }
+        "tables" => []
+      }) do |memo, (k, v)|
+        memo[k.to_s] ||= v
+        memo
+      end.delete_if {|k,v| v.nil? || v.is_a?(Metadata) || k.to_s == "@context"}
     end
   end
 
@@ -1345,17 +1120,37 @@ module RDF::Tabular
       transformations:     :array,
       url:                 :link,
     }.freeze
+    DEFAULTS = {
+      suppressOutput:      false,
+      tableDirection:      "default".freeze,
+    }.freeze
     REQUIRED = [:url].freeze
 
     # Setters
-    PROPERTIES.each do |a, type|
-      next if a == :dialect
-      define_method("#{a}=".to_sym) do |value|
-        case type
-        when :natural_language
-          set_nl(a, value)
+    PROPERTIES.each do |key, type|
+      next if [:tableSchema, :dialect, :transformations].include?(key)
+      define_method("#{key}=".to_sym) do |value|
+        invalid = case key
+        when :suppressOutput
+          "boolean true or false" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
+        when :tableDirection
+          "rtl, ltr, or default" unless %(rtl ltr default).include?(value)
+        when :url
+          "valid URL" unless value.is_a?(String) && base.join(value).valid?
+        when :notes, :tableSchema, :dialect, :transformations
+          # We handle this through a separate setters
+        end
+
+        if invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
+        elsif key == :url
+          # URL of CSV relative to metadata
+          object[:url] = value
+          @url = base.join(value)
+          @context.base = @url if @context # Use as base for expanding IRIs
         else
-          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+          object[key] = value
         end
       end
     end
@@ -1366,15 +1161,29 @@ module RDF::Tabular
       super || tableSchema && tableSchema.has_annotations?
     end
 
+    # Return a new TableGroup based on this Table
+    def to_table_group
+      content = {"@type" => "TableGroup", "tables" => [self]}
+      content['@context'] = object.delete(:@context) if object[:@context]
+      ctx = @context
+      self.remove_instance_variable(:@context) if self.instance_variables.include?(:@context)
+      tg = TableGroup.new(content, context: ctx, filenames: @filenames, base: base)
+      @parent = tg  # Link from parent
+      tg
+    end
+
     # Return Annotated Table representation
     def to_atd
-      {
-        "@id" => id,
+      object.inject({
+        "@id" => (id.to_s if id),
         "@type" => "AnnotatedTable",
+        "url" => self.url.to_s,
         "columns" => tableSchema.columns.map(&:to_atd),
-        "rows" => [],
-        "url" => self.url.to_s
-      }
+        "rows" => []
+      }) do |memo, (k, v)|
+        memo[k.to_s] ||= v
+        memo
+      end.delete_if {|k,v| v.nil? || v.is_a?(Metadata) || k.to_s == "@context"}
     end
 
     # Logic for accessing elements as accessors
@@ -1387,36 +1196,6 @@ module RDF::Tabular
     end
   end
 
-  class Transformation < Metadata
-    PROPERTIES = {
-      :@id         => :link,
-      :@type       => :atomic,
-      source:         :atomic,
-      targetFormat:   :link,
-      scriptFormat:   :link,
-      titles:         :natural_language,
-      url:            :link,
-    }.freeze
-    REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
-
-    # Setters
-    PROPERTIES.each do |a, type|
-      define_method("#{a}=".to_sym) do |value|
-        case type
-        when :natural_language
-          set_nl(a, value)
-        else
-          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
-        end
-      end
-    end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
-    end
-  end
-
   class Schema < Metadata
     PROPERTIES = {
       :@id       => :link,
@@ -1425,17 +1204,67 @@ module RDF::Tabular
       foreignKeys:  :array,
       primaryKey:   :column_reference,
     }.freeze
+    DEFAULTS = {}.freeze
     REQUIRED = [].freeze
 
     # Setters
-    PROPERTIES.each do |a, type|
-      define_method("#{a}=".to_sym) do |value|
-        case type
-        when :natural_language
-          set_nl(a, value)
-        else
-          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+    PROPERTIES.each do |key, type|
+      define_method("#{key}=".to_sym) do |value|
+        invalid = case key
+        when :primaryKey
+          "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
         end
+
+        if invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
+        else
+          object[key] = value
+        end
+      end
+    end
+
+    def columns=(value)
+      object[:columns] = case value
+      when Array
+        number = 0
+        value.map do |v|
+          number += 1
+          case v
+          when Hash
+            Column.new(v, @options.merge(
+              table: (parent if parent.is_a?(Table)),
+              parent: self,
+              context: nil,
+              number: number))
+          else
+            v
+          end
+        end
+      else
+        warn "#{type} has invalid property 'columns': expected array of Column"
+        []
+      end
+
+      unless object[:columns].all? {|v| v.is_a?(Column)}
+        warn "#{type} has invalid property 'columns': expected array of Column"
+        # Remove elements that aren't of the right types
+        object[:columns] = object[:columns].select! {|v| v.is_a?(Column)}
+      end
+    end
+
+    def foreignKeys=(value)
+      object[:foreignKeys] = case value
+      when Array then value
+      else
+        warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
+        []
+      end
+
+      unless object[:foreignKeys].all? {|v| v.is_a?(Hash)}
+        warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
+        # Remove elements that aren't of the right types
+        object[:foreignKeys] = object[:foreignKeys].select! {|v| v.is_a?(Hash)}
       end
     end
 
@@ -1456,8 +1285,11 @@ module RDF::Tabular
       name:           :atomic,
       suppressOutput: :atomic,
       titles:         :natural_language,
-      required:       :atomic,
       virtual:        :atomic,
+    }.freeze
+    DEFAULTS = {
+      suppressOutput:      false,
+      virtual:             false,
     }.freeze
     REQUIRED = [].freeze
 
@@ -1488,20 +1320,33 @@ module RDF::Tabular
     end
 
     # Setters
-    PROPERTIES.each do |a, type|
-      define_method("#{a}=".to_sym) do |value|
-        case type
-        when :natural_language
-          set_nl(a, value)
+    PROPERTIES.each do |key, t|
+      define_method("#{key}=".to_sym) do |value|
+        invalid = case key
+        when :name
+          "proper name format" unless value.is_a?(String) && value.match(NAME_SYNTAX)
+        when :suppressOutput, :virtual
+          "boolean true or false" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
+        when :titles
+          valid_natural_language_property?(value)
+        end
+
+        if invalid && key == :titles
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = set_nl(value)
+          object.delete(key) if object[key].nil?
+        elsif invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
         else
-          object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+          object[key] = value
         end
       end
     end
 
     # Return or create a name for the column from titles, if it exists
     def name
-      object[:name] ||= if titles && (ts = titles[context.default_language || 'und'])
+      self[:name] || if titles && (ts = titles[context.default_language || 'und'])
         n = Array(ts).first
         n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
         n1 = URI.encode(n[1..-1], /[^\w\.]/)
@@ -1518,17 +1363,20 @@ module RDF::Tabular
 
     # Return Annotated Column representation
     def to_atd
-      {
-        "@id" => id,
+      object.inject({
+        "@id" => id.to_s,
         "@type" => "Column",
-        "table" => (table.id if table),
+        "table" => (table.id.to_s if table.id),
         "number" => self.number,
         "sourceNumber" => self.sourceNumber,
         "cells" => [],
         "virtual" => self.virtual,
         "name" => self.name,
         "titles" => self.titles
-      }
+      }) do |memo, (k, v)|
+        memo[k.to_s] ||= v
+        memo
+      end.delete_if {|k,v| v.nil?}
     end
 
     # Logic for accessing elements as accessors
@@ -1541,17 +1389,55 @@ module RDF::Tabular
     end
   end
 
+  class Transformation < Metadata
+    PROPERTIES = {
+      :@id         => :link,
+      :@type       => :atomic,
+      source:         :atomic,
+      targetFormat:   :link,
+      scriptFormat:   :link,
+      titles:         :natural_language,
+      url:            :link,
+    }.freeze
+    DEFAULTS = {}.freeze
+    REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
+
+    # Setters
+    PROPERTIES.each do |key, type|
+      define_method("#{key}=".to_sym) do |value|
+        invalid = case key
+        when :scriptFormat, :targetFormat
+          "valid absolute URL" unless RDF::URI(value).valid?
+        when :source
+          "json or rdf" unless %w(json rdf).include?(value) || value.nil?
+        end
+
+        if invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
+        else
+          object[key] = value
+        end
+      end
+    end
+
+    # Logic for accessing elements as accessors
+    def method_missing(method, *args)
+      PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
+    end
+  end
+
   class Dialect < Metadata
     # Defaults for dialects
-    DIALECT_DEFAULTS = {
-      commentPrefix:      nil,
+    DEFAULTS = {
+      commentPrefix:      "#".freeze,
       delimiter:          ",".freeze,
       doubleQuote:        true,
       encoding:           "utf-8".freeze,
       header:             true,
       headerRowCount:     1,
       lineTerminators:    :auto,
-      quoteChar:          '"',
+      quoteChar:          '"'.freeze,
       skipBlankRows:      false,
       skipColumns:        0,
       skipInitialSpace:   false,
@@ -1580,9 +1466,35 @@ module RDF::Tabular
     REQUIRED = [].freeze
 
     # Setters
-    PROPERTIES.keys.each do |a|
-      define_method("#{a}=".to_sym) do |value|
-        object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+    PROPERTIES.keys.each do |key|
+      define_method("#{key}=".to_sym) do |value|
+        invalid = case key
+        when :commentPrefix, :delimiter, :quoteChar
+          "a single character string" unless value.is_a?(String) && value.length == 1
+        when :lineTerminators
+          "a string" unless value.is_a?(String)
+        when :doubleQuote, :header, :skipInitialSpace, :skipBlankRows
+          "boolean true or false" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
+        when :encoding
+          "a valid encoding" unless (Encoding.find(value) rescue false)
+        when :headerRowCount, :skipColumns, :skipRows
+          "a non-negative integer" unless value.is_a?(Numeric) && value.integer? && value >= 0
+        when :trim
+          "true, false, start or end" unless %w(true false start end).include?(value.to_s.downcase)
+        when :titles
+          valid_natural_language_property?(value)
+        end
+
+        if invalid && key == :titles
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = set_nl(value)
+          object.delete(key) if object[key].nil?
+        elsif invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
+        else
+          object[key] = value
+        end
       end
     end
 
@@ -1608,19 +1520,22 @@ module RDF::Tabular
     # Extract a new Metadata document from the file or data provided
     #
     # @param [#read, #to_s] input IO, or file path or URL
+    # @param [Table] metadata used for saving annotations created while extracting metadata
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Util::File.open_file`)
+    # @option options [String] :lang, language to set in table, if any
     # @return [Metadata] Tabular metadata
     # @see http://w3c.github.io/csvw/syntax/#parsing
-    def embedded_metadata(input, options = {})
+    def embedded_metadata(input, metadata, options = {})
       options = options.dup
       options.delete(:context) # Don't accidentally use a passed context
       # Normalize input to an IO object
       if input.is_a?(String)
-        return ::RDF::Util::File.open_file(input) {|f| embedded_metadata(f, options.merge(base: input.to_s))}
+        return ::RDF::Util::File.open_file(input) {|f| embedded_metadata(f, metadata, options.merge(base: input.to_s))}
       end
 
       table = {
+        "@context" => "http://www.w3.org/ns/csvw",
         "url" => (options.fetch(:base, "")),
         "@type" => "Table",
         "tableSchema" => {
@@ -1628,6 +1543,8 @@ module RDF::Tabular
           "columns" => []
         }
       }
+      metadata ||= table  # In case the embedded metadata becomes the final metadata
+      metadata["lang"] = options[:lang] if options[:lang]
 
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)
@@ -1638,7 +1555,7 @@ module RDF::Tabular
         value.rstrip! if %w(true end).include?(trim.to_s)
 
         value = value[1..-1].strip if commentPrefix && value.start_with?(commentPrefix)
-        (table["rdfs:comment"] ||= []) << value unless value.empty?
+        (metadata["rdfs:comment"] ||= []) << value unless value.empty?
       end
       debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
 
@@ -1669,9 +1586,9 @@ module RDF::Tabular
 
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
-      if DIALECT_DEFAULTS.has_key?(method.to_sym)
+      if DEFAULTS.has_key?(method.to_sym)
         # As set, or with default
-        object.fetch(method.to_sym, DIALECT_DEFAULTS[method.to_sym])
+        object.fetch(method.to_sym, DEFAULTS[method.to_sym])
       else
         super
       end
@@ -1691,19 +1608,46 @@ module RDF::Tabular
       maxInclusive: :atomic,
       minExclusive: :atomic,
       maxExclusive: :atomic,
-      decimalChar:  :atomic,
-      groupChar:    :atomic,
-      pattern:      :atomic,
     }.freeze
     REQUIRED = [].freeze
+    DEFAULTS = {}.freeze
 
     # Override `base` in Metadata
     def base; object[:base]; end
 
     # Setters
-    PROPERTIES.each do |a, type|
-      define_method("#{a}=".to_sym) do |value|
-        object[a] = value.to_s =~ /^\d+/ ? value.to_i : value
+    PROPERTIES.each do |key, type|
+      define_method("#{key}=".to_sym) do |value|
+        invalid = case key
+        when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
+          "numeric or valid date/time" unless value.is_a?(Numeric) ||
+            RDF::Literal::Date.new(value.to_s).valid? ||
+            RDF::Literal::Time.new(value.to_s).valid? ||
+            RDF::Literal::DateTime.new(value.to_s).valid?
+        when :format
+          unless value.is_a?(String)
+            warn "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
+            if default_value(key).nil?
+              object.delete(key)
+            else
+              object[key] = default_value(key)
+            end
+          end
+        when :length, :minLength, :maxLength
+          if !(value.is_a?(Numeric) && value.integer? && value >= 0)
+            "a non-negative integer" 
+          elsif key != :length && object[:length] && value != object[:length]
+            # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
+            "both length and #{key} requires they be equal"
+          end
+        end
+
+        if invalid
+          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          object[key] = default_value(key) unless default_value(key).nil?
+        else
+          object[key] = value
+        end
       end
     end
 
@@ -1741,14 +1685,15 @@ module RDF::Tabular
       # Return Annotated Cell representation
       def to_atd
         {
-          "@id" => self.id,
+          "@id" => id.to_s,
           "@type" => "Cell",
-          "column" => column.id,
-          "row" => row.id,
+          "column" => column.id.to_s,
+          "row" => row.id.to_s,
           "stringValue" => self.stringValue,
-          "value" => self.value,
+          "table" => (table.id.to_s if table.id),
+          "value" => table.context.expand_value(nil, self.value),
           "errors" => self.errors
-        }
+        }.delete_if {|k,v| Array(v).empty?}
       end
     end
 
@@ -1794,9 +1739,15 @@ module RDF::Tabular
       map_values = {"_row" => number, "_sourceRow" => source_number}
 
       columns = metadata.tableSchema.columns ||= []
+      non_virtual_columns = columns.reject(&:virtual)
+
+      if row.length < non_virtual_columns.length
+        raise Error, "Row #{source_number} has #{row.length} columns, expected #{non_virtual_columns.length}"
+      end
 
       # Make sure that the row length is at least as long as the number of column definitions, to implicitly include virtual columns
       columns.each_with_index {|c, index| row[index] ||= (c.null || '')}
+
       row.each_with_index do |value, index|
 
         next if index < skipColumns
@@ -1811,7 +1762,7 @@ module RDF::Tabular
 
         @values << cell = Cell.new(metadata, column, self, value)
 
-        datatype = column.datatype || Datatype.new(base: "string")
+        datatype = column.datatype || Datatype.new(base: "string", parent: column)
         value = value.gsub(/\r\t\a/, ' ') unless %w(string json xml html anyAtomicType any).include?(datatype.base)
         value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType any normalizedString).include?(datatype.base)
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
@@ -1848,7 +1799,7 @@ module RDF::Tabular
         cell.errors = cell_errors
         metadata.send(:debug, "#{self.number}: each_cell ##{self.sourceNumber},#{cell.column.sourceNumber}", cell.errors.join("\n")) unless cell_errors.empty?
 
-        map_values[columns[index - skipColumns].name] =  (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
+        map_values[columns[index - skipColumns].name] = (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
 
       # Map URLs for row
@@ -1869,13 +1820,13 @@ module RDF::Tabular
     # Return Annotated Row representation
     def to_atd
       {
-        "@id" => self.id,
+        "@id" => id.to_s,
         "@type" => "Row",
-        "table" => table.id,
+        "table" => (table.id.to_s if table.id),
         "number" => self.number,
         "sourceNumber" => self.sourceNumber,
         "cells" => @values.map(&:to_atd)
-      }
+      }.delete_if {|k,v| v.nil?}
     end
 
   private
@@ -1905,17 +1856,18 @@ module RDF::Tabular
            :nonPositiveInteger, :negativeInteger,
            :double, :float, :number
         # Normalize representation based on numeric-specific facets
-        groupChar = datatype.groupChar || ','
-        if datatype.pattern && !value.match(Regexp.new(datatype.pattern))
+        format ||= {}
+        groupChar = format[:groupChar] || ','
+        if format[:pattern] && !value.match(Regexp.new(format[:pattern]))
           # pattern facet failed
-          value_errors << "#{value} does not match pattern #{datatype.pattern}"
+          value_errors << "#{value} does not match pattern #{format[:pattern]}"
         end
         if value.include?(groupChar*2)
           # pattern facet failed
           value_errors << "#{value} has repeating #{groupChar.inspect}"
         end
         value.gsub!(groupChar, '')
-        value.sub!(datatype.decimalChar, '.') if datatype.decimalChar
+        value.sub!(format[:decimalChar], '.') if format[:decimalChar]
 
         # Extract percent or per-mille sign
         percent = permille = false
@@ -2021,8 +1973,8 @@ module RDF::Tabular
           tz_part = value if tz
 
           # Compose normalized value
-          vd = ("%04d-%02d-%02d" % [date_part[:yr], date_part[:mo], date_part[:da]]) if date_part
-          vt = ("%02d:%02d:%02d" % [time_part[:hr], time_part[:mi], time_part[:se].to_i]) if time_part
+          vd = ("%04d-%02d-%02d" % [date_part[:yr].to_i, date_part[:mo].to_i, date_part[:da].to_i]) if date_part
+          vt = ("%02d:%02d:%02d" % [time_part[:hr].to_i, time_part[:mi].to_i, time_part[:se].to_i]) if time_part
           value = [vd, vt].compact.join('T')
           value += tz_part.to_s
         end

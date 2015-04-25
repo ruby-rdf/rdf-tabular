@@ -30,6 +30,8 @@ module RDF::Tabular
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
     # @option options [Boolean] :minimal includes only the information gleaned from the cells of the tabular data
     # @option options [Boolean] :noProv do not output optional provenance information
+    # @option options [Array] :warnings
+    #   array for placing warnings found when processing metadata. If not set, and validating, warnings are output to `$stderr`
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored
@@ -64,33 +66,38 @@ module RDF::Tabular
           if @options[:base] =~ /\.json(?:ld)?$/ ||
              @input.respond_to?(:content_type) && @input.content_type =~ %r(application/(?:ld+)json)
             @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
-            # If @metadata is for a Table, merge with something empty to create a TableGroup metadata
-            if @metadata.is_a?(TableGroup)
-              @metadata.normalize!
-            else
-              @metadata = @metadata.merge(TableGroup.new({}))
-            end
+            # If @metadata is for a Table, turn it into a TableGroup
+            @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
+            @metadata.normalize!
             @input = @metadata
           elsif @options[:no_found_metadata]
             # Extract embedded metadata and merge
-            table_metadata = @options[:metadata]
-            dialect = table_metadata.dialect.dup
+            dialect_metadata = @options[:metadata] || Table.new({}, context: "http://www.w3.org/ns/csvw")
+            dialect = dialect_metadata.dialect.dup
 
             # HTTP flags for setting header values
             dialect.header = false if (input.headers.fetch(:content_type, '').split(';').include?('header=absent') rescue false)
             dialect.encoding = input.charset if (input.charset rescue nil)
             dialect.separator = "\t" if (input.content_type == "text/tsv" rescue nil)
+            embed_options = {base: "http://example.org/default-metadata"}.merge(@options)
+            embedded_metadata = dialect.embedded_metadata(input, @options[:metadata], embed_options)
 
-            embedded_metadata = dialect.embedded_metadata(input, @options)
-            if lang = (input.headers[:content_language] rescue "")
-              embedded_metadata.lang = lang unless lang.include?(',')
+            if (@metadata = @options[:metadata]) && @metadata.tableSchema
+              @metadata.verify_compatible!(embedded_metadata)
+            else
+              @metadata = embedded_metadata.normalize!
             end
 
-            @metadata = table_metadata.dup.merge!(embedded_metadata)
+            lang = input.headers[:content_language] rescue nil
+            lang = nil if lang.to_s.include?(',') # Not for multiple languages
+            # Set language, if unset and provided
+            @metadata.lang ||= lang if lang 
+              
+            @metadata.dialect = dialect
           else
             # It's tabluar data. Find metadata and proceed as if it was specified in the first place
             @options[:original_input] = @input
-            @input = @metadata = Metadata.for_input(@input, @options)
+            @input = @metadata = Metadata.for_input(@input, @options).normalize!
           end
 
           debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
@@ -139,11 +146,10 @@ module RDF::Tabular
                 end unless minimal?
 
                 # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
-                if input.tables.empty? && options[:original_input]
+                if Array(input.tables).empty? && options[:original_input]
                   table_resource = RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                   Reader.new(options[:original_input], options.merge(
-                      metadata: Table.new({url: options.fetch(:base, "http://example.org/default-metadata")}),
                       no_found_metadata: true,
                       table_resource: table_resource
                   )) do |r|
@@ -196,8 +202,9 @@ module RDF::Tabular
                   end
                 end
               ensure
-                if validate? && !input.warnings.empty?
-                  $stderr.puts "Warnings: #{input.warnings.join("\n")}"
+                warnings = @options.fetch(:warnings, []).concat(input.warnings)
+                if validate? && !warnings.empty? && !@options[:warnings]
+                  $stderr.puts "Warnings: #{warnings.join("\n")}"
                 end
               end
             when :Table
@@ -217,14 +224,6 @@ module RDF::Tabular
           add_statement(0, table_resource, RDF.type, CSVW.Table)
           add_statement(0, table_resource, CSVW.url, RDF::URI(metadata.url))
         end
-
-        # Common Properties
-        metadata.each do |key, value|
-          next unless key.to_s.include?(':') || key == :notes
-          metadata.common_properties(table_resource, key, value) do |statement|
-            add_statement(0, statement)
-          end
-        end unless minimal?
 
         # Input is file containing CSV data.
         # Output ROW-Level statements
@@ -269,6 +268,14 @@ module RDF::Tabular
             end
           end
         end
+
+        # Common Properties
+        metadata.each do |key, value|
+          next unless key.to_s.include?(':') || key == :notes
+          metadata.common_properties(table_resource, key, value) do |statement|
+            add_statement(0, statement)
+          end
+        end unless minimal?
       end
       enum_for(:each_statement)
     end
@@ -373,9 +380,7 @@ module RDF::Tabular
               table_group['table'] = tables
 
               if input.tables.empty? && options[:original_input]
-                md = Table.new({url: options.fetch(:base, "http://example.org/default-metadata")})
                 Reader.new(options[:original_input], options.merge(
-                    metadata: md,
                     base:               options.fetch(:base, "http://example.org/default-metadata"),
                     minimal:            minimal?,
                     no_found_metadata: true
@@ -406,8 +411,9 @@ module RDF::Tabular
               # Result is table_group or array
               minimal? ? tables : table_group
             ensure
-              if validate? && !input.warnings.empty?
-                $stderr.puts "Warnings: #{input.warnings.join("\n")}"
+              warnings = options.fetch(:warnings, []).concat(input.warnings)
+              if validate? && !warnings.empty? && !@options[:warnings]
+                $stderr.puts "Warnings: #{warnings.join("\n")}"
               end
             end
           when :Table
@@ -432,13 +438,6 @@ module RDF::Tabular
         table = {}
         table['@id'] = metadata.id.to_s if metadata.id
         table['url'] = metadata.url.to_s
-
-        # Use string values notes and common properties
-        metadata.each do |key, value|
-          next unless key.to_s.include?(':') || key == :notes
-          table[key] = metadata.common_properties(nil, key, value)
-          table[key] = [table[key]] if key == :notes && !table[key].is_a?(Array)
-        end unless minimal?
 
         table.merge!("row" => rows)
 
@@ -521,6 +520,13 @@ module RDF::Tabular
           end
         end
 
+        # Use string values notes and common properties
+        metadata.each do |key, value|
+          next unless key.to_s.include?(':') || key == :notes
+          table[key] = metadata.common_properties(nil, key, value)
+          table[key] = [table[key]] if key == :notes && !table[key].is_a?(Array)
+        end unless minimal?
+
         minimal? ? table["row"] : table
       end
     end
@@ -537,21 +543,22 @@ module RDF::Tabular
           case input.type
           when :TableGroup
             table_group = input.to_atd
-
-            input.each_table do |table|
-              Reader.open(table.url, options.merge(
-                format:             :tabular,
-                metadata:           table,
-                base:               table.url,
-                no_found_metadata:  true, # FIXME: remove
-                noProv:             true
+            if input.tables.empty? && options[:original_input]
+              Reader.new(options[:original_input], options.merge(
+                  base:               options.fetch(:base, "http://example.org/default-metadata"),
+                  no_found_metadata: true
               )) do |r|
-                table = r.to_atd(options)
-                
-                # Fill in columns and rows in table_group entry from returned table
-                t = table_group[:tables].detect {|tab| tab["url"] == table["url"]}
-                t["columns"] = table["columns"]
-                t["rows"] = table["rows"]
+                table_group["tables"] << r.to_atd(options)
+              end
+            else
+              input.each_table do |table|
+                Reader.open(table.url, options.merge(
+                  metadata:           table,
+                  base:               table.url,
+                  no_found_metadata:  true
+                )) do |r|
+                  table_group["tables"] << r.to_atd(options)
+                end
               end
             end
 
@@ -560,11 +567,9 @@ module RDF::Tabular
           when :Table
             table = nil
             Reader.open(input.url, options.merge(
-              format:             :tabular,
               metadata:           input,
               base:               input.url,
-              no_found_metadata:  true,
-              noProv:             true
+              no_found_metadata:  true
             )) do |r|
               table = r.to_atd(options)
             end
@@ -584,7 +589,7 @@ module RDF::Tabular
         metadata.each_row(input) do |row|
           rows << row.to_atd
           row.values.each_with_index do |cell, colndx|
-            columns[colndx]["cells"] << cell.id
+            columns[colndx]["cells"] << cell.to_atd
           end
         end
         table
