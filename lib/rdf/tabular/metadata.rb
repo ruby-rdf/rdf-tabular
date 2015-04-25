@@ -680,7 +680,6 @@ module RDF::Tabular
           v = data.join(' ')[1..-1].strip
           unless v.empty?
             (self["rdfs:comment"] ||= []) << v
-            yield RDF::Statement.new(nil, RDF::RDFS.comment, RDF::Literal(v))
           end
           skipped += 1
           next
@@ -1521,12 +1520,13 @@ module RDF::Tabular
     # Extract a new Metadata document from the file or data provided
     #
     # @param [#read, #to_s] input IO, or file path or URL
+    # @param [Table] metadata used for saving annotations created while extracting metadata
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Util::File.open_file`)
     # @option options [String] :lang, language to set in table, if any
     # @return [Metadata] Tabular metadata
     # @see http://w3c.github.io/csvw/syntax/#parsing
-    def embedded_metadata(input, options = {})
+    def embedded_metadata(input, metadata, options = {})
       options = options.dup
       options.delete(:context) # Don't accidentally use a passed context
       # Normalize input to an IO object
@@ -1543,7 +1543,8 @@ module RDF::Tabular
           "columns" => []
         }
       }
-      table["lang"] = options[:lang] if options[:lang]
+      metadata ||= table  # In case the embedded metadata becomes the final metadata
+      metadata["lang"] = options[:lang] if options[:lang]
 
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)
@@ -1554,7 +1555,7 @@ module RDF::Tabular
         value.rstrip! if %w(true end).include?(trim.to_s)
 
         value = value[1..-1].strip if commentPrefix && value.start_with?(commentPrefix)
-        (table["rdfs:comment"] ||= []) << value unless value.empty?
+        (metadata["rdfs:comment"] ||= []) << value unless value.empty?
       end
       debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
 

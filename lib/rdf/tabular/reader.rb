@@ -80,7 +80,7 @@ module RDF::Tabular
             dialect.encoding = input.charset if (input.charset rescue nil)
             dialect.separator = "\t" if (input.content_type == "text/tsv" rescue nil)
             embed_options = {base: "http://example.org/default-metadata"}.merge(@options)
-            embedded_metadata = dialect.embedded_metadata(input, embed_options)
+            embedded_metadata = dialect.embedded_metadata(input, @options[:metadata], embed_options)
 
             if (@metadata = @options[:metadata]) && @metadata.tableSchema
               @metadata.verify_compatible!(embedded_metadata)
@@ -225,14 +225,6 @@ module RDF::Tabular
           add_statement(0, table_resource, CSVW.url, RDF::URI(metadata.url))
         end
 
-        # Common Properties
-        metadata.each do |key, value|
-          next unless key.to_s.include?(':') || key == :notes
-          metadata.common_properties(table_resource, key, value) do |statement|
-            add_statement(0, statement)
-          end
-        end unless minimal?
-
         # Input is file containing CSV data.
         # Output ROW-Level statements
         last_row_num = 0
@@ -276,6 +268,14 @@ module RDF::Tabular
             end
           end
         end
+
+        # Common Properties
+        metadata.each do |key, value|
+          next unless key.to_s.include?(':') || key == :notes
+          metadata.common_properties(table_resource, key, value) do |statement|
+            add_statement(0, statement)
+          end
+        end unless minimal?
       end
       enum_for(:each_statement)
     end
@@ -439,13 +439,6 @@ module RDF::Tabular
         table['@id'] = metadata.id.to_s if metadata.id
         table['url'] = metadata.url.to_s
 
-        # Use string values notes and common properties
-        metadata.each do |key, value|
-          next unless key.to_s.include?(':') || key == :notes
-          table[key] = metadata.common_properties(nil, key, value)
-          table[key] = [table[key]] if key == :notes && !table[key].is_a?(Array)
-        end unless minimal?
-
         table.merge!("row" => rows)
 
         # Input is file containing CSV data.
@@ -526,6 +519,13 @@ module RDF::Tabular
             rows << r
           end
         end
+
+        # Use string values notes and common properties
+        metadata.each do |key, value|
+          next unless key.to_s.include?(':') || key == :notes
+          table[key] = metadata.common_properties(nil, key, value)
+          table[key] = [table[key]] if key == :notes && !table[key].is_a?(Array)
+        end unless minimal?
 
         minimal? ? table["row"] : table
       end
