@@ -122,11 +122,11 @@ module Fixtures
       end
       
       def evaluate?
-        type.include?("To")
+        type.to_s.include?("To")
       end
       
       def sparql?
-        type.include?("Sparql")
+        type.to_s.include?("Sparql")
       end
 
       def rdf?
@@ -138,11 +138,11 @@ module Fixtures
       end
 
       def validation?
-        type.include?("Validation")
+        type.to_s.include?("Validation")
       end
 
       def warning?
-        type.include?("Warning")
+        type.to_s.include?("Warning")
       end
 
       def positive_test?
@@ -150,7 +150,7 @@ module Fixtures
       end
       
       def negative_test?
-        type.include?("Negative")
+        type.to_s.include?("Negative")
       end
 
       def reader_options

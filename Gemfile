@@ -17,6 +17,7 @@ end
 
 group :development, :test do
   gem 'simplecov', require: false
+  gem 'psych', :platforms => [:mri, :rbx]
 end
 
 platforms :rbx do

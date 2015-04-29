@@ -168,7 +168,7 @@ describe RDF::Tabular::Reader do
 
           it "standard mode" do
             expected = File.expand_path("../data/#{ttl}", __FILE__)
-            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, validate: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
               graph = RDF::Graph.new << reader
               graph2 = RDF::Graph.load(expected, base_uri: about)
               expect(graph).to be_equivalent_graph(graph2,
