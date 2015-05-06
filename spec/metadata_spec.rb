@@ -68,8 +68,8 @@ describe RDF::Tabular::Metadata do
         invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       separator: {
-        valid: %w(, a | :) + [nil],
-        invalid: [1, false] + %w(foo ::)
+        valid: %w(, a | : foo ::) + [nil],
+        invalid: [1, false]
       },
       "textDirection" => {
         valid: %w(rtl ltr),

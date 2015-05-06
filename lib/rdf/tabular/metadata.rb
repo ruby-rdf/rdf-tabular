@@ -370,7 +370,7 @@ module RDF::Tabular
         when :ordered, :required
           "boolean" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
         when :separator
-          "single character" unless value.nil? || value.is_a?(String) && value.length == 1
+          "string or null" unless value.nil? || value.is_a?(String)
         when :textDirection
           "rtl or ltr" unless %(rtl ltr).include?(value)
         when :datatype
@@ -808,6 +808,7 @@ module RDF::Tabular
             when Array(tb['und']).any? {|t| ta.values.flatten.compact.include?(t)}
               true
             when ta.any? {|lang, values| !(Array(tb[lang]) & Array(values)).empty?}
+              # FIXME: languages match if they are equal when truncated, as defined in [BCP47], to the length of the shortest language tag
               true
             else
               raise Error, "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}"
@@ -1488,9 +1489,7 @@ module RDF::Tabular
     PROPERTIES.keys.each do |key|
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
-        when :commentPrefix, :delimiter, :quoteChar
-          "a single character string" unless value.is_a?(String) && value.length == 1
-        when :lineTerminators
+        when :commentPrefix, :delimiter, :quoteChar, :lineTerminators
           "a string" unless value.is_a?(String)
         when :doubleQuote, :header, :skipInitialSpace, :skipBlankRows
           "boolean true or false" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
