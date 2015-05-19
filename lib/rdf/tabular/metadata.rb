@@ -181,7 +181,8 @@ module RDF::Tabular
         locs << RDF::URI(base).join(link.href)
       end
 
-      if base
+      # Don't look at file- or directory-relative if URL has a query
+      if base && !base.include?('?')
         locs += [RDF::URI("#{base}-metadata.json"), RDF::URI(base).join("metadata.json")]
       end
 

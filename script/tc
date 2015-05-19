@@ -54,10 +54,10 @@ def run_tc(tc, options)
         if tc.json?
           result = if tc.evaluate?
             RDF::Util::File.open_file(tc.result) do |res|
-              ::JSON.parse(json_result = reader.to_json) == ::JSON.parse(res.read)
+              ::JSON.parse(json_result = reader.to_json) == ::JSON.parse(res.read) ? "passed" : "failed"
             end
           else
-            ::JSON.parse(result).is_a?(Hash)
+            ::JSON.parse(result).is_a?(Hash) ? "passed" : "failed"
           end
         else # RDF or Validation
           begin
