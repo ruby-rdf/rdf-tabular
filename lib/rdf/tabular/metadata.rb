@@ -186,12 +186,25 @@ module RDF::Tabular
         locs += [RDF::URI("#{base}-metadata.json"), RDF::URI(base).join("metadata.json")]
       end
 
+      found_metadata = false
       locs.each do |loc|
         metadata ||= begin
-          Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
+          md = Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
+          # Metadata must describe file to be useful
+          found_metadata ||= loc if md
+          md if md && md.describes_file(base)
         rescue
           debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
           nil
+        end
+      end
+
+      # If Metadata was found, but no metadata describes the file, issue a warning
+      if found_metadata && !metadata
+        warnings = options.fetch(:warnings, [])
+        warnings << "Found metadata at #{locs.join(",")}, which does not describe #{base}, ignoring"
+        if options[:validate] && !options[:warnings]
+          $stderr.puts "Warnings: #{warnings.join("\n")}"
         end
       end
 
@@ -774,6 +787,18 @@ module RDF::Tabular
     # @return [Boolean]
     def has_annotations?
       object.keys.any? {|k| k.to_s.include?(':')}
+    end
+
+    # Does this metadata describe the file (URL)?
+    # @param [RDF::URL] url
+    # @return [Boolean]
+    def describes_file(url)
+      case self
+      when TableGroup
+        tables.any? {|t| t.url == url}
+      else
+        self.url == url
+      end
     end
 
     # Verify that the metadata we're using is compatible with embedded metadata
