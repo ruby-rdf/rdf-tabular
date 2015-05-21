@@ -824,9 +824,13 @@ module RDF::Tabular
         index = 0
         object_columns.all? do |cb|
           ca = non_virtual_columns[index]
-          if @options[:validate]
-            ta = ca.titles || {}
-            tb = cb.titles || {}
+          ta = ca.titles || {}
+          tb = cb.titles || {}
+          if !ca.object.has_key?(:name) && !cb.object.has_key?(:name) && ta.empty? && tb.empty?
+            true
+          elsif ca.object.has_key?(:name) && cb.object.has_key?(:name)
+            raise Error, "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}" unless ca.name == cb.name
+          elsif @options[:validate] || !ta.empty? && !tb.empty?
             # If validating, column compatibility requires strict match between titles
             titles_match = case
             when Array(ta['und']).any? {|t| tb.values.flatten.compact.include?(t)}
@@ -839,25 +843,6 @@ module RDF::Tabular
             else
               raise Error, "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}"
             end
-          else
-            # If not validating, column compatibility is looser
-            va = ([ca[:name]] + case ca[:titles]
-            when String then [ca[:titles]]
-            when Array then ca[:titles]
-            when Hash then ca[:titles].values.flatten
-            else []
-            end).compact.map(&:downcase)
-
-            vb = ([cb[:name]] + case cb[:titles]
-            when String then [cb[:titles]]
-            when Array then cb[:titles]
-            when Hash then cb[:titles].values.flatten
-            else []
-            end).compact.map(&:downcase)
-
-            # If there's a non-empty case-insensitive intersection between the name and titles values for the column description at the same index within A and B, the column description in B is compatible with the matching column description in A
-            raise Error, "Columns don't match: va: #{va}, vb: #{vb}" if (va & vb).empty?
-            debug("compat: columns") {"index: #{index}, va: #{va}, vb: #{vb}"}
           end
           index += 1
         end

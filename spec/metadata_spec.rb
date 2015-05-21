@@ -1513,6 +1513,21 @@ describe RDF::Tabular::Metadata do
         }),
         R: true
       },
+      "tables with mismatch columns on name/titles" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}]}
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"titles": "bar"}]}
+        }),
+        R: true
+      },
     }.each do |name, props|
       it name do
         a = described_class.new(::JSON.parse(props[:A]))

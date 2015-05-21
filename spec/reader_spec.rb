@@ -3,12 +3,10 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'rdf/spec/reader'
 
 describe RDF::Tabular::Reader do
-  let!(:doap) {File.expand_path("../../etc/doap.ttl", __FILE__)}
-  let!(:doap_count) {File.open(doap).each_line.to_a.length}
+  let!(:doap) {File.expand_path("../../etc/doap.csv", __FILE__)}
+  let!(:doap_count) {9}
 
   before(:each) do
-    @reader = RDF::Tabular::Reader.new(StringIO.new(""), base_uri: "file:#{File.expand_path("..", __FILE__)}")
-
     WebMock.stub_request(:any, %r(.*example.org.*)).
       to_return(lambda {|request|
         file = request.uri.to_s.split('/').last
@@ -34,7 +32,11 @@ describe RDF::Tabular::Reader do
   end
   
   # @see lib/rdf/spec/reader.rb in rdf-spec
-  #include RDF_Reader
+  #it_behaves_like 'an RDF::Reader' do
+  #  let(:reader_input) {doap}
+  #  let(:reader) {RDF::Tabular::Reader.new(StringIO.new(""), base_uri: "file:#{File.expand_path("..", __FILE__)}")}
+  #  let(:reader_count) {doap_count}
+  #end
 
   it "should be discoverable" do
     readers = [

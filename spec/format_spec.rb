@@ -4,11 +4,9 @@ require 'spec_helper'
 require 'rdf/spec/format'
 
 describe RDF::Tabular::Format do
-  before :each do
-    @format_class = described_class
+  it_behaves_like 'an RDF::Format' do
+    let(:format_class) {RDF::Tabular::Format}
   end
-
-  include RDF_Format
 
   describe ".for" do
     formats = [
@@ -25,6 +23,6 @@ describe RDF::Tabular::Format do
   end
 
   describe "#to_sym" do
-    specify {expect(@format_class.to_sym).to eq :tabular}
+    specify {expect(described_class.to_sym).to eq :tabular}
   end
 end
