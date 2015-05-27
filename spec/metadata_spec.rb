@@ -1014,6 +1014,7 @@ describe RDF::Tabular::Metadata do
         # Strings
         "string with no constraints" => {base: "string", value: "foo", result: "foo"},
         "string with matching length" => {base: "string", value: "foo", length: 3, result: "foo"},
+        "string matching null when required" => {base: "string", value: "NULL", null: "NULL", required: true},
         "string with wrong length" => {
           base: "string",
           value: "foo",

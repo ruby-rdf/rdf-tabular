@@ -1824,9 +1824,13 @@ module RDF::Tabular
           end
         end.compact
 
+        # Check for required values
+        if column.required && (cell_values.any? {|v| v.to_s.empty?} || cell_values.empty?)
+          cell_errors << "Required column has empty value(s): #{cell_values.map(&:to_s).inspect}"
+        end
         cell.value = (column.separator ? cell_values : cell_values.first)
         cell.errors = cell_errors
-        metadata.send(:debug, "#{self.number}: each_cell ##{self.sourceNumber},#{cell.column.sourceNumber}", cell.errors.join("\n")) unless cell_errors.empty?
+        metadata.send(:warn, "row #{self.number}(src #{self.sourceNumber}, col #{cell.column.sourceNumber}): " + cell.errors.join("\n")) unless cell_errors.empty?
 
         map_values[columns[index - skipColumns].name] = (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end

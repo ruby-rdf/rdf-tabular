@@ -63,7 +63,7 @@ describe RDF::Tabular::Reader do
                         expect(graph).to be_a(RDF::Enumerable)
 
                         if t.warning?
-                          expect(t.warnings.length).to produce 1, t
+                          expect(t.warnings.length).to be >= 1
                         else
                           expect(t.warnings).to produce [], t
                         end
