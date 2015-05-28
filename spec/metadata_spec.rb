@@ -1512,7 +1512,7 @@ describe RDF::Tabular::Metadata do
           "url": "http://example.org/table1",
           "tableSchema": {"columns": [{"titles": "foo"}]}
         }),
-        R: true
+        R: false
       },
       "tables with mismatch columns on name/titles" => {
         A: %({
@@ -1527,11 +1527,11 @@ describe RDF::Tabular::Metadata do
           "url": "http://example.org/table1",
           "tableSchema": {"columns": [{"titles": "bar"}]}
         }),
-        R: true
+        R: false
       },
     }.each do |name, props|
       it name do
-        a = described_class.new(::JSON.parse(props[:A]))
+        a = described_class.new(::JSON.parse(props[:A]), validate: true)
         b = described_class.new(::JSON.parse(props[:B]))
         if props[:R]
           expect {a.verify_compatible!(b)}.not_to raise_error

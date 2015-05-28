@@ -807,7 +807,11 @@ module RDF::Tabular
     def verify_compatible!(other)
       if self.is_a?(TableGroup)
         unless tables.any? {|t| t.url == other.url && t.verify_compatible!(other)}
-          raise Error, "TableGroups must have Table with matching url #{tables.map(&:url).inspect} vs #{other.url.inspect}"
+          if @options[:validate]
+            raise Error, "TableGroups must have Table with matching url #{tables.map(&:url).inspect} vs #{other.url.inspect}"
+          else
+            warn "TableGroups must have Table with matching url #{tables.map(&:url).inspect} vs #{other.url.inspect}"
+          end
         end
       else
         # Tables must have the same url
