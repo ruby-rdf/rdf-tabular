@@ -840,6 +840,10 @@ module RDF::Tabular
             when ta.any? {|lang, values| !(Array(tb[lang]) & Array(values)).empty?}
               # FIXME: languages match if they are equal when truncated, as defined in [BCP47], to the length of the shortest language tag
               true
+            when !@options[:validate]
+              # If not validating, columns don't match, but processing continues
+              warn "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}"
+              true
             else
               raise Error, "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}"
             end
