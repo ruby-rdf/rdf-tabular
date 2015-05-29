@@ -842,9 +842,20 @@ module RDF::Tabular
             when Array(tb['und']).any? {|t| ta.values.flatten.compact.include?(t)}
               true
             when ta.any? {|lang, values| !(Array(tb[lang]) & Array(values)).empty?}
-              # FIXME: languages match if they are equal when truncated, as defined in [BCP47], to the length of the shortest language tag
+              # Match on title and language
               true
-            when !@options[:validate]
+            else
+              # Match if a language from ta is a prefix of a language from tb with matching titles
+              ta.any? do |la, values|
+                tb.keys.any? do |lb|
+                  (la.start_with?(lb) || lb.start_with?(la)) && !(Array(tb[lb]) & Array(values)).empty?
+                end
+              end
+            end
+
+            if titles_match
+              true
+            elsif !@options[:validate]
               # If not validating, columns don't match, but processing continues
               warn "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}"
               true
