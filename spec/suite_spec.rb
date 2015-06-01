@@ -69,6 +69,10 @@ describe RDF::Tabular::Reader do
                         end
                       end
                     end
+                  elsif t.json?
+                    expect {
+                      expect(reader.to_json).to produce("not this", t.debug)
+                    }.to raise_error(RDF::Tabular::Error)
                   else
                     expect {
                       graph << reader
