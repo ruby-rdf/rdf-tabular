@@ -139,7 +139,8 @@ module RDF::Tabular
     #
     # @param [String] path
     # @param [Hash{Symbol => Object}] options
-    #   see `RDF::Util::File.open_file` in RDF.rb
+    #   see `RDF::Util::File.open_file` in RDF.rb and {#new}
+    # @option options
     def self.open(path, options = {})
       options = options.merge(
         headers: {
@@ -231,6 +232,8 @@ module RDF::Tabular
       else ::JSON.parse(input.to_s)
       end
 
+      raise ::JSON::ParserError unless object.is_a?(Hash)
+
       unless options[:parent]
         # Add context, if not set (which it should be)
         object['@context'] ||= options.delete(:@context) || options[:context]
@@ -272,6 +275,8 @@ module RDF::Tabular
       md = klass.allocate
       md.send(:initialize, object, options)
       md
+    rescue ::JSON::ParserError
+      raise Error, "Expected input to be a JSON Object"
     end
 
     ##
@@ -285,6 +290,7 @@ module RDF::Tabular
     #   Context used for this metadata. Taken from input if not provided
     # @option options [RDF::URI] :base
     #   The Base URL to use when expanding the document. This overrides the value of `input` if it is a URL. If not specified and `input` is not an URL, the base URL defaults to the current document URL if in a browser context, or the empty string if there is no document context.
+    # @option options [Boolean] :normalize normalize the object
     # @raise [Error]
     # @return [Metadata]
     def initialize(input, options = {})
@@ -340,8 +346,8 @@ module RDF::Tabular
           when :url
             # URL of CSV relative to metadata
             object[:url] = value
-            @url = base.join(value)
-            @context.base = @url if @context # Use as base for expanding IRIs
+            @url = @options[:base].join(value)
+            @options[:base] = @url if @context # Use as base for expanding IRIs
           when :@id
             # metadata identifier
             object[:@id] = if value.is_a?(String)
@@ -350,7 +356,7 @@ module RDF::Tabular
               warn "#{type} has invalid property '@id' (#{value.inspect}): expected a string"
               ""
             end
-            @id = base.join(object[:@id])
+            @id = @options[:base].join(object[:@id])
           else
             if @properties.has_key?(key) || INHERITED_PROPERTIES.has_key?(key)
               self.send("#{key}=".to_sym, value)
@@ -363,6 +369,14 @@ module RDF::Tabular
 
       # Set type from @type, if present and not otherwise defined
       @type ||= object[:@type].to_sym if object[:@type]
+
+      if options[:normalize]
+        # If normalizing, also remove remaining @context
+        self.normalize!
+        @context = nil
+        object.delete(:@context)
+      end
+
       if reason
         debug("md#initialize") {reason}
         debug("md#initialize") {"filenames: #{filenames}"}
@@ -413,18 +427,19 @@ module RDF::Tabular
     # An object property that provides a schema description as described in section 3.8 Schemas, for all the tables in the group. This may be provided as an embedded object within the JSON metadata or as a URL reference to a separate JSON schema document
     # when loading a remote schema, assign @id from it's location if not already set
     def tableSchema=(value)
-      case value
+      object[:tableSchema] = case value
       when String
-        link = base.join(value).to_s
-        s = Schema.open(link, @options.merge(parent: self, context: nil))
-        s[:@id] ||= link
-        object[:tableSchema] = s
+        link = context.base.join(value).to_s
+        md = Schema.open(link, @options.merge(parent: self, context: nil, normalize: true))
+        md[:@id] ||= link
+        md
       when Hash
-        object[:tableSchema] = Metadata.new(value, @options.merge(parent: self, context: nil))
+        Metadata.new(value, @options.merge(parent: self, context: nil))
       when Schema
-        object[:tableSchema] = value
+        value
       else
         warn "#{type} has invalid property 'tableSchema' (#{value.inspect}): expected a URL or object"
+        nil
       end
     end
 
@@ -459,13 +474,16 @@ module RDF::Tabular
       end
 
       # If provided, dialect provides hints to processors about how to parse the referenced file to create a tabular data model.
-      @dialect = case value
+      @dialect = object[:dialect] = case value
       when String
-        object[:dialect] = Metadata.open(base.join(value), @options.merge(parent: self, context: nil))
+        link = context.base.join(value).to_s
+        md = Metadata.open(link, @options.merge(parent: self, context: nil, normalize: true))
+        md[:@id] ||= link
+        md
       when Hash
-        object[:dialect] = Metadata.new(value, @options.merge(parent: self, context: nil))
+        Metadata.new(value, @options.merge(parent: self, context: nil))
       when Dialect
-        object[:dialect] = value
+        value
       else
         warn "#{type} has invalid property 'dialect' (#{value.inspect}): expected a URL or object"
         nil
@@ -474,17 +492,34 @@ module RDF::Tabular
 
     # Set new datatype
     # @return [Dialect]
+    # @raise [Error] if dialect is not valid
     def datatype=(value)
       val = case value
+      when String
+        link = RDF::URI(value).validate! rescue nil
+        if DATATYPES.keys.include?(value.to_sym)
+          # If property is datatype and the URL is the URL of a built-in datatype, create a new object having the property base with the value of the original string value.
+          Datatype.new({"@id" => DATATYPES[value.to_sym].to_s, base: value}, parent: self)
+        elsif DATATYPES.values.include?(link)
+          # Also allow compact-IRI version of datatype
+          base = DATATYPES.invert[link]
+          Datatype.new({"@id" => link, base: base}, parent: self)
+        elsif link
+          begin
+            # Otherwise, fetch this URL to retrieve an object, which may have a local @context. Normalize each property in the resulting object recursively using this algorithm and with its local @context then remove the local @context property. If the resulting object does not have an @id property, add an @id whose value is the original URL. This object becomes the value of the original object property.
+            md = Datatype.open(link, @options.merge(parent: self, context: nil, normalize: true))
+            md[:@id] ||= link
+            md
+          rescue Error, Errno::ENOENT
+            # Otherwise, if the property is datatype, and the result of fetching the URL is not a JSON object, create a new object using the URL as the value of its @id and "string" as the value of its base.
+            Datatype.new({"@id" => link, base: "string"}, parent: self)
+          end
+        end
       when Hash then Datatype.new(value, parent: self)
-      else           Datatype.new({base: value}, parent: self)
+      else Datatype.new({base: value}, parent: self)
       end
 
-      if val.valid?
-        object[:datatype] = val
-      else
-        warn "#{type} has invalid property 'datatype': expected a Datatype"
-      end
+      object[:datatype] = val
     end
 
     # Type of this Metadata
@@ -552,7 +587,7 @@ module RDF::Tabular
         value = object[key]
         case key
         when :base
-          warn "#{type} has invalid base '#{key}': #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value) || RDF::URI(value).absolute?
+          errors << "#{type} has invalid base '#{key}': #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value) || RDF::URI(value).absolute?
         when :columns
           value.each do |v|
             begin
@@ -563,7 +598,7 @@ module RDF::Tabular
           end
           column_names = value.map(&:name)
           errors << "#{type} has invalid property '#{key}': must have unique names: #{column_names.inspect}" unless column_names.uniq == column_names
-        when :dialect, :tables, :tableSchema, :transformations
+        when :datatype, :dialect, :tables, :tableSchema, :transformations
           Array(value).each do |t|
             begin
               t.validate!
@@ -591,13 +626,13 @@ module RDF::Tabular
                   errors << "#{type} has invalid property '#{key}': reference has a schemaReference: #{reference.inspect}" 
                 end
                 # resource is the URL of a Table in the TableGroup
-                ref = base.join(reference['resource']).to_s
+                ref = context.base.join(reference['resource']).to_s
                 table = root.is_a?(TableGroup) && root.tables.detect {|t| t.url == ref}
                 errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
                 table.tableSchema if table
               elsif reference.has_key?('schemaReference')
                 # resource is the @id of a Schema in the TableGroup
-                ref = base.join(reference['schemaReference']).to_s
+                ref = context.base.join(reference['schemaReference']).to_s
                 tables = root.is_a?(TableGroup) ? root.tables.select {|t| t.tableSchema[:@id] == ref} : []
                 case tables.length
                 when 0
@@ -893,8 +928,6 @@ module RDF::Tabular
           normalize_jsonld(key, value)
         when ->(k) {key.to_s == '@context'}
           "http://www.w3.org/ns/csvw"
-        when :link
-          base.join(value).to_s
         when :array
           value = [value] unless value.is_a?(Array)
           value.map do |v|
@@ -902,13 +935,15 @@ module RDF::Tabular
               v.normalize!
             elsif v.is_a?(Hash) && (ref = v["reference"]).is_a?(Hash)
               # SPEC SUGGESTION: special case for foreignKeys
-              ref["resource"] = base.join(ref["resource"]).to_s if ref["resource"]
-              ref["schemaReference"] = base.join(ref["schemaReference"]).to_s if ref["schemaReference"]
+              ref["resource"] = context.base.join(ref["resource"]).to_s if ref["resource"]
+              ref["schemaReference"] = context.base.join(ref["schemaReference"]).to_s if ref["schemaReference"]
               v
             else
               v
             end
           end
+        when :link
+          context.base.join(value).to_s
         when :object
           case value
           when Metadata then value.normalize!
@@ -1186,7 +1221,7 @@ module RDF::Tabular
         when :tableDirection
           "rtl, ltr, or default" unless %(rtl ltr default).include?(value)
         when :url
-          "valid URL" unless value.is_a?(String) && base.join(value).valid?
+          "valid URL" unless value.is_a?(String) && context.base.join(value).valid?
         when :notes, :tableSchema, :dialect, :transformations
           # We handle this through a separate setters
         end
@@ -1197,7 +1232,7 @@ module RDF::Tabular
         elsif key == :url
           # URL of CSV relative to metadata
           object[:url] = value
-          @url = base.join(value)
+          @url = context.base.join(value)
           @context.base = @url if @context # Use as base for expanding IRIs
         else
           object[key] = value
@@ -1645,6 +1680,8 @@ module RDF::Tabular
 
   class Datatype < Metadata
     PROPERTIES = {
+      :@id       => :link,
+      :@type     => :atomic,
       base:         :atomic,
       format:       :atomic,
       length:       :atomic,
@@ -1662,6 +1699,9 @@ module RDF::Tabular
 
     # Override `base` in Metadata
     def base; object[:base]; end
+
+    # @id comes from base, unless set otherwise
+    def id; super || context.expand_iri(base, vocab: true); end
 
     # Setters
     PROPERTIES.each do |key, type|
@@ -1810,7 +1850,7 @@ module RDF::Tabular
 
         @values << cell = Cell.new(metadata, column, self, value)
 
-        datatype = column.datatype || Datatype.new(base: "string", parent: column)
+        datatype = column.datatype || Datatype.new({base: "string"}, parent: column)
         value = value.gsub(/\r\t\a/, ' ') unless %w(string json xml html anyAtomicType any).include?(datatype.base)
         value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType any normalizedString).include?(datatype.base)
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
@@ -1833,8 +1873,7 @@ module RDF::Tabular
               v.strip!
             end
 
-            expanded_dt = metadata.context.expand_iri(datatype.base, vocab: true)
-            if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt, column.lang)).is_a?(RDF::Literal)
+            if (lit_or_errors = value_matching_datatype(v.dup, datatype, column.lang)).is_a?(RDF::Literal)
               lit_or_errors
             else
               cell_errors += lit_or_errors
@@ -1885,7 +1924,7 @@ module RDF::Tabular
     #
     # given a datatype specification, return a literal matching that specififcation, if found, otherwise nil
     # @return [RDF::Literal]
-    def value_matching_datatype(value, datatype, expanded_dt, language)
+    def value_matching_datatype(value, datatype, language)
       value_errors = []
 
       # Check constraints
@@ -1932,12 +1971,12 @@ module RDF::Tabular
           permille = true
         end
 
-        lit = RDF::Literal(value, datatype: expanded_dt)
+        lit = RDF::Literal(value, datatype: datatype.id)
         if percent || permille
           o = lit.object
           o = o / 100 if percent
           o = o / 1000 if permille
-          lit = RDF::Literal(o, datatype: expanded_dt)
+          lit = RDF::Literal(o, datatype: datatype.id)
         end
       when :boolean
         lit = if format
@@ -2031,10 +2070,10 @@ module RDF::Tabular
           value += tz_part.to_s
         end
 
-        lit = RDF::Literal(value, datatype: expanded_dt)
+        lit = RDF::Literal(value, datatype: datatype.id)
       when :duration, :dayTimeDuration, :yearMonthDuration
         # SPEC CONFUSION: surely format also includes that for other duration types?
-        lit = RDF::Literal(value, datatype: expanded_dt)
+        lit = RDF::Literal(value, datatype: datatype.id)
       when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,
            :ENTITY, :ID, :IDREF, :NOTATION
         value_errors << "#{value} uses unsupported datatype: #{datatype.base}"
@@ -2044,11 +2083,11 @@ module RDF::Tabular
           value_errors << "#{value} does not match format #{format}"
         end
         lit = if value_errors.empty?
-          if expanded_dt == RDF::XSD.string
+          if datatype.id == RDF::XSD.string
             # Type string will still use language
             RDF::Literal(value, language: language)
           else
-            RDF::Literal(value, datatype: expanded_dt)
+            RDF::Literal(value, datatype: datatype.id)
           end
         end
       end

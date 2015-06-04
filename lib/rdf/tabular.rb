@@ -1,9 +1,5 @@
 $:.unshift(File.expand_path("..", __FILE__))
 require 'rdf' # @see http://rubygems.org/gems/rdf
-begin
-  require 'byebug'  # REMOVE ME
-rescue LoadError
-end
 require 'csv'
 
 module RDF

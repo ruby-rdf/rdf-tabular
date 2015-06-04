@@ -54,7 +54,6 @@ module RDF::Tabular
         # Minimal implies noProv
         @options[:noProv] ||= @options[:minimal]
 
-        #byebug if input.is_a?(Array)
         @input = case input
         when String then StringIO.new(input)
         when Array then StringIO.new(input.map {|r| r.join(",")}.join("\n"))

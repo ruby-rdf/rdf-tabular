@@ -37,7 +37,9 @@ describe RDF::Tabular::Metadata do
         valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
                [{"base" => "string"}]
                ),
-        invalid: [1, true, "foo", "anyType", "anySimpleType", "IDREFS"]
+        error: [1, true,
+                 {"base" => "foo"}, {"base" => "anyType"},
+                 {"base" => "anySimpleType"}, {"base" => "IDREFS"}]
       },
       default: {
         valid: ["foo"],
@@ -87,17 +89,23 @@ describe RDF::Tabular::Metadata do
       context prop.to_s do
         if allowed
           it "validates" do
-            params[:valid].each do |v|
+            params.fetch(:valid, {}).each do |v|
               subject.send("#{prop}=".to_sym, v)
               expect(subject.errors).to be_empty
               expect(subject.warnings).to be_empty
             end
           end
           it "invalidates" do
-            params[:invalid].each do |v|
+            params.fetch(:invalid, {}).each do |v|
               subject.send("#{prop}=".to_sym, v)
               expect(subject.errors).to be_empty
               expect(subject.warnings).not_to be_empty
+            end
+          end
+          it "errors" do
+            params.fetch(:error, {}).each do |v|
+              subject.send("#{prop}=".to_sym, v)
+              expect(subject.errors).not_to be_empty
             end
           end
         else
@@ -592,8 +600,8 @@ describe RDF::Tabular::Metadata do
         warning: %w(foo true 1)
       },
       transformations: {
-        valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
-        warning: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+        valid: [[RDF::Tabular::Transformation.new({url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"))]],
+        warning: [RDF::Tabular::Transformation.new({url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"))] +
                  %w(foo true 1)
       },
       dialect: {
@@ -651,8 +659,8 @@ describe RDF::Tabular::Metadata do
         warning: [1]
       },
       transformations: {
-        valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
-        warning: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+        valid: [[RDF::Tabular::Transformation.new({url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"))]],
+        warning: [RDF::Tabular::Transformation.new({url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"))] +
                  %w(foo true 1)
       },
       notes: {

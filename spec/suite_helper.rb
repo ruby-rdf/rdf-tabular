@@ -28,6 +28,8 @@ module RDF::Util
       when filename_or_url.to_s =~ /^file:/
         path = filename_or_url.to_s[5..-1]
         Kernel.open(path.to_s, &block)
+      when filename_or_url.to_s =~ %r{http://www.w3.org/ns/csvw/?}
+        ::File.open(::File.expand_path("../../etc/csvw.jsonld", __FILE__), &block)
       when (filename_or_url.to_s =~ %r{^#{REMOTE_PATH}} && ::File.exist?(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)))
         begin
           #puts "attempt to open #{filename_or_url} locally"
