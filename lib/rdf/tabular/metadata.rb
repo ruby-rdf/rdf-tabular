@@ -69,6 +69,7 @@ module RDF::Tabular
       dateTimeStamp:      RDF::XSD.dateTimeStamp,
       decimal:            RDF::XSD.decimal,
       double:             RDF::XSD.double,
+      duration:           RDF::XSD.duration,
       float:              RDF::XSD.float,
       ENTITY:             RDF::XSD.ENTITY,
       gDay:               RDF::XSD.gDay,
@@ -2085,7 +2086,12 @@ module RDF::Tabular
         lit = RDF::Literal(value, datatype: datatype.id)
       when :duration, :dayTimeDuration, :yearMonthDuration
         # SPEC CONFUSION: surely format also includes that for other duration types?
-        lit = RDF::Literal(value, datatype: datatype.id)
+        lit = if format.nil? || value.match(Regexp.new(format))
+          RDF::Literal(value, datatype: datatype.id)
+        else
+          value_errors << "#{value} does not match format #{format}"
+          RDF::Literal(value)
+        end
       when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,
            :ENTITY, :ID, :IDREF, :NOTATION
         value_errors << "#{value} uses unsupported datatype: #{datatype.base}"
