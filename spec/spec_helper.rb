@@ -11,10 +11,8 @@ require 'json'
 require 'webmock/rspec'
 require 'matchers'
 require 'suite_helper'
-
 require 'coveralls'
-SimpleCov.formatter = Coveralls::SimpleCov::Formatter
-SimpleCov.start
+Coveralls.wear!
 
 require 'rdf/tabular'
 
