@@ -1049,12 +1049,12 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with matching pattern" => {
           base: "decimal",
-          format: {pattern: '\d{3}'},
+          format: {"pattern" => '\d{3}'},
           value: "123"
         },
         "decimal with wrong pattern" => {
           base: "decimal",
-          format: {pattern: '\d{4}'},
+          format: {"pattern" => '\d{4}'},
           value: "123",
           errors: [/123 does not match pattern/]
         },
@@ -1065,20 +1065,20 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with explicit groupChar" => {
           base: "decimal",
-          format: {groupChar: ";"},
+          format: {"groupChar" => ";"},
           value: "123;456.789",
           result: "123456.789"
         },
         "decimal with repeated groupChar" => {
           base: "decimal",
-          format: {groupChar: ";"},
+          format: {"groupChar" => ";"},
           value: "123;;456.789",
           result: "123;;456.789",
           errors: [/has repeating/]
         },
         "decimal with explicit decimalChar" => {
           base: "decimal",
-          format: {decimalChar: ";"},
+          format: {"decimalChar" => ";"},
           value: "123456;789",
           result: "123456.789"
         },
@@ -1130,7 +1130,7 @@ describe RDF::Tabular::Metadata do
         "NaN number" => {base: "number", value: "NaN"},
         "INF number" => {base: "number", value: "INF"},
         "-INF number" => {base: "number", value: "-INF"},
-        "valid float" => {base: "float", value: "1234.456E789"},
+        "valid float" => {base: "float", value: "1234.456E7"},
         "invalid float" => {base: "float", value: "1z", errors: ["1z is not a valid float"]},
         "NaN float" => {base: "float", value: "NaN"},
         "INF float" => {base: "float", value: "INF"},

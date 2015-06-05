@@ -486,6 +486,8 @@ module RDF::Tabular
                 values[cell.valueUrl.to_s][:count] += 1
               end
               cell.valueUrl.to_s
+            when cell.value.is_a?(RDF::Literal::Double)
+              cell.value.object.nan? || cell.value.object.infinite? ? cell.value : cell.value.object
             when cell.value.is_a?(RDF::Literal::Numeric)
               cell.value.object
             when cell.value.is_a?(RDF::Literal::Boolean)

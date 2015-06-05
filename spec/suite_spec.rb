@@ -16,7 +16,7 @@ describe RDF::Tabular::Reader do
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
-            #next unless t.id.match(/15\d/)
+            #next unless t.id.match(/18\d/)
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               t.debug = []
               t.warnings = []
@@ -73,12 +73,12 @@ describe RDF::Tabular::Reader do
                   elsif t.json?
                     expect {
                       expect(reader.to_json).to produce("not this", t.debug)
-                    }.to raise_error(RDF::Tabular::Error)
+                    }.to raise_error
                   else
                     expect {
                       graph << reader
                       expect(graph.dump(:ntriples)).to produce("not this", t.debug)
-                    }.to raise_error(RDF::Tabular::Error)
+                    }.to raise_error
                   end
                 end
               rescue Exception => e

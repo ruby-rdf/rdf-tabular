@@ -58,14 +58,14 @@ module RDF::Tabular
 
     # Valid datatypes
     DATATYPES = {
-      anyAtomicType:      RDF::XSD.anySimpleType,
+      anyAtomicType:      RDF::XSD.anyAtomicType,
       anyURI:             RDF::XSD.anyURI,
       base64Binary:       RDF::XSD.basee65Binary,
       boolean:            RDF::XSD.boolean,
       byte:               RDF::XSD.byte,
       date:               RDF::XSD.date,
       dateTime:           RDF::XSD.dateTime,
-      dateTimeDuration:   RDF::XSD.dateTimeDuration,
+      dayTimeDuration:    RDF::XSD.dayTimeDuration,
       dateTimeStamp:      RDF::XSD.dateTimeStamp,
       decimal:            RDF::XSD.decimal,
       double:             RDF::XSD.double,
@@ -84,6 +84,7 @@ module RDF::Tabular
       Name:               RDF::XSD.Name,
       NCName:             RDF::XSD.NCName,
       negativeInteger:    RDF::XSD.negativeInteger,
+      NMTOKEN:            RDF::XSD.NMTOKEN,
       nonNegativeInteger: RDF::XSD.nonNegativeInteger,
       nonPositiveInteger: RDF::XSD.nonPositiveInteger,
       normalizedString:   RDF::XSD.normalizedString,
@@ -100,7 +101,7 @@ module RDF::Tabular
       unsignedShort:      RDF::XSD.unsignedShort,
       yearMonthDuration:  RDF::XSD.yearMonthDuration,
 
-      any:                RDF::XSD.anySimpleType,
+      any:                RDF::XSD.anyAtomicType,
       binary:             RDF::XSD.base64Binary,
       datetime:           RDF::XSD.dateTime,
       html:               RDF.HTML,
@@ -514,6 +515,7 @@ module RDF::Tabular
             # Otherwise, if the property is datatype, and the result of fetching the URL is not a JSON object, create a new object using the URL as the value of its @id and "string" as the value of its base.
             Datatype.new({"@id" => link, base: "string"}, parent: self)
           end
+        else Datatype.new({base: value}, parent: self)
         end
       when Hash then Datatype.new(value, parent: self)
       else Datatype.new({base: value}, parent: self)
@@ -587,7 +589,7 @@ module RDF::Tabular
         value = object[key]
         case key
         when :base
-          errors << "#{type} has invalid base '#{key}': #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value) || RDF::URI(value).absolute?
+          errors << "#{type} has invalid base: #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value)
         when :columns
           value.each do |v|
             begin
@@ -1713,13 +1715,15 @@ module RDF::Tabular
             RDF::Literal::Time.new(value.to_s).valid? ||
             RDF::Literal::DateTime.new(value.to_s).valid?
         when :format
-          unless value.is_a?(String)
-            warn "#{type} has invalid property '#{key}': #{value.inspect}, expected a string"
-            if default_value(key).nil?
-              object.delete(key)
-            else
-              object[key] = default_value(key)
+          case value
+          when String
+            nil
+          when Hash
+            unless (value.keys.map(&:to_s) - %w(groupChar decimalChar pattern)).empty?
+              "an object containing only groupChar, decimalChar, and/or pattern"
             end
+          else
+            "a string or object"
           end
         when :length, :minLength, :maxLength
           if !(value.is_a?(Numeric) && value.integer? && value >= 0)
@@ -1731,7 +1735,7 @@ module RDF::Tabular
         end
 
         if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+          warn "#{self.type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
           object[key] = default_value(key) unless default_value(key).nil?
         else
           object[key] = value
@@ -1946,19 +1950,24 @@ module RDF::Tabular
            :unsignedLong, :unsignedInt, :unsignedShort, :unsignedByte,
            :nonPositiveInteger, :negativeInteger,
            :double, :float, :number
+
         # Normalize representation based on numeric-specific facets
-        format ||= {}
-        groupChar = format[:groupChar] || ','
-        if format[:pattern] && !value.match(Regexp.new(format[:pattern]))
-          # pattern facet failed
-          value_errors << "#{value} does not match pattern #{format[:pattern]}"
+
+        format = case format
+        when String then {"pattern" => format}
+        when Hash then format
+        else {}
         end
-        if value.include?(groupChar*2)
-          # pattern facet failed
-          value_errors << "#{value} has repeating #{groupChar.inspect}"
-        end
-        value.gsub!(groupChar, '')
-        value.sub!(format[:decimalChar], '.') if format[:decimalChar]
+        groupChar = format["groupChar"] || ','
+        decimalChar = format["decimalChar"] || '.'
+        pattern = Regexp.new(format["pattern"]) if format["pattern"]
+        #require 'byebug'; byebug
+
+        value_errors << "#{value} does not match pattern #{pattern}" if pattern && !value.match(pattern)
+
+        # pattern facet failed
+        value_errors << "#{value} has repeating #{groupChar.inspect}" if value.include?(groupChar*2)
+        value = value.gsub(groupChar, '').sub(decimalChar, '.')
 
         # Extract percent or per-mille sign
         percent = permille = false
@@ -1989,13 +1998,16 @@ module RDF::Tabular
             value = RDF::Literal::FALSE
           else
             value_errors << "#{value} does not match boolean format #{format}"
-            RDF::Literal::Boolean.new(value)
+            RDF::Literal.new(value)
           end
         else
           if %w(1 true).include?(value.downcase)
             RDF::Literal::TRUE
           elsif %w(0 false).include?(value.downcase)
             RDF::Literal::FALSE
+          else
+            value_errors << "#{value} does not match boolean"
+            RDF::Literal.new(value)
           end
         end
       when :date, :time, :dateTime, :dateTimeStamp, :datetime
