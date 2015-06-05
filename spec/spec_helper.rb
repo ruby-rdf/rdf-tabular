@@ -5,15 +5,18 @@ require "bundler/setup"
 require 'rspec'
 require 'rspec/its'
 require 'rdf/isomorphic'
-require 'rdf/tabular'
 require 'rdf/turtle'
 require 'rdf/spec/matchers'
 require 'json'
 require 'webmock/rspec'
 require 'matchers'
 require 'suite_helper'
-require 'simplecov'
+
+require 'coveralls'
+SimpleCov.formatter = Coveralls::SimpleCov::Formatter
 SimpleCov.start
+
+require 'rdf/tabular'
 
 JSON_STATE = JSON::State.new(
   :indent       => "  ",
