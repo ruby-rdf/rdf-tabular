@@ -660,6 +660,26 @@ module RDF::Tabular
               errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
             end
           end
+        when :length, :minLength, :maxLength
+          # Applications must raise an error if both length and minLength are specified and they do not have the same value.
+          # Similarly, applications must raise an error if both length and maxLength are specified and they do not have the same value.
+          if object[:length] && value != object[:length]
+            errors << "#{type} has invalid property '#{key}': both length and #{key} requires they be equal"
+          end
+          # Applications must raise an error if length, maxLength, or minLength are specified and the base datatype is not string or one of its subtypes, or a binary type.
+          unless %w(string normalizedString token language Name NMTOKEN hexBinary base64Binary binary).include?(self.base)
+            errors << "#{type} has invalid property '#{key}': only allowed on string or binary datatypes"
+          end
+        when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
+          case self.base
+          when 'decimal', 'integer', 'long', 'int', 'short', 'byte', 'double', 'number', 'float',
+               'nonNegativeInteger', 'positiveInteger', 'unsignedLong', 'unsignedInt', 'unsignedShort', 'unsignedByte',
+               'nonPositiveInteger', 'negativeInteger', 'date', 'dateTime', 'datetime', 'dateTimeStamp', 'time',
+               'duration', 'dayTimeDuration', 'yearMonthDuration'
+            errors << "#{type} has invalid property '#{key}': #{value.to_ntriples} is not a valid #{self.base}" unless value.valid?
+          else
+            errors << "#{type} has invalid property '#{key}': only allowed on numeric, date/time or duration datatypes"
+          end
         when :notes
           unless value.is_a?(Hash) || value.is_a?(Array)
             errors << "#{type} has invalid property '#{key}': #{value}, Object or Array"
@@ -958,6 +978,14 @@ module RDF::Tabular
           end
         when :natural_language
           value.is_a?(Hash) ? value : {(context.default_language || 'und') => Array(value)}
+        when :atomic
+          case key
+          when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
+            # Convert to a typed literal based on `base`. This will be validated later
+            RDF::Literal(value, datatype: DATATYPES[self.base.to_sym])
+          else
+            value
+          end
         else
           value
         end
@@ -1729,9 +1757,6 @@ module RDF::Tabular
         when :length, :minLength, :maxLength
           if !(value.is_a?(Numeric) && value.integer? && value >= 0)
             "a non-negative integer" 
-          elsif key != :length && object[:length] && value != object[:length]
-            # Applications must raise an error if length, maxLength or minLength are specified and the cell value is not a list (ie separator is not specified), a string or one of its subtypes, or a binary value.
-            "both length and #{key} requires they be equal"
           end
         end
 
@@ -1931,6 +1956,7 @@ module RDF::Tabular
     # @return [RDF::Literal]
     def value_matching_datatype(value, datatype, language)
       value_errors = []
+      original_value = value.dup
 
       # Check constraints
       if datatype.length && value.length != datatype.length
@@ -1987,6 +2013,33 @@ module RDF::Tabular
           o = o / 100 if percent
           o = o / 1000 if permille
           lit = RDF::Literal(o, datatype: datatype.id)
+        end
+
+        if !lit.plain? && datatype.minimum && lit < datatype.minimum
+          value_errors << "#{value} < minimum #{datatype.minimum}"
+          lit = RDF::Literal(original_value)
+        end
+        lit = case
+        when datatype.minimum && lit < datatype.minimum
+          value_errors << "#{value} < minimum #{datatype.minimum}"
+          RDF::Literal(original_value)
+        when datatype.maximum && lit > datatype.maximum
+          value_errors << "#{value} > maximum #{datatype.maximum}"
+          RDF::Literal(original_value)
+        when datatype.minInclusive && lit < datatype.minInclusive
+          value_errors << "#{value} < minInclusive #{datatype.minInclusive}"
+          RDF::Literal(original_value)
+        when datatype.maxInclusive && lit > datatype.maxInclusive
+          value_errors << "#{value} > maxInclusive #{datatype.maxInclusive}"
+          RDF::Literal(original_value)
+        when datatype.minExclusive && lit <= datatype.minExclusive
+          value_errors << "#{value} <= minExclusive #{datatype.minExclusive}"
+          RDF::Literal(original_value)
+        when datatype.maxExclusive && lit >= datatype.maxExclusive
+          value_errors << "#{value} ?= maxExclusive #{datatype.maxExclusive}"
+          RDF::Literal(original_value)
+        else
+          lit
         end
       when :boolean
         lit = if format
@@ -2109,6 +2162,15 @@ module RDF::Tabular
           end
         end
       end
+
+      # value constraints
+      value_errors << "#{value} < minimum #{datatype.minimum}"            if datatype.minimum && lit < datatype.minimum
+      value_errors << "#{value} > maximum #{datatype.maximum}"            if datatype.maximum && lit > datatype.maximum
+      value_errors << "#{value} < minInclusive #{datatype.minInclusive}"  if datatype.minInclusive && lit < datatype.minInclusive
+      value_errors << "#{value} > maxInclusive #{datatype.maxInclusive}"  if datatype.maxInclusive && lit > datatype.maxInclusive
+      value_errors << "#{value} <= minExclusive #{datatype.minExclusive}" if datatype.minExclusive && lit <= datatype.minExclusive
+      value_errors << "#{value} >= maxExclusive #{datatype.maxExclusive}" if datatype.maxExclusive && lit >= datatype.maxExclusive
+      lit = RDF::Literal(original_value) unless value_errors.empty?
 
       # Final value is a valid literal, or a plain literal otherwise
       value_errors << "#{value} is not a valid #{datatype.base}" if lit && !lit.valid?
