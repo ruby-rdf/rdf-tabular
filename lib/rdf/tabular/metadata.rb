@@ -1958,17 +1958,6 @@ module RDF::Tabular
       value_errors = []
       original_value = value.dup
 
-      # Check constraints
-      if datatype.length && value.length != datatype.length
-        value_errors << "#{value} does not have length #{datatype.length}"
-      end
-      if datatype.minLength && value.length < datatype.minLength
-        value_errors << "#{value} does not have length >= #{datatype.minLength}"
-      end
-      if datatype.maxLength && value.length > datatype.maxLength
-        value_errors << "#{value} does not have length <= #{datatype.maxLength}"
-      end
-
       format = datatype.format
       # Datatype specific constraints and conversions
       case datatype.base.to_sym
@@ -2161,6 +2150,16 @@ module RDF::Tabular
             RDF::Literal(value, datatype: datatype.id)
           end
         end
+      end
+
+      if datatype.length && value.to_s.length != datatype.length
+        value_errors << "#{value} does not have length #{datatype.length}"
+      end
+      if datatype.minLength && value.to_s.length < datatype.minLength
+        value_errors << "#{value} does not have length >= #{datatype.minLength}"
+      end
+      if datatype.maxLength && value.to_s.length > datatype.maxLength
+        value_errors << "#{value} does not have length <= #{datatype.maxLength}"
       end
 
       # value constraints
