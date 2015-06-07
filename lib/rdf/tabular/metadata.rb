@@ -142,7 +142,6 @@ module RDF::Tabular
     # @param [String] path
     # @param [Hash{Symbol => Object}] options
     #   see `RDF::Util::File.open_file` in RDF.rb and {#new}
-    # @option options
     def self.open(path, options = {})
       options = options.merge(
         headers: {
@@ -293,6 +292,7 @@ module RDF::Tabular
     # @option options [RDF::URI] :base
     #   The Base URL to use when expanding the document. This overrides the value of `input` if it is a URL. If not specified and `input` is not an URL, the base URL defaults to the current document URL if in a browser context, or the empty string if there is no document context.
     # @option options [Boolean] :normalize normalize the object
+    # @option options [Boolean] :validate Strict metadata validation
     # @raise [Error]
     # @return [Metadata]
     def initialize(input, options = {})
@@ -762,7 +762,9 @@ module RDF::Tabular
           next
         end
         number += 1
-        yield(Row.new(data, self, number, number + skipped))
+        row = Row.new(data, self, number, number + skipped, @options)
+        (self.object[:rows] ||= []) << row if @options[:validate] # Keep track of rows when validating
+        yield(row)
       end
     end
 
@@ -1832,6 +1834,11 @@ module RDF::Tabular
     attr_reader :table
 
     #
+    # Cells providing a unique row identifier
+    # @return [Array<Cell>]
+    attr_reader :primaryKey
+
+    #
     # Context from Table with base set to table URL for expanding URI Templates
     # @return [JSON::LD::Context]
     attr_reader :context
@@ -1841,8 +1848,10 @@ module RDF::Tabular
     # @param [Metadata] metadata for Table
     # @param [Integer] number 1-based row number after skipped/header rows
     # @param [Integer] source_number 1-based row number from source
+    # @param [Hash{Symbol => Object}] options ({})
+    # @option options [Boolean] :validate check for PK/FK consistency
     # @return [Row]
-    def initialize(row, metadata, number, source_number)
+    def initialize(row, metadata, number, source_number, options = {})
       @table = metadata
       @number = number
       @sourceNumber = source_number
@@ -1922,6 +1931,9 @@ module RDF::Tabular
 
         map_values[columns[index - skipColumns].name] = (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
+
+      # Record primaryKey if validating
+      @primaryKey = @values.select {|cell| Array(table.tableSchema.primaryKey).include?(cell.column.name)} if options[:validate]
 
       # Map URLs for row
       @values.each_with_index do |cell, index|

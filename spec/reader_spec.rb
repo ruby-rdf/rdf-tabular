@@ -260,6 +260,30 @@ describe RDF::Tabular::Reader do
     end
   end
 
+  context "Primary Keys" do
+    it "has expected primary keys" do
+      RDF::Reader.open("http://example.org/countries.json", format: :tabular, validate: true) do |reader|
+        reader.each_statement {}
+        pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
+
+        # Each entry is an array of cells
+        expect(pks.map {|r| r.map(&:value).join(",")}).to eql %w(AD AE AF)
+      end
+    end
+
+    it "warns on duplicate primary keys" do
+      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, warnings: []) do |reader|
+        reader.each_statement {}
+        pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
+
+        # Each entry is an array of cells
+        expect(pks.map {|r| r.map(&:value).join(",")}).to eql %w(1 1)
+
+        expect(reader.options[:warnings]).to eq ["Table http://example.org/test232.csv has duplicate primary key 1"]
+      end
+    end
+  end
+
   context "Provenance" do
     {
       "country-codes-and-names.csv" => %(

@@ -20,6 +20,11 @@ module RDF::Tabular
     attr_reader :input
 
     ##
+    # Warnings found during processing
+    # @return [Array<String>]
+    attr_reader :warnings
+
+    ##
     # Initializes the RDF::Tabular Reader instance.
     #
     # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>, String]       input
@@ -48,6 +53,7 @@ module RDF::Tabular
         end
 
         @options[:depth] ||= 0
+        @warnings = @options.fetch(:warnings, [])
 
         debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
 
@@ -201,7 +207,7 @@ module RDF::Tabular
                   end
                 end
               ensure
-                warnings = @options.fetch(:warnings, []).concat(input.warnings)
+                warnings = @warnings.concat(input.warnings)
                 if validate? && !warnings.empty? && !@options[:warnings]
                   $stderr.puts "Warnings: #{warnings.join("\n")}"
                 end
@@ -227,6 +233,7 @@ module RDF::Tabular
         # Input is file containing CSV data.
         # Output ROW-Level statements
         last_row_num = 0
+        primary_keys = []
         metadata.each_row(input) do |row|
           if row.is_a?(RDF::Statement)
             # May add additional comments
@@ -235,6 +242,9 @@ module RDF::Tabular
             next
           end
           last_row_num = row.sourceNumber
+
+          # Collect primary keys if validating
+          primary_keys << row.primaryKey if validate?
 
           # Output row-level metadata
           row_resource = RDF::Node.new
@@ -267,6 +277,9 @@ module RDF::Tabular
             end
           end
         end
+
+        # Validate primary keys
+        validate_primary_keys(metadata, primary_keys) if validate?
 
         # Common Properties
         metadata.each do |key, value|
@@ -410,7 +423,7 @@ module RDF::Tabular
               # Result is table_group or array
               minimal? ? tables : table_group
             ensure
-              warnings = options.fetch(:warnings, []).concat(input.warnings)
+              warnings = @warnings.concat(input.warnings)
               if validate? && !warnings.empty? && !@options[:warnings]
                 $stderr.puts "Warnings: #{warnings.join("\n")}"
               end
@@ -620,6 +633,17 @@ module RDF::Tabular
       raise RDF::ReaderError, "#{statement.inspect} is invalid" if validate? && statement.invalid?
       debug(node) {"statement: #{RDF::NTriples.serialize(statement)}".chomp}
       @callback.call(statement)
+    end
+
+    # Validate primary keys
+    def validate_primary_keys(metadata, primary_keys)
+      pk_strings = {}
+      primary_keys.reject(&:empty?).each do |row_pks|
+        pk_names = row_pks.map {|cell| cell.value}.join(",")
+        warnings << "Table #{metadata.url} has duplicate primary key #{pk_names}" if pk_strings.has_key?(pk_names)
+        pk_strings[pk_names] ||= 0
+        pk_strings[pk_names] += 1
+      end
     end
 
     # Merge values into compacted results, creating arrays if necessary
