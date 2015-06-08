@@ -254,6 +254,9 @@ module RDF::Tabular
             add_statement(row.sourceNumber, row_resource, CSVW.rownum, row.number)
             add_statement(row.sourceNumber, row_resource, RDF.type, CSVW.Row)
             add_statement(row.sourceNumber, row_resource, CSVW.url, row.id)
+            row.titles.each do |t|
+              add_statement(row.sourceNumber, row_resource, CSVW.title, t)
+            end
           end
           row.values.each_with_index do |cell, index|
             next if cell.column.suppressOutput # Skip ignored cells
@@ -455,6 +458,7 @@ module RDF::Tabular
 
         # Input is file containing CSV data.
         # Output ROW-Level statements
+        primary_keys = []
         metadata.each_row(input) do |row|
           if row.is_a?(RDF::Statement)
             # May add additional comments
@@ -462,10 +466,17 @@ module RDF::Tabular
             table['rdfs:comment'] << row.object.to_s
             next
           end
+
+          # Collect primary keys if validating
+          primary_keys << row.primaryKey if validate?
+
           # Output row-level metadata
           r, a, values = {}, {}, {}
           r["url"] = row.id.to_s
           r["rownum"] = row.number
+
+          # Row titles
+          Array(row.titles).each { |t| merge_compacted_value(r, "title", t.to_s) unless t.nil?}
 
           row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]
@@ -533,6 +544,9 @@ module RDF::Tabular
             rows << r
           end
         end
+
+        # Validate primary keys
+        validate_primary_keys(metadata, primary_keys) if validate?
 
         # Use string values notes and common properties
         metadata.each do |key, value|

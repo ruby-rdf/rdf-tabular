@@ -255,7 +255,7 @@ module RDF::Tabular
           when %w(tables).any? {|k| object_keys.include?(k)} then :TableGroup
           when %w(dialect tableSchema transformations).any? {|k| object_keys.include?(k)} then :Table
           when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Transformation
-          when %w(columns primaryKey foreignKeys).any? {|k| object_keys.include?(k)} then :Schema
+          when %w(columns primaryKey foreignKeys rowTitles).any? {|k| object_keys.include?(k)} then :Schema
           when %w(name virtual).any? {|k| object_keys.include?(k)} then :Column
           when %w(commentPrefix delimiter doubleQuote encoding header headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
           when %w(lineTerminators quoteChar skipBlankRows skipColumns skipInitialSpace skipRows trim).any? {|k| object_keys.include?(k)} then :Dialect
@@ -512,9 +512,9 @@ module RDF::Tabular
             md = Datatype.open(link, @options.merge(parent: self, context: nil, normalize: true))
             md[:@id] ||= link
             md
-          rescue Error, Errno::ENOENT
+          rescue Error, Errno::ENOENT, IOError, ::JSON::ParserError
             # Otherwise, if the property is datatype, and the result of fetching the URL is not a JSON object, create a new object using the URL as the value of its @id and "string" as the value of its base.
-            Datatype.new({"@id" => link, base: "string"}, parent: self)
+            Datatype.new({"@id" => link.to_s, base: "string"}, parent: self)
           end
         else Datatype.new({base: value}, parent: self)
         end
@@ -689,7 +689,7 @@ module RDF::Tabular
           rescue Error => e
             errors << "#{type} has invalid content '#{key}': #{e.message}"
           end
-        when :primaryKey
+        when :primaryKey, :rowTitles
           # A column reference property that holds either a single reference to a column description object or an array of references.
           "#{type} has invalid property '#{key}': no column references found" unless Array(value).length > 0
           Array(value).each do |k|
@@ -1321,6 +1321,7 @@ module RDF::Tabular
       columns:      :array,
       foreignKeys:  :array,
       primaryKey:   :column_reference,
+      rowTitles:    :column_reference,
     }.freeze
     DEFAULTS = {}.freeze
     REQUIRED = [].freeze
@@ -1329,7 +1330,7 @@ module RDF::Tabular
     PROPERTIES.each do |key, type|
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
-        when :primaryKey
+        when :primaryKey, :rowTitles
           "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
         end
 
@@ -1839,6 +1840,11 @@ module RDF::Tabular
     attr_reader :primaryKey
 
     #
+    # Title(s) of this row
+    # @return [Array<RDF::Literal>]
+    attr_reader :titles
+
+    #
     # Context from Table with base set to table URL for expanding URI Templates
     # @return [JSON::LD::Context]
     attr_reader :context
@@ -1933,7 +1939,13 @@ module RDF::Tabular
       end
 
       # Record primaryKey if validating
-      @primaryKey = @values.select {|cell| Array(table.tableSchema.primaryKey).include?(cell.column.name)} if options[:validate]
+      @primaryKey = @values.
+        select {|cell| Array(table.tableSchema.primaryKey).include?(cell.column.name)} if options[:validate]
+
+      # Record any row titles
+      @titles = @values.
+        select {|cell| Array(table.tableSchema.rowTitles).include?(cell.column.name)}.
+        map(&:value)
 
       # Map URLs for row
       @values.each_with_index do |cell, index|
@@ -1989,7 +2001,6 @@ module RDF::Tabular
         groupChar = format["groupChar"] || ','
         decimalChar = format["decimalChar"] || '.'
         pattern = Regexp.new(format["pattern"]) if format["pattern"]
-        #require 'byebug'; byebug
 
         value_errors << "#{value} does not match pattern #{pattern}" if pattern && !value.match(pattern)
 
