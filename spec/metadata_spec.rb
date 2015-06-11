@@ -1167,6 +1167,7 @@ describe RDF::Tabular::Metadata do
         "validate date M.d.yyyy" => {base: "date", value: "3.22.2015", format: "M.d.yyyy", result: "2015-03-22"},
 
         # Times
+        "valid time HH:mm:ss.S" => {base: "time", value: "15:02:37.1", format: "HH:mm:ss.S", result: "15:02:37.1"},
         "valid time HH:mm:ss" => {base: "time", value: "15:02:37", format: "HH:mm:ss", result: "15:02:37"},
         "valid time HHmmss" => {base: "time", value: "150237", format: "HHmmss", result: "15:02:37"},
         "valid time HH:mm" => {base: "time", value: "15:02", format: "HH:mm", result: "15:02:00"},
@@ -1174,6 +1175,7 @@ describe RDF::Tabular::Metadata do
 
         # DateTimes
         "valid dateTime yyyy-MM-ddTHH:mm:ss" => {base: "dateTime", value: "2015-03-15T15:02:37", format: "yyyy-MM-ddTHH:mm:ss", result: "2015-03-15T15:02:37"},
+        "valid dateTime yyyy-MM-ddTHH:mm:ss.S" => {base: "dateTime", value: "2015-03-15T15:02:37.1", format: "yyyy-MM-ddTHH:mm:ss.S", result: "2015-03-15T15:02:37.1"},
         "valid dateTime yyyy-MM-dd HH:mm:ss" => {base: "dateTime", value: "2015-03-15 15:02:37", format: "yyyy-MM-dd HH:mm:ss", result: "2015-03-15T15:02:37"},
         "valid dateTime yyyyMMdd HHmmss"   => {base: "dateTime", value: "20150315 150237",   format: "yyyyMMdd HHmmss",   result: "2015-03-15T15:02:37"},
         "valid dateTime dd-MM-yyyy HH:mm" => {base: "dateTime", value: "15-03-2015 15:02", format: "dd-MM-yyyy HH:mm", result: "2015-03-15T15:02:00"},
