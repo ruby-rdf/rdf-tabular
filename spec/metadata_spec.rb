@@ -37,9 +37,15 @@ describe RDF::Tabular::Metadata do
         valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
                [{"base" => "string"}]
                ),
-        error: [1, true,
-                 {"base" => "foo"}, {"base" => "anyType"},
-                 {"base" => "anySimpleType"}, {"base" => "IDREFS"}]
+        invalid: [1, true, "http://example.org/",
+                 {"base" => "foo"},
+                 {"base" => "anyType"},
+                 {"base" => "anySimpleType"},
+                 {"base" => "IDREFS"},
+                 ],
+        errors: [{"@id" => "_:foo"},
+                 {"@id" => "http://www.w3.org/2001/XMLSchema#string"},
+               ]
       },
       default: {
         valid: ["foo"],
@@ -1219,17 +1225,6 @@ describe RDF::Tabular::Metadata do
         "valid Name" => {base: "Name", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.Name)},
         "valid NMTOKEN" => {base: "NMTOKEN", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.NMTOKEN)},
 
-        # Unsupported datatypes
-        "anyType not allowed" => {base: "anyType", value: "some thing", errors: [/unsupported datatype/]},
-        "anySimpleType not allowed" => {base: "anySimpleType", value: "some thing", errors: [/unsupported datatype/]},
-        "ENTITIES not allowed" => {base: "ENTITIES", value: "some thing", errors: [/unsupported datatype/]},
-        "IDREFS not allowed" => {base: "IDREFS", value: "some thing", errors: [/unsupported datatype/]},
-        "NMTOKENS not allowed" => {base: "NMTOKENS", value: "some thing", errors: [/unsupported datatype/]},
-        "ENTITY not allowed" => {base: "ENTITY", value: "something", errors: [/unsupported datatype/]},
-        "ID not allowed" => {base: "ID", value: "something", errors: [/unsupported datatype/]},
-        "IDREF not allowed" => {base: "IDREF", value: "something", errors: [/unsupported datatype/]},
-        "NOTATION not allowed" => {base: "NOTATION", value: "some:thing", errors: [/unsupported datatype/]},
-
         # Aliases
         "number is alias for double" => {base: "number", value: "1234.456E789", result: RDF::Literal("1234.456E789", datatype: RDF::XSD.double)},
         "binary is alias for base64Binary" => {base: "binary", value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)},
@@ -1277,6 +1272,23 @@ describe RDF::Tabular::Metadata do
           end
 
           specify {expect(subject.value).to eql result}
+        end
+      end
+
+      context "Unsupported datatypes" do
+        %w(anyType anySimpleType ENTITIES IDREFS NMTOKENS ENTITY ID IDREF NOTATAION foo).each do |base|
+          it "detects #{base} as unsupported" do
+            md = RDF::Tabular::Table.new({
+             url: "http://example.com/table.csv",
+              tableSchema: {
+                columns: [{
+                  name: "name",
+                  datatype: base
+                }]
+              }
+            })
+            expect(md.warnings).not_to be_empty
+          end
         end
       end
     end

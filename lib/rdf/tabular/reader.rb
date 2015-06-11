@@ -85,6 +85,7 @@ module RDF::Tabular
             dialect.encoding = input.charset if (input.charset rescue nil)
             dialect.separator = "\t" if (input.content_type == "text/tsv" rescue nil)
             embed_options = {base: "http://example.org/default-metadata"}.merge(@options)
+            embed_options[:lang] = dialect_metadata.lang if dialect_metadata.lang
             embedded_metadata = dialect.embedded_metadata(input, @options[:metadata], embed_options)
 
             if (@metadata = @options[:metadata]) && @metadata.tableSchema

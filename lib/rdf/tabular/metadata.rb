@@ -269,7 +269,7 @@ module RDF::Tabular
           when :Column then RDF::Tabular::Column
           when :Dialect then RDF::Tabular::Dialect
           else
-            raise Error, "Unkown metadata type: #{type.inspect}"
+            raise Error, "Unknown metadata type: #{type.inspect}"
           end
         end
 
@@ -370,7 +370,7 @@ module RDF::Tabular
       end
 
       # Set type from @type, if present and not otherwise defined
-      @type ||= object[:@type].to_sym if object[:@type]
+      @type = object[:@type].to_sym if object[:@type]
 
       if options[:normalize]
         # If normalizing, also remove remaining @context
@@ -441,7 +441,7 @@ module RDF::Tabular
         value
       else
         warn "#{type} has invalid property 'tableSchema' (#{value.inspect}): expected a URL or object"
-        nil
+        Schema.new({}, @options.merge(parent: self, context: nil))
       end
     end
 
@@ -494,35 +494,19 @@ module RDF::Tabular
 
     # Set new datatype
     # @return [Dialect]
-    # @raise [Error] if dialect is not valid
+    # @raise [Error] if datatype is not valid
     def datatype=(value)
       val = case value
-      when String
-        link = RDF::URI(value).validate! rescue nil
-        if DATATYPES.keys.include?(value.to_sym)
-          # If property is datatype and the URL is the URL of a built-in datatype, create a new object having the property base with the value of the original string value.
-          Datatype.new({"@id" => DATATYPES[value.to_sym].to_s, base: value}, parent: self)
-        elsif DATATYPES.values.include?(link)
-          # Also allow compact-IRI version of datatype
-          base = DATATYPES.invert[link]
-          Datatype.new({"@id" => link, base: base}, parent: self)
-        elsif link
-          begin
-            # Otherwise, fetch this URL to retrieve an object, which may have a local @context. Normalize each property in the resulting object recursively using this algorithm and with its local @context then remove the local @context property. If the resulting object does not have an @id property, add an @id whose value is the original URL. This object becomes the value of the original object property.
-            md = Datatype.open(link, @options.merge(parent: self, context: nil, normalize: true))
-            md[:@id] ||= link
-            md
-          rescue Error, Errno::ENOENT, IOError, ::JSON::ParserError
-            # Otherwise, if the property is datatype, and the result of fetching the URL is not a JSON object, create a new object using the URL as the value of its @id and "string" as the value of its base.
-            Datatype.new({"@id" => link.to_s, base: "string"}, parent: self)
-          end
-        else Datatype.new({base: value}, parent: self)
-        end
       when Hash then Datatype.new(value, parent: self)
-      else Datatype.new({base: value}, parent: self)
+      else           Datatype.new({base: value}, parent: self)
       end
 
-      object[:datatype] = val
+      if val.valid? || value.is_a?(Hash)
+        # Set it if it was specified as an object, which may cause validation errors later
+        object[:datatype] = val
+      else
+        warn "#{type} has invalid property 'datatype': expected a built-in or an object"
+      end
     end
 
     # Type of this Metadata
@@ -603,10 +587,15 @@ module RDF::Tabular
           errors << "#{type} has invalid property '#{key}': must have unique names: #{column_names.inspect}" unless column_names.uniq == column_names
         when :datatype, :dialect, :tables, :tableSchema, :transformations
           Array(value).each do |t|
-            begin
-              t.validate!
-            rescue Error => e
-              errors << e.message
+            # Make sure value is of appropriate class
+            if t.is_a?({datatype: Datatype, dialect: Dialect, tables: Table, tableSchema: Schema, transformations: Transformation}[key])
+              begin
+                t.validate!
+              rescue Error => e
+                errors << e.message
+              end
+            else
+              errors << "#{type} has invalid property '#{key}': unexpected value #{value.class.name}"
             end
           end
         when :foreignKeys
@@ -660,6 +649,39 @@ module RDF::Tabular
               errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
             end
           end
+        when :format
+          case value
+          when Hash
+            # Object form only appropriate for numeric type
+            unless %w(
+              decimal integer long int short byte double float number
+              nonNegativeInteger positiveInteger nonPositiveInteger negativeInteger
+              unsignedLong unsignedInt unsignedShort unsignedByte
+            ).include?(self.base)
+              errors << "#{type} has invalid property '#{key}': Object form only allowed on string or binary datatypes"
+            end
+          else
+            case self.base
+            when 'boolean'
+              unless value.split("|").length == 2
+                errors << "#{type} has invalid property '#{key}': annotation provides the true and false values expected, separated by '|'"
+              end
+            when 'date', 'dateTime', 'datetime', 'dateTimeStamp', 'time'
+              # Parse and validate format
+              begin
+                parse_uax35(value, nil)
+              rescue ArgumentError => e
+                errors << "#{type} has invalid property '#{key}': #{e.message}"
+              end
+            else
+              # Otherwise, if it exists, its a regular expression
+              begin
+                Regexp.compile(value)
+              rescue RegexpError => e
+                errors << "#{type} has invalid property '#{key}': #{e.message}"
+              end
+            end
+          end
         when :length, :minLength, :maxLength
           # Applications must raise an error if both length and minLength are specified and they do not have the same value.
           # Similarly, applications must raise an error if both length and maxLength are specified and they do not have the same value.
@@ -677,6 +699,27 @@ module RDF::Tabular
                'nonPositiveInteger', 'negativeInteger', 'date', 'dateTime', 'datetime', 'dateTimeStamp', 'time',
                'duration', 'dayTimeDuration', 'yearMonthDuration'
             errors << "#{type} has invalid property '#{key}': #{value.to_ntriples} is not a valid #{self.base}" unless value.valid?
+
+            case key
+            when :minInclusive
+              # Applications MUST raise an error if both minInclusive and minExclusive are specified
+              errors << "#{type} cannot specify both minInclusive and minExclusive" if self.minExclusive
+
+              # Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive
+              errors << "#{type} maxInclusive < minInclusive" if self.maxInclusive && self.maxInclusive < value
+
+              # Applications MUST raise an error if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive
+              errors << "#{type} maxExclusive <= minInclusive" if self.maxExclusive && self.maxExclusive <= value
+            when :maxInclusive
+              # Applications MUST raise an error if both maxInclusive and maxExclusive are specified
+              errors << "#{type} cannot specify both maInclusive and maxExclusive" if self.maxExclusive
+            when :minExclusive
+              # Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive
+              errors << "#{type} minExclusive < maxExclusive" if self.maxExclusive && self.maxExclusive < value
+
+              # Applications MUST raise an error if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive
+              errors << "#{type} maxInclusive < minExclusive" if self.maxInclusive && self.maxInclusive <= value
+            end
           else
             errors << "#{type} has invalid property '#{key}': only allowed on numeric, date/time or duration datatypes"
           end
@@ -700,9 +743,18 @@ module RDF::Tabular
         when :@id
           # Must not be a BNode
           if value.to_s.start_with?("_:")
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:"
+            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:'"
+          end
+
+          # Datatype @id MUST NOT be the URL of a built-in type
+          if self.is_a?(Datatype) && DATATYPES.values.include?(value)
+            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not be the URL of a built-in datatype"
           end
         when :@type
+          # Must not be a BNode
+          if value.to_s.start_with?("_:")
+            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:'"
+          end
           unless value.to_sym == type
             errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected #{type}"
           end
@@ -1017,10 +1069,10 @@ module RDF::Tabular
             raise Error, "Value object may not contain keys other than @value, @type, or @language: #{value.to_json}"
           elsif (value.keys.sort & %w(@language @type)) == %w(@language @type)
             raise Error, "Value object may not contain both @type and @language: #{value.to_json}"
-          elsif value['@language'] && !BCP47::Language.identify(value['@language'])
-            warn "Value object with @language must use valid language: #{value.to_json}" if @warnings
+          elsif value['@language'] && !BCP47::Language.identify(value['@language'].to_s)
+            warn "Value object with @language must use valid language: #{value.to_json}"
             value.delete('@language')
-          elsif value['@type'] && !context.expand_iri(value['@type'], vocab: true).absolute?
+          elsif value['@type'] && (value['@type'].start_with?('_:') || !context.expand_iri(value['@type'], vocab: true).absolute?)
             raise Error, "Value object with @type must defined type: #{value.to_json}"
           end
           value
@@ -1035,7 +1087,7 @@ module RDF::Tabular
               Array(v).each do |vv|
                 # Validate that all type values transform to absolute IRIs
                 resource = context.expand_iri(vv, vocab: true)
-                raise Error, "Invalid type #{vv} in JSON-LD context" unless resource.uri? && resource.absolute?
+                raise Error, "Invalid type #{vv} in JSON-LD context" unless resource.is_a?(RDF::URI) && resource.absolute?
               end
               nv[k] = v
             when /^(@|_:)/
@@ -1661,7 +1713,8 @@ module RDF::Tabular
         }
       }
       metadata ||= table  # In case the embedded metadata becomes the final metadata
-      metadata["lang"] = options[:lang] if options[:lang]
+      lang = metadata["lang"] = options[:lang] if options[:lang]
+      lang ||= 'und'
 
       # Set encoding on input
       csv = ::CSV.new(input, csv_options)
@@ -1690,9 +1743,9 @@ module RDF::Tabular
           # Initialize titles
           columns = table["tableSchema"]["columns"] ||= []
           column = columns[index - skipCols] ||= {
-            "titles" => {"und" => []},
+            "titles" => {lang => []},
           }
-          column["titles"]["und"] << value
+          column["titles"][lang] << value
         end
       end
       debug("embedded_metadata") {"table: #{table.inspect}"}
@@ -1729,18 +1782,19 @@ module RDF::Tabular
       maxExclusive: :atomic,
     }.freeze
     REQUIRED = [].freeze
-    DEFAULTS = {}.freeze
+    DEFAULTS = {
+      base: "string"
+    }.freeze
 
     # Override `base` in Metadata
     def base; object[:base]; end
-
-    # @id comes from base, unless set otherwise
-    def id; super || context.expand_iri(base, vocab: true); end
 
     # Setters
     PROPERTIES.each do |key, type|
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
+        when :base
+          "built-in datatype" unless DATATYPES.keys.map(&:to_s).include?(value)
         when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
           "numeric or valid date/time" unless value.is_a?(Numeric) ||
             RDF::Literal::Date.new(value.to_s).valid? ||
@@ -1770,6 +1824,91 @@ module RDF::Tabular
           object[key] = value
         end
       end
+    end
+
+    ##
+    # Parse the format (if provided), and match against the value (if provided)
+    # Otherwise, validate format and raise an error
+    #
+    # @param [String] format
+    # @param [String] value
+    # @return [String] XMLSchema version of value
+    # @raise [ArgumentError] if format is not valid
+    def parse_uax35(format, value)
+      tz, date_format, time_format = nil, nil, nil
+      return value unless format
+      value ||= ""
+
+      # Extract tz info
+      if md = format.match(/^(.*[dyms])+(\s*[xX]{1,5})$/)
+        format, tz = md[1], md[2]
+      end
+
+      date_format, time_format = format.split(' ')
+      date_format, time_format = nil, date_format if self.base.to_sym == :time
+
+      # Extract date, of specified
+      date_part = case date_format
+      when 'yyyy-MM-dd' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})/)
+      when 'yyyyMMdd'   then value.match(/^(?<yr>\d{4})(?<mo>\d{2})(?<da>\d{2})/)
+      when 'dd-MM-yyyy' then value.match(/^(?<da>\d{2})-(?<mo>\d{2})-(?<yr>\d{4})/)
+      when 'd-M-yyyy'   then value.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{4})/)
+      when 'MM-dd-yyyy' then value.match(/^(?<mo>\d{2})-(?<da>\d{2})-(?<yr>\d{4})/)
+      when 'M-d-yyyy'   then value.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{4})/)
+      when 'dd/MM/yyyy' then value.match(/^(?<da>\d{2})\/(?<mo>\d{2})\/(?<yr>\d{4})/)
+      when 'd/M/yyyy'   then value.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{4})/)
+      when 'MM/dd/yyyy' then value.match(/^(?<mo>\d{2})\/(?<da>\d{2})\/(?<yr>\d{4})/)
+      when 'M/d/yyyy'   then value.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{4})/)
+      when 'dd.MM.yyyy' then value.match(/^(?<da>\d{2})\.(?<mo>\d{2})\.(?<yr>\d{4})/)
+      when 'd.M.yyyy'   then value.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{4})/)
+      when 'MM.dd.yyyy' then value.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
+      when 'M.d.yyyy'   then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
+      when 'yyyy-MM-ddTHH:mm:ss' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
+      when 'yyyy-MM-ddTHH:mm' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
+      else
+        raise ArgumentError, "unrecognized date/time format #{date_format}" if date_format
+        nil
+      end
+
+      # Forward past date part
+      if date_part
+        value = value[date_part.to_s.length..-1]
+        value = value.lstrip if date_part && value.start_with?(' ')
+      end
+
+      # Extract time, of specified
+      time_part = case time_format
+      when 'HH:mm:ss' then value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
+      when 'HHmmss'   then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})/)
+      when 'HH:mm'    then value.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
+      when 'HHmm'     then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)/)
+      else
+        raise ArgumentError, "unrecognized date/time format #{time_format}" if time_format
+        nil
+      end
+
+      # If there's a date_format but no date_part, match fails
+      return nil if date_format && date_part.nil?
+
+      # If there's a time_format but no time_part, match fails
+      return nil if time_format && time_part.nil?
+
+      # Forward past time part
+      value = value[time_part.to_s.length..-1] if time_part
+
+      # Use datetime match for time
+      time_part = date_part if date_part && date_part.names.include?("hr")
+
+      # If there's a timezone, it may optionally start with whitespace
+      value = value.lstrip if tz.to_s.start_with?(' ')
+      tz_part = value if tz
+
+      # Compose normalized value
+      vd = ("%04d-%02d-%02d" % [date_part[:yr].to_i, date_part[:mo].to_i, date_part[:da].to_i]) if date_part
+      vt = ("%02d:%02d:%02d" % [time_part[:hr].to_i, time_part[:mi].to_i, time_part[:se].to_i]) if time_part
+
+      value = [vd, vt].compact.join('T')
+      value += tz_part.to_s
     end
 
     # Logic for accessing elements as accessors
@@ -1918,7 +2057,8 @@ module RDF::Tabular
               v.strip!
             end
 
-            if (lit_or_errors = value_matching_datatype(v.dup, datatype, column.lang)).is_a?(RDF::Literal)
+            expanded_dt = datatype.id || metadata.context.expand_iri(datatype.base, vocab: true)
+            if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt, column.lang)).is_a?(RDF::Literal)
               lit_or_errors
             else
               cell_errors += lit_or_errors
@@ -1978,8 +2118,8 @@ module RDF::Tabular
     #
     # given a datatype specification, return a literal matching that specififcation, if found, otherwise nil
     # @return [RDF::Literal]
-    def value_matching_datatype(value, datatype, language)
-      value_errors = []
+    def value_matching_datatype(value, datatype, expanded_dt, language)
+      lit, value_errors = nil, []
       original_value = value.dup
 
       format = datatype.format
@@ -1998,6 +2138,7 @@ module RDF::Tabular
         when Hash then format
         else {}
         end
+
         groupChar = format["groupChar"] || ','
         decimalChar = format["decimalChar"] || '.'
         pattern = Regexp.new(format["pattern"]) if format["pattern"]
@@ -2019,143 +2160,64 @@ module RDF::Tabular
           permille = true
         end
 
-        lit = RDF::Literal(value, datatype: datatype.id)
+        lit = RDF::Literal(value, datatype: expanded_dt)
         if percent || permille
           o = lit.object
           o = o / 100 if percent
           o = o / 1000 if permille
-          lit = RDF::Literal(o, datatype: datatype.id)
+          lit = RDF::Literal(o, datatype: expanded_dt)
         end
 
         if !lit.plain? && datatype.minimum && lit < datatype.minimum
           value_errors << "#{value} < minimum #{datatype.minimum}"
-          lit = RDF::Literal(original_value)
         end
-        lit = case
+        case
         when datatype.minimum && lit < datatype.minimum
           value_errors << "#{value} < minimum #{datatype.minimum}"
-          RDF::Literal(original_value)
         when datatype.maximum && lit > datatype.maximum
           value_errors << "#{value} > maximum #{datatype.maximum}"
-          RDF::Literal(original_value)
         when datatype.minInclusive && lit < datatype.minInclusive
           value_errors << "#{value} < minInclusive #{datatype.minInclusive}"
-          RDF::Literal(original_value)
         when datatype.maxInclusive && lit > datatype.maxInclusive
           value_errors << "#{value} > maxInclusive #{datatype.maxInclusive}"
-          RDF::Literal(original_value)
         when datatype.minExclusive && lit <= datatype.minExclusive
           value_errors << "#{value} <= minExclusive #{datatype.minExclusive}"
-          RDF::Literal(original_value)
         when datatype.maxExclusive && lit >= datatype.maxExclusive
           value_errors << "#{value} ?= maxExclusive #{datatype.maxExclusive}"
-          RDF::Literal(original_value)
-        else
-          lit
         end
       when :boolean
-        lit = if format
+        if format
           # True/False determined by Y|N values
           t, f = format.to_s.split('|', 2)
           case
           when value == t
-            value = RDF::Literal::TRUE
+            lit = RDF::Literal::TRUE
           when value == f
-            value = RDF::Literal::FALSE
+            lit = RDF::Literal::FALSE
           else
             value_errors << "#{value} does not match boolean format #{format}"
-            RDF::Literal.new(value)
           end
         else
           if %w(1 true).include?(value.downcase)
-            RDF::Literal::TRUE
+            lit = RDF::Literal::TRUE
           elsif %w(0 false).include?(value.downcase)
-            RDF::Literal::FALSE
+            lit = RDF::Literal::FALSE
           else
             value_errors << "#{value} does not match boolean"
-            RDF::Literal.new(value)
           end
         end
       when :date, :time, :dateTime, :dateTimeStamp, :datetime
-        # Match values
-        tz, date_format, time_format = nil, nil, nil
-
-        # Extract tz info
-        if format && (md = format.match(/^(.*[dyms])+(\s*[xX]{1,5})$/))
-          format, tz = md[1], md[2]
+        if value = datatype.parse_uax35(format, value)
+          lit = RDF::Literal(value, datatype: expanded_dt)
+        else
+          value_errors << "#{original_value} does not match format #{format}"
         end
-
-        if format
-          date_format, time_format = format.split(' ')
-          if datatype.base.to_sym == :time
-            date_format, time_format = nil, date_format
-          end
-
-          # Extract date, of specified
-          date_part = case date_format
-          when 'yyyy-MM-dd' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})/)
-          when 'yyyyMMdd'   then value.match(/^(?<yr>\d{4})(?<mo>\d{2})(?<da>\d{2})/)
-          when 'dd-MM-yyyy' then value.match(/^(?<da>\d{2})-(?<mo>\d{2})-(?<yr>\d{4})/)
-          when 'd-M-yyyy'   then value.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{4})/)
-          when 'MM-dd-yyyy' then value.match(/^(?<mo>\d{2})-(?<da>\d{2})-(?<yr>\d{4})/)
-          when 'M-d-yyyy'   then value.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{4})/)
-          when 'dd/MM/yyyy' then value.match(/^(?<da>\d{2})\/(?<mo>\d{2})\/(?<yr>\d{4})/)
-          when 'd/M/yyyy'   then value.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{4})/)
-          when 'MM/dd/yyyy' then value.match(/^(?<mo>\d{2})\/(?<da>\d{2})\/(?<yr>\d{4})/)
-          when 'M/d/yyyy'   then value.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{4})/)
-          when 'dd.MM.yyyy' then value.match(/^(?<da>\d{2})\.(?<mo>\d{2})\.(?<yr>\d{4})/)
-          when 'd.M.yyyy'   then value.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{4})/)
-          when 'MM.dd.yyyy' then value.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
-          when 'M.d.yyyy'   then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
-          when 'yyyy-MM-ddTHH:mm:ss' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
-          when 'yyyy-MM-ddTHH:mm' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
-          else
-            value_errors << "unrecognized date/time format #{date_format}" if date_format
-            nil
-          end
-
-          # Forward past date part
-          if date_part
-            value = value[date_part.to_s.length..-1]
-            value = value.lstrip if date_part && value.start_with?(' ')
-          end
-
-          # Extract time, of specified
-          time_part = case time_format
-          when 'HH:mm:ss' then value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
-          when 'HHmmss'   then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})/)
-          when 'HH:mm'    then value.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
-          when 'HHmm'     then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)/)
-          else
-            value_errors << "unrecognized date/time format #{time_format}" if time_format
-            nil
-          end
-
-          # Forward past time part
-          value = value[time_part.to_s.length..-1] if time_part
-
-          # Use datetime match for time
-          time_part = date_part if date_part && date_part.names.include?("hr")
-
-          # If there's a timezone, it may optionally start with whitespace
-          value = value.lstrip if tz.to_s.start_with?(' ')
-          tz_part = value if tz
-
-          # Compose normalized value
-          vd = ("%04d-%02d-%02d" % [date_part[:yr].to_i, date_part[:mo].to_i, date_part[:da].to_i]) if date_part
-          vt = ("%02d:%02d:%02d" % [time_part[:hr].to_i, time_part[:mi].to_i, time_part[:se].to_i]) if time_part
-          value = [vd, vt].compact.join('T')
-          value += tz_part.to_s
-        end
-
-        lit = RDF::Literal(value, datatype: datatype.id)
       when :duration, :dayTimeDuration, :yearMonthDuration
         # SPEC CONFUSION: surely format also includes that for other duration types?
-        lit = if format.nil? || value.match(Regexp.new(format))
-          RDF::Literal(value, datatype: datatype.id)
+        if format.nil? || value.match(Regexp.new(format))
+          lit = RDF::Literal(value, datatype: expanded_dt)
         else
           value_errors << "#{value} does not match format #{format}"
-          RDF::Literal(value)
         end
       when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,
            :ENTITY, :ID, :IDREF, :NOTATION
@@ -2166,11 +2228,11 @@ module RDF::Tabular
           value_errors << "#{value} does not match format #{format}"
         end
         lit = if value_errors.empty?
-          if datatype.id == RDF::XSD.string
+          if expanded_dt == RDF::XSD.string
             # Type string will still use language
             RDF::Literal(value, language: language)
           else
-            RDF::Literal(value, datatype: datatype.id)
+            RDF::Literal(value, datatype: expanded_dt)
           end
         end
       end
@@ -2192,13 +2254,11 @@ module RDF::Tabular
       value_errors << "#{value} > maxInclusive #{datatype.maxInclusive}"  if datatype.maxInclusive && lit > datatype.maxInclusive
       value_errors << "#{value} <= minExclusive #{datatype.minExclusive}" if datatype.minExclusive && lit <= datatype.minExclusive
       value_errors << "#{value} >= maxExclusive #{datatype.maxExclusive}" if datatype.maxExclusive && lit >= datatype.maxExclusive
-      lit = RDF::Literal(original_value) unless value_errors.empty?
 
       # Final value is a valid literal, or a plain literal otherwise
       value_errors << "#{value} is not a valid #{datatype.base}" if lit && !lit.valid?
 
-      # FIXME Value constraints
-
+      # Either return matched literal value or errors
       value_errors.empty? ? lit : value_errors
     end
   end
