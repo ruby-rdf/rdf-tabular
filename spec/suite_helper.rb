@@ -69,7 +69,18 @@ module RDF::Util
           end
         end
       else
-        original_open_file(filename_or_url, options, &block)
+        original_open_file(filename_or_url, options) do |remote_document|
+          # Add Link header, if necessary
+          remote_document.headers[:link] = options[:httpLink] if options[:httpLink]
+
+          # Override content_type
+          if options[:contentType]
+            remote_document.headers[:content_type] = options[:contentType]
+            remote_document.instance_variable_set(:@content_type, options[:contentType].split(';').first)
+          end
+
+          block.call(remote_document)
+        end
       end
     end
   end

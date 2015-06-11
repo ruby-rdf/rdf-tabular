@@ -2262,7 +2262,4 @@ module RDF::Tabular
       value_errors.empty? ? lit : value_errors
     end
   end
-
-  # Metadata errors detected
-  class Error < StandardError; end
 end

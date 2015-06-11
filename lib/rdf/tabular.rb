@@ -24,6 +24,9 @@ module RDF
     autoload :Transformation,   'rdf/tabular/metadata'
     autoload :VERSION,    'rdf/tabular/version'
 
+    # Metadata errors detected
+    class Error < StandardError; end
+
     def self.debug?; @debug; end
     def self.debug=(value); @debug = value; end
   end
