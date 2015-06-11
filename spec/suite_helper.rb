@@ -79,7 +79,11 @@ module RDF::Util
             remote_document.instance_variable_set(:@content_type, options[:contentType].split(';').first)
           end
 
-          block.call(remote_document)
+          if block_given?
+            yield remote_document
+          else
+            remote_document
+          end
         end
       end
     end

@@ -11,8 +11,7 @@ require 'yaml'  # used by BCP47, which should have required it.
 # CSVM Metadata processor
 #
 # * Extracts Metadata from file or Hash definition
-# * Merges multiple Metadata definitions
-# * Extract Metadata from a CSV file
+# * Extract Embedded Metadata from a CSV file
 # * Return table-level annotations
 # * Return Column-level annotations
 # * Return row iterator with column information
@@ -154,8 +153,25 @@ module RDF::Tabular
       end
     end
 
+    # Return the well-known configuration for a file, and remember using a weak-reference cache to avoid uncessary retreivles.
+    # @param [String] base, the URL used for finding the file
+    # @return [Array<String>, false]
+    def self.site_wide_config(base)
+      require 'rdf/util/cache' unless defined?(::RDF::Util::Cache)
+      @cache ||= RDF::Util::Cache.new(-1)
+
+      config_loc = RDF::URI(base).join(SITE_WIDE_CONFIG).to_s
+      # Only load if we haven't tried before. Use `SITE_WIDE_DEFAULT` if not found
+      if @cache[config_loc].nil?
+        @cache[config_loc] = RDF::Util::File.open_file(config_loc) do |rd|
+          rd.lines
+        end rescue SITE_WIDE_DEFAULT.split
+      end
+      @cache[config_loc]
+    end
+
     ##
-    # Return metadata for a file, based on user-specified and path-relative locations from an input file
+    # Return metadata for a file, based on user-specified, linked, and site-wide location configuration from an input file
     # @param [IO, StringIO] input
     # @param [Hash{Symbol => Object}] options
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
@@ -177,27 +193,34 @@ module RDF::Tabular
       # Search for metadata until found
 
       # load link metadata, if available
-      locs = []
-      if input.respond_to?(:links) && 
+      if !metadata && input.respond_to?(:links) && 
         link = input.links.find_link(%w(rel describedby))
-        locs << RDF::URI(base).join(link.href)
+        loc = RDF::URI(base).join(link.href).to_s
+        md = Metadata.open(loc, options.merge(filenames: loc, reason: "load linked metadata: #{loc}"))
+        # Metadata must describe file to be useful
+        metadata = md if md && md.describes_file(base)
       end
 
-      # Don't look at file- or directory-relative if URL has a query
-      if base && !base.include?('?')
-        locs += [RDF::URI("#{base}-metadata.json"), RDF::URI(base).join("metadata.json")]
-      end
+      found_metadata = !!metadata
+      locs = []
+      # If we still don't have metadata, load the site-wide configuration file and use templates found there as locations
+      if !found_metadata && base
+        templates = site_wide_config(base)
+        locs = templates.map do |template|
+          t = Addressable::Template.new(template)
+          RDF::URI(base).join(t.expand(url: base).to_s)
+        end
 
-      found_metadata = false
-      locs.each do |loc|
-        metadata ||= begin
-          md = Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
-          # Metadata must describe file to be useful
-          found_metadata ||= loc if md
-          md if md && md.describes_file(base)
-        rescue
-          debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
-          nil
+        locs.each do |loc|
+          metadata ||= begin
+            md = Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
+            # Metadata must describe file to be useful
+            found_metadata ||= loc if md
+            md if md && md.describes_file(base)
+          rescue
+            debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
+            nil
+          end
         end
       end
 

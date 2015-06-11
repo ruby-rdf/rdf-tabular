@@ -27,6 +27,13 @@ module RDF
     # Metadata errors detected
     class Error < StandardError; end
 
+    # Relative location of site-wide configuration file
+    SITE_WIDE_CONFIG = "/.well-known/csvm".freeze
+    SITE_WIDE_DEFAULT = %(
+      {+url}-metadata.json
+      metadata.json
+    ).gsub(/^\s+/, '').freeze
+
     def self.debug?; @debug; end
     def self.debug=(value); @debug = value; end
   end
