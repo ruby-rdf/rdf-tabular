@@ -660,6 +660,15 @@ module RDF::Tabular
             ).include?(self.base)
               errors << "#{type} has invalid property '#{key}': Object form only allowed on string or binary datatypes"
             end
+
+            # Otherwise, if it exists, its a regular expression
+            if value["pattern"]
+              begin
+                Regexp.compile(value["pattern"].to_s)
+              rescue RegexpError => e
+                errors << "#{type} has invalid property '#{key}' pattern: #{e.message}"
+              end
+            end
           else
             case self.base
             when 'boolean'
@@ -2152,7 +2161,7 @@ module RDF::Tabular
 
         groupChar = format["groupChar"] || ','
         decimalChar = format["decimalChar"] || '.'
-        pattern = Regexp.new(format["pattern"]) if format["pattern"]
+        pattern = Regexp.new(format["pattern"]) rescue nil if format["pattern"]
 
         value_errors << "#{value} does not match pattern #{pattern}" if pattern && !value.match(pattern)
 
@@ -2225,7 +2234,8 @@ module RDF::Tabular
         end
       when :duration, :dayTimeDuration, :yearMonthDuration
         # SPEC CONFUSION: surely format also includes that for other duration types?
-        if format.nil? || value.match(Regexp.new(format))
+        re = Regexp.new(format) rescue nil
+        if re.nil? ||value.match(re)
           lit = RDF::Literal(value, datatype: expanded_dt)
         else
           value_errors << "#{value} does not match format #{format}"
@@ -2235,7 +2245,8 @@ module RDF::Tabular
         value_errors << "#{value} uses unsupported datatype: #{datatype.base}"
       else
         # For other types, format is a regexp
-        unless format.nil? || value.match(Regexp.new(format))
+        re = Regexp.new(format) rescue nil
+        unless re.nil? || value.match(re)
           value_errors << "#{value} does not match format #{format}"
         end
         lit = if value_errors.empty?
