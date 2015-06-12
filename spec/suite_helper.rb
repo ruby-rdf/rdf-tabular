@@ -7,7 +7,7 @@ require 'open-uri'
 # For now, override RDF::Utils::File.open_file to look for the file locally before attempting to retrieve it
 module RDF::Util
   module File
-    REMOTE_PATH = "http://w3c.github.io/csvw/"
+    REMOTE_PATH = "http://www.w3.org/2013/csvw/"
     LOCAL_PATH = ::File.expand_path("../w3c-csvw", __FILE__) + '/'
 
     class << self
@@ -92,10 +92,9 @@ end
 
 module Fixtures
   module SuiteTest
-    BASE = "http://w3c.github.io/csvw/tests/"
+    BASE = "http://www.w3.org/2013/csvw/tests/"
     class Manifest < JSON::LD::Resource
       def self.open(file, base)
-        #puts "open: #{file}"
         RDF::Util::File.open_file(file) do |file|
           json = ::JSON.load(file.read)
           yield Manifest.new(json, context: json['@context'].merge('@base' => base))
