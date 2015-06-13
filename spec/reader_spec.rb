@@ -16,15 +16,15 @@ describe RDF::Tabular::Reader do
         else 'text/plain'
         end
 
-        case file
-        when "metadata.json", "country-codes-and-names.csv-metadata.json"
-          {status: 401}
-        else
+        path = File.expand_path("../data/#{file}", __FILE__)
+        if File.exist?(path)
           {
-            body: File.read(File.expand_path("../data/#{file}", __FILE__)),
+            body: File.read(path),
             status: 200,
             headers: {'Content-Type' => content_type}
           }
+        else
+          {status: 401}
         end
       })
 

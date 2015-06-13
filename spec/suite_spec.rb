@@ -74,11 +74,11 @@ describe RDF::Tabular::Reader do
                   elsif t.json?
                     expect {
                       reader.to_json
-                    }.to raise_error
+                    }.to raise_error(RDF::Tabular::Error)
                   else
                     expect {
                       graph << reader
-                    }.to raise_error
+                    }.to raise_error(RDF::ReaderError)
                   end
                 end
               rescue IOError, RDF::Tabular::Error
