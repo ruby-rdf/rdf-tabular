@@ -142,6 +142,8 @@ module RDF::Tabular
     # @param [String] path
     # @param [Hash{Symbol => Object}] options
     #   see `RDF::Util::File.open_file` in RDF.rb and {#new}
+    # @yield [Metadata]
+    # @raise [IOError] if file not found
     def self.open(path, options = {})
       options = options.merge(
         headers: {
@@ -195,7 +197,7 @@ module RDF::Tabular
           # Metadata must describe file to be useful
           found_metadata ||= loc if md
           md if md && md.describes_file(base)
-        rescue
+        rescue IOError
           debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
           nil
         end

@@ -30,14 +30,16 @@ module RDF::Util
         Kernel.open(path.to_s, &block)
       when filename_or_url.to_s =~ %r{http://www.w3.org/ns/csvw/?}
         ::File.open(::File.expand_path("../../etc/csvw.jsonld", __FILE__), &block)
-      when (filename_or_url.to_s =~ %r{^#{REMOTE_PATH}} && ::File.exist?(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)))
+      when (filename_or_url.to_s =~ %r{^#{REMOTE_PATH}} && Dir.exist?(LOCAL_PATH))
         begin
           #puts "attempt to open #{filename_or_url} locally"
-          localpath = filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)
+          localpath = RDF::URI(filename_or_url)
+          localpath.query = nil
+          localpath = localpath.to_s.sub(REMOTE_PATH, LOCAL_PATH)
           response = begin
             ::File.open(localpath)
-          rescue Errno::ENOENT
-            Kernel.open(filename_or_url.to_s, "r:utf-8", 'Accept' => "application/ld+json, application/json, text/csv")
+          rescue Errno::ENOENT => e
+            raise IOError, e.message
           end
           document_options = {
             base_uri:     RDF::URI(filename_or_url),
