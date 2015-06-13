@@ -25,7 +25,7 @@ module RDF
     autoload :VERSION,    'rdf/tabular/version'
 
     # Metadata errors detected
-    class Error < StandardError; end
+    class Error < RDF::ReaderError; end
 
     # Relative location of site-wide configuration file
     SITE_WIDE_CONFIG = "/.well-known/csvm".freeze

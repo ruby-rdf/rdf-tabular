@@ -1,0 +1,8 @@
+---
+:format: :json
+:manifest:
+- http://www.w3.org/2013/csvw/tests/manifest-json.jsonld
+- http://www.w3.org/2013/csvw/tests/manifest-rdf.jsonld
+- http://www.w3.org/2013/csvw/tests/manifest-validation.jsonld
+:bibRef: ! '[[tabular-metadata]]'
+:name: CSV on the Web

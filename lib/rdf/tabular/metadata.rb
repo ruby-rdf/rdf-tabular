@@ -141,6 +141,8 @@ module RDF::Tabular
     # @param [String] path
     # @param [Hash{Symbol => Object}] options
     #   see `RDF::Util::File.open_file` in RDF.rb and {#new}
+    # @yield [Metadata]
+    # @raise [IOError] if file not found
     def self.open(path, options = {})
       options = options.merge(
         headers: {
@@ -217,7 +219,7 @@ module RDF::Tabular
             # Metadata must describe file to be useful
             found_metadata ||= loc if md
             md if md && md.describes_file(base)
-          rescue
+          rescue IOError
             debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
             nil
           end
@@ -683,6 +685,15 @@ module RDF::Tabular
             ).include?(self.base)
               errors << "#{type} has invalid property '#{key}': Object form only allowed on string or binary datatypes"
             end
+
+            # Otherwise, if it exists, its a regular expression
+            if value["pattern"]
+              begin
+                Regexp.compile(value["pattern"].to_s)
+              rescue
+                errors << "#{type} has invalid property '#{key}' pattern: #{$!.message}"
+              end
+            end
           else
             case self.base
             when 'boolean'
@@ -700,8 +711,8 @@ module RDF::Tabular
               # Otherwise, if it exists, its a regular expression
               begin
                 Regexp.compile(value)
-              rescue RegexpError => e
-                errors << "#{type} has invalid property '#{key}': #{e.message}"
+              rescue
+                errors << "#{type} has invalid property '#{key}': #{$!.message}"
               end
             end
           end
@@ -1886,8 +1897,12 @@ module RDF::Tabular
       when 'd.M.yyyy'   then value.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{4})/)
       when 'MM.dd.yyyy' then value.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
       when 'M.d.yyyy'   then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
-      when 'yyyy-MM-ddTHH:mm:ss' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
-      when 'yyyy-MM-ddTHH:mm' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
+      when 'yyyy-MM-ddTHH:mm' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2})(?<se>(?<ms>))/)
+      when 'yyyy-MM-ddTHH:mm:ss' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})(?<ms>)/)
+      when /yyyy-MM-ddTHH:mm:ss\.S+/
+        md = value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})\.(?<ms>\d+)/)
+        num_ms = date_format.match(/S+/).to_s.length
+        md if md && md[:ms].length <= num_ms
       else
         raise ArgumentError, "unrecognized date/time format #{date_format}" if date_format
         nil
@@ -1901,10 +1916,14 @@ module RDF::Tabular
 
       # Extract time, of specified
       time_part = case time_format
-      when 'HH:mm:ss' then value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})/)
-      when 'HHmmss'   then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})/)
-      when 'HH:mm'    then value.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)/)
-      when 'HHmm'     then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)/)
+      when 'HH:mm:ss' then value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})(?<ms>)/)
+      when 'HHmmss'   then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})(?<ms>)/)
+      when 'HH:mm'    then value.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)(?<ms>)/)
+      when 'HHmm'     then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)(?<ms>)/)
+      when /HH:mm:ss\.S+/
+        md = value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})\.(?<ms>\d+)/)
+        num_ms = time_format.match(/S+/).to_s.length
+        md if md && md[:ms].length <= num_ms
       else
         raise ArgumentError, "unrecognized date/time format #{time_format}" if time_format
         nil
@@ -1929,6 +1948,9 @@ module RDF::Tabular
       # Compose normalized value
       vd = ("%04d-%02d-%02d" % [date_part[:yr].to_i, date_part[:mo].to_i, date_part[:da].to_i]) if date_part
       vt = ("%02d:%02d:%02d" % [time_part[:hr].to_i, time_part[:mi].to_i, time_part[:se].to_i]) if time_part
+
+      # Add milliseconds, if matched
+      vt += ".#{time_part[:ms]}" if time_part && !time_part[:ms].empty?
 
       value = [vd, vt].compact.join('T')
       value += tz_part.to_s
@@ -2164,7 +2186,7 @@ module RDF::Tabular
 
         groupChar = format["groupChar"] || ','
         decimalChar = format["decimalChar"] || '.'
-        pattern = Regexp.new(format["pattern"]) if format["pattern"]
+        pattern = Regexp.new(format["pattern"]) rescue nil if format["pattern"]
 
         value_errors << "#{value} does not match pattern #{pattern}" if pattern && !value.match(pattern)
 
@@ -2237,7 +2259,8 @@ module RDF::Tabular
         end
       when :duration, :dayTimeDuration, :yearMonthDuration
         # SPEC CONFUSION: surely format also includes that for other duration types?
-        if format.nil? || value.match(Regexp.new(format))
+        re = Regexp.new(format) rescue nil
+        if re.nil? ||value.match(re)
           lit = RDF::Literal(value, datatype: expanded_dt)
         else
           value_errors << "#{value} does not match format #{format}"
@@ -2247,7 +2270,8 @@ module RDF::Tabular
         value_errors << "#{value} uses unsupported datatype: #{datatype.base}"
       else
         # For other types, format is a regexp
-        unless format.nil? || value.match(Regexp.new(format))
+        re = Regexp.new(format) rescue nil
+        unless re.nil? || value.match(re)
           value_errors << "#{value} does not match format #{format}"
         end
         lit = if value_errors.empty?

@@ -26,34 +26,36 @@ def earl_preamble(options)
 )
 end
 
-def run_tc(tc, options)
-  STDERR.write "run #{tc.id}"
+def run_tc(t, options)
+  STDERR.write "run #{t.id}"
 
   if options[:verbose]
-    puts "\nTestCase: #{tc.inspect}"
-    puts "\nInput:\n" + tc.input 
-    puts "\nExpected:\n" + tc.expected
+    puts "\nTestCase: #{t.inspect}"
+    puts "\nInput:\n" + t.input 
+    puts "\nExpected:\n" + t.expected if t.result
   end
 
   graph = RDF::Repository.new
   json_result = nil
   result = nil
+  t.warnings = []
 
   begin
-    puts "open #{tc.action}" if options[:verbose]
-    options = {base_uri:  tc.base}.merge(options)
+    puts "open #{t.action}" if options[:verbose]
+    options = {base_uri:  t.base}.merge(options)
 
-    RDF::Tabular::Reader.new(tc.action,
-                             tc.reader_options.merge(
-                               base_uri:  tc.base,
-                               validate:  tc.validation?)
+    RDF::Tabular::Reader.open(t.action,
+                             t.reader_options.merge(
+                               base_uri:  t.base,
+                               validate:  t.validation?,
+                               warnings:  t.warnings)
     ) do |reader|
-      tc.metadata = reader.metadata
+      t.metadata = reader.metadata
 
-      if tc.positive_test?
-        if tc.json?
-          result = if tc.evaluate?
-            RDF::Util::File.open_file(tc.result) do |res|
+      if t.positive_test?
+        if t.json?
+          result = if t.evaluate?
+            RDF::Util::File.open_file(t.result) do |res|
               ::JSON.parse(json_result = reader.to_json) == ::JSON.parse(res.read) ? "passed" : "failed"
             end
           else
@@ -69,19 +71,25 @@ def run_tc(tc, options)
 
           result = if result
             result
-          elsif tc.sparql?
+          elsif t.sparql?
             # FIXME
             "passed"
-          elsif tc.evaluate?
-            output_graph = RDF::Repository.load(tc.result, format:  :turtle, base_uri:  tc.base)
+          elsif t.evaluate?
+            output_graph = RDF::Repository.load(t.result, format:  :turtle, base_uri:  t.base)
             graph.isomorphic_with?(output_graph) ? "passed" : "failed"
+          elsif t.validation?
+            result = (t.warning? ? (t.warnings.length > 0) : t.warnings.empty?) ? "passed" : "failed"
           else
             result = graph.empty? ? "failed" : "passed"
           end
         end
       else
         begin
-          graph << reader
+          if t.json?
+            reader.to_json
+          else
+            graph << reader
+          end
           STDERR.puts "Expected exception" if options[:verbose]
           result = "failed"
         rescue RDF::ReaderError, RDF::Tabular::Error
@@ -89,6 +97,17 @@ def run_tc(tc, options)
         end
       end
     end
+  rescue ::RDF::Tabular::Error, IOError => e
+    # Special case
+    if t.negative_test? && t.validation?
+      result = "passed"
+    else
+      STDERR.puts "#{"exception:" unless options[:quiet]}: #{e}"
+      result = "failed"
+    end
+  rescue Interrupt
+    STDERR.puts "\nHalting"
+    exit(1)
   rescue Exception => e
     STDERR.puts "#{"exception:" unless options[:quiet]}: #{e}"
     if options[:quiet]
@@ -99,7 +118,7 @@ def run_tc(tc, options)
   end
 
 
-  if tc.json?
+  if t.json?
     options[:output].puts("\nOutput:\n" + json_result) unless options[:quiet]
   else
     options[:output].puts("\nOutput:\n" + graph.dump(:ttl, standard_prefixes: true)) unless options[:quiet]
@@ -110,7 +129,7 @@ def run_tc(tc, options)
 [ a earl:Assertion;
   earl:assertedBy <#{ASSERTOR}>;
   earl:subject <http://rubygems.org/gems/rdf-tabular>;
-  earl:test <#{tc.id}>;
+  earl:test <#{RDF::URI(options[:manifest]).join(t.id)}>;
   earl:result [
     a earl:TestResult;
     earl:outcome earl:#{result};
@@ -153,7 +172,7 @@ end
 opts.each do |opt, arg|
   case opt
   when '--help'             then help(options)
-  when '--dbg'              then ::RDF::Turtle::debug = true
+  when '--dbg'              then ::RDF::Tabular::debug = true
   when '--earl'             then options[:quiet] = options[:earl] = true
   when '--output'           then options[:output] = File.open(arg, "w")
   when '--quiet'            then options[:quiet] = true
@@ -170,9 +189,9 @@ WebMock.allow_net_connect!(net_http_connect_on_start: true)
   manifest = Fixtures::SuiteTest::BASE + "manifest-#{variant}.jsonld"
   
   Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
-    m.entries.each do |tc|
-      next unless ARGV.empty? || ARGV.any? {|n| tc.id.match(/#{n}/)}
-      run_tc(tc, options)
+    m.entries.each do |t|
+      next unless ARGV.empty? || ARGV.any? {|n| t.id.match(/#{n}/)}
+      run_tc(t, options.merge(manifest: manifest))
     end
   end
 end

@@ -294,6 +294,8 @@ module RDF::Tabular
         end unless minimal?
       end
       enum_for(:each_statement)
+    rescue IOError => e
+      raise RDF::ReaderError, e.message
     end
 
     ##
@@ -333,6 +335,7 @@ module RDF::Tabular
     # @option options [::JSON::State] :state used when dumping
     # @option options [Boolean] :atd output Abstract Table representation instead
     # @return [String]
+    # @raise [RDF::Tabular::Error]
     def to_json(options = @options)
       io = case options
       when IO, StringIO then options
@@ -361,6 +364,8 @@ module RDF::Tabular
         hash = self.send(hash_fn, options)
         ::JSON.generate(hash, json_state)
       end
+    rescue IOError => e
+      raise RDF::Tabular::Error, e.message
     end
 
     ##
