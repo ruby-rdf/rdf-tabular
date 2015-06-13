@@ -2911,8 +2911,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "If the datatype base is not numeric, boolean, a date/time type, or a duration type, the datatype format annotation provides a regular expression for the string values",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "If the datatype base is not numeric, boolean, a date/time type, or a duration type, the datatype format annotation provides a regular expression for the string values"
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test154",
@@ -2986,8 +2985,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "If the datatype format annotation is a single string, this is interpreted in the same way as if it were an object with a pattern property whose value is that string",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "If the datatype format annotation is a single string, this is interpreted in the same way as if it were an object with a pattern property whose value is that string"
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test157",
@@ -3061,8 +3059,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "If the datatype format annotation is a single string, this is interpreted in the same way as if it were an object with a pattern property whose value is that string",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "If the datatype format annotation is a single string, this is interpreted in the same way as if it were an object with a pattern property whose value is that string"
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test160",
@@ -3686,8 +3683,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "If the datatype base for a cell is boolean, the datatype format annotation provides the true and false values expected, separated by `|`.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "If the datatype base for a cell is boolean, the datatype format annotation provides the true and false values expected, separated by `|`."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test185",
@@ -3861,8 +3857,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "The supported date and time formats listed here are expressed in terms of the date field symbols defined in [UAX35] and MUST be interpreted by implementations as defined in that specification.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "The supported date and time formats listed here are expressed in terms of the date field symbols defined in [UAX35] and MUST be interpreted by implementations as defined in that specification."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test192",
@@ -4061,8 +4056,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both length and minLength are specified and they do not have the same value. ",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if both length and minLength are specified and they do not have the same value. "
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test200",
@@ -4086,8 +4080,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both length and maxLength are specified and they do not have the same value. ",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if both length and maxLength are specified and they do not have the same value. "
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test201",
@@ -4111,8 +4104,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if length, maxLength, or minLength are specified and the base datatype is not string or one of its subtypes, or a binary type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if length, maxLength, or minLength are specified and the base datatype is not string or one of its subtypes, or a binary type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test202",
@@ -4486,8 +4478,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minInclusive and minExclusive are specified, or if both maxInclusive and maxExclusive are specified. ",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if both minInclusive and minExclusive are specified, or if both maxInclusive and maxExclusive are specified. "
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test217",
@@ -4511,8 +4502,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minInclusive and minExclusive are specified, or if both maxInclusive and maxExclusive are specified. ",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if both minInclusive and minExclusive are specified, or if both maxInclusive and maxExclusive are specified. "
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test218",
@@ -4536,8 +4526,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive, or if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive, or if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test219",
@@ -4561,8 +4550,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive, or if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive, or if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test220",
@@ -4586,8 +4574,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive, or if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive, or if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test221",
@@ -4611,8 +4598,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive, or if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive, or if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test222",
@@ -4636,8 +4622,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test223",
@@ -4661,8 +4646,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test224",
@@ -4686,8 +4670,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test225",
@@ -4711,8 +4694,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test226",
@@ -4736,8 +4718,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test227",
@@ -4761,8 +4742,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test228",
@@ -5086,8 +5066,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "It MUST NOT start with `_:`.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "It MUST NOT start with `_:`."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test244",
@@ -5111,8 +5090,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "It MUST NOT be the URL of a built-in datatype.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/json"
+          "description": "It MUST NOT be the URL of a built-in datatype."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test245",
@@ -5188,6 +5166,30 @@
           ],
           "description": "it must be the name of one of the built-in datatypes defined in section 5.11.1 Built-in Datatypes",
           "testResult": "http://www.w3.org/2013/csvw/tests/test247.json"
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-json#test248",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#ToJsonTest"
+          ],
+          "title": "Unicode in non-Normalized form",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test248-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-json#test248",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:notAvailable",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:untested"
+              }
+            }
+          ],
+          "description": "No Unicode normalization (as specified in [UAX15]) is applied to these string values",
+          "testResult": "http://www.w3.org/2013/csvw/tests/test248.json"
         }
       ],
       "title": "CSVW JSON tests",
@@ -7947,8 +7949,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "If the datatype base is not numeric, boolean, a date/time type, or a duration type, the datatype format annotation provides a regular expression for the string values",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "If the datatype base is not numeric, boolean, a date/time type, or a duration type, the datatype format annotation provides a regular expression for the string values"
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test154",
@@ -8022,8 +8023,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "If the datatype format annotation is a single string, this is interpreted in the same way as if it were an object with a pattern property whose value is that string",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "If the datatype format annotation is a single string, this is interpreted in the same way as if it were an object with a pattern property whose value is that string"
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test157",
@@ -8097,8 +8097,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "If the datatype format annotation is a single string, this is interpreted in the same way as if it were an object with a pattern property whose value is that string",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "If the datatype format annotation is a single string, this is interpreted in the same way as if it were an object with a pattern property whose value is that string"
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test160",
@@ -8722,8 +8721,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "If the datatype base for a cell is boolean, the datatype format annotation provides the true and false values expected, separated by `|`.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "If the datatype base for a cell is boolean, the datatype format annotation provides the true and false values expected, separated by `|`."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test185",
@@ -8897,8 +8895,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "The supported date and time formats listed here are expressed in terms of the date field symbols defined in [UAX35] and MUST be interpreted by implementations as defined in that specification.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "The supported date and time formats listed here are expressed in terms of the date field symbols defined in [UAX35] and MUST be interpreted by implementations as defined in that specification."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test192",
@@ -9097,8 +9094,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both length and minLength are specified and they do not have the same value. ",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if both length and minLength are specified and they do not have the same value. "
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test200",
@@ -9122,8 +9118,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both length and maxLength are specified and they do not have the same value. ",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if both length and maxLength are specified and they do not have the same value. "
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test201",
@@ -9147,8 +9142,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if length, maxLength, or minLength are specified and the base datatype is not string or one of its subtypes, or a binary type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if length, maxLength, or minLength are specified and the base datatype is not string or one of its subtypes, or a binary type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test202",
@@ -9522,8 +9516,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minInclusive and minExclusive are specified, or if both maxInclusive and maxExclusive are specified. ",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if both minInclusive and minExclusive are specified, or if both maxInclusive and maxExclusive are specified. "
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test217",
@@ -9547,8 +9540,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minInclusive and minExclusive are specified, or if both maxInclusive and maxExclusive are specified. ",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if both minInclusive and minExclusive are specified, or if both maxInclusive and maxExclusive are specified. "
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test218",
@@ -9572,8 +9564,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive, or if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive, or if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test219",
@@ -9597,8 +9588,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive, or if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive, or if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test220",
@@ -9622,8 +9612,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive, or if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive, or if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test221",
@@ -9647,8 +9636,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive, or if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive, or if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test222",
@@ -9672,8 +9660,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test223",
@@ -9697,8 +9684,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test224",
@@ -9722,8 +9708,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test225",
@@ -9747,8 +9732,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test226",
@@ -9772,8 +9756,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test227",
@@ -9797,8 +9780,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "Applications MUST raise an error if minimum, minInclusive, maximum, maxInclusive, minExclusive, or maxExclusive are specified and the base datatype is not a numeric, date/time, or duration type."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test228",
@@ -10122,8 +10104,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "It MUST NOT start with `_:`.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "It MUST NOT start with `_:`."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test244",
@@ -10147,8 +10128,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "It MUST NOT be the URL of a built-in datatype.",
-          "testResult": "http://www.w3.org/2013/csvw/tests/ttl"
+          "description": "It MUST NOT be the URL of a built-in datatype."
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test245",
@@ -10224,6 +10204,30 @@
           ],
           "description": "it must be the name of one of the built-in datatypes defined in section 5.11.1 Built-in Datatypes",
           "testResult": "http://www.w3.org/2013/csvw/tests/test247.ttl"
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test248",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#ToRdfTest"
+          ],
+          "title": "Unicode in non-Normalized form",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test248-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test248",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:notAvailable",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:untested"
+              }
+            }
+          ],
+          "description": "No Unicode normalization (as specified in [UAX15]) is applied to these string values",
+          "testResult": "http://www.w3.org/2013/csvw/tests/test248.ttl"
         }
       ],
       "title": "CSVW RDF Tests",
@@ -12626,11 +12630,12 @@
               "@type": "earl:Assertion",
               "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test103",
               "subject": "http://rubygems.org/gems/rdf-tabular",
-              "mode": "earl:notAvailable",
+              "mode": "earl:automatic",
               "result": {
                 "@type": "earl:TestResult",
-                "outcome": "earl:untested"
-              }
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
           "description": "If the supplied value of an array property is not an array (eg if it is an integer), compliant applications MUST issue a warning and proceed as if the property had been supplied with an empty array"
@@ -16018,6 +16023,29 @@
             }
           ],
           "description": "it must be the name of one of the built-in datatypes defined in section 5.11.1 Built-in Datatypes"
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test248",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#PositiveValidationTest"
+          ],
+          "title": "Unicode in non-Normalized form",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test248-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test248",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:notAvailable",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:untested"
+              }
+            }
+          ],
+          "description": "No Unicode normalization (as specified in [UAX15]) is applied to these string values"
         }
       ],
       "title": "CSVW Validation Tests",

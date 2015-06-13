@@ -665,8 +665,8 @@ module RDF::Tabular
             if value["pattern"]
               begin
                 Regexp.compile(value["pattern"].to_s)
-              rescue RegexpError => e
-                errors << "#{type} has invalid property '#{key}' pattern: #{e.message}"
+              rescue
+                errors << "#{type} has invalid property '#{key}' pattern: #{$!.message}"
               end
             end
           else
@@ -686,8 +686,8 @@ module RDF::Tabular
               # Otherwise, if it exists, its a regular expression
               begin
                 Regexp.compile(value)
-              rescue RegexpError => e
-                errors << "#{type} has invalid property '#{key}': #{e.message}"
+              rescue
+                errors << "#{type} has invalid property '#{key}': #{$!.message}"
               end
             end
           end

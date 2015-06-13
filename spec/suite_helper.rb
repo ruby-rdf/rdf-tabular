@@ -126,7 +126,7 @@ module Fixtures
       end
 
       def result
-        RDF::URI(context['@base']).join(attributes["result"]).to_s
+        RDF::URI(context['@base']).join(attributes["result"]).to_s if attributes["result"]
       end
 
       def input
@@ -134,7 +134,7 @@ module Fixtures
       end
 
       def expected
-        @expected ||= RDF::Util::File.open_file(result) {|f| f.read}
+        @expected ||= RDF::Util::File.open_file(result) {|f| f.read} rescue nil
       end
       
       def evaluate?

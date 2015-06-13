@@ -32,7 +32,7 @@ def run_tc(t, options)
   if options[:verbose]
     puts "\nTestCase: #{t.inspect}"
     puts "\nInput:\n" + t.input 
-    puts "\nExpected:\n" + t.expected
+    puts "\nExpected:\n" + t.expected if t.result
   end
 
   graph = RDF::Repository.new
@@ -97,7 +97,7 @@ def run_tc(t, options)
         end
       end
     end
-  rescue ::RDF::Tabular::Error => e
+  rescue ::RDF::Tabular::Error, IOError => e
     # Special case
     if t.negative_test? && t.validation?
       result = "passed"
