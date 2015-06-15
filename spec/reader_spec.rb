@@ -32,9 +32,10 @@ describe RDF::Tabular::Reader do
   end
   
   # @see lib/rdf/spec/reader.rb in rdf-spec
+  # two failures specific to the way @input is handled in rdf-tabular make this a problem
   #it_behaves_like 'an RDF::Reader' do
   #  let(:reader_input) {doap}
-  #  let(:reader) {RDF::Tabular::Reader.new(StringIO.new(""), base_uri: "file:#{File.expand_path("..", __FILE__)}")}
+  #  let(:reader) {RDF::Tabular::Reader.new(StringIO.new(""))}
   #  let(:reader_count) {doap_count}
   #end
 

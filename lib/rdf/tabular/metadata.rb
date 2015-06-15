@@ -1001,7 +1001,7 @@ module RDF::Tabular
     def []=(key, value); object[key] = value; end
     def each(&block); object.each(&block); end
     def ==(other)
-      object == (other.is_a?(Hash) ? other : other.object)
+      object == (other.is_a?(Hash) ? other : (other.respond_to?(:object) ? other.object : other))
     end
     def to_json(args=nil); object.to_json(args); end
 
