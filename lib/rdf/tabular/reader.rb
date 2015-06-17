@@ -69,7 +69,7 @@ module RDF::Tabular
         depth do
           # If input is JSON, then the input is the metadata
           content_type = @input.respond_to?(:content_type) ? @input.content_type : ""
-          if @options[:base] =~ /\.json(?:ld)?$/ || content_type =~ %r(application/(csvm+|ld+)?json)
+          if @options[:base] =~ /\.json(?:ld)?$/ || content_type =~ %r(application/(csvm\+|ld\+)?json)
             @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
             # If @metadata is for a Table, turn it into a TableGroup
             @metadata = @metadata.to_table_group if @metadata.is_a?(Table)

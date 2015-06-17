@@ -8,12 +8,13 @@ module RDF::Tabular
   #     RDF::Format.for(:tsv)            #=> RDF::Tabular::Format
   #     RDF::Format.for("etc/foaf.csv")
   #     RDF::Format.for("etc/foaf.tsv")
-  #     RDF::Format.for(:file_name      => "etc/foaf.csv")
-  #     RDF::Format.for(:file_name      => "etc/foaf.tsv")
-  #     RDF::Format.for(:file_extension => "csv")
-  #     RDF::Format.for(:file_extension => "tsv")
-  #     RDF::Format.for(:content_type   => "text/csv")
-  #     RDF::Format.for(:content_type   => "text/tab-separated-values")
+  #     RDF::Format.for(file_name:      "etc/foaf.csv")
+  #     RDF::Format.for(file_name:      "etc/foaf.tsv")
+  #     RDF::Format.for(file_extension: "csv")
+  #     RDF::Format.for(file_extension: "tsv")
+  #     RDF::Format.for(content_type:   "text/csv")
+  #     RDF::Format.for(content_type:   "text/tab-separated-values")
+  #     RDF::Format.for(content_type:   "application/csvm+json")
   #
   # @example Obtaining serialization format MIME types
   #     RDF::Format.content_types      #=> {"text/csv" => [RDF::Tabular::Format]}
@@ -25,7 +26,10 @@ module RDF::Tabular
   class Format < RDF::Format
     content_type     'text/csv',
                      extensions: [:csv, :tsv],
-                     alias: 'text/tab-separated-values'
+                     alias: %w{
+                       text/tab-separated-values
+                       application/csvm+json
+                     }
     content_encoding 'utf-8'
 
     reader { RDF::Tabular::Reader }

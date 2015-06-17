@@ -17,9 +17,9 @@ group :debug do
 end
 
 group :development, :test do
-  gem 'simplecov', require: false
-  gem 'coveralls',      require: false
-  gem 'psych', :platforms => [:mri, :rbx]
+  gem 'simplecov',  require: false
+  gem 'coveralls',  require: false
+  gem 'psych',      platforms: [:mri, :rbx]
 end
 
 platforms :rbx do

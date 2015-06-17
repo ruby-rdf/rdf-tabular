@@ -12,9 +12,14 @@ describe RDF::Tabular::Format do
     formats = [
       :tabular,
       'etc/doap.csv',
-      {:file_name      => 'etc/doap.csv'},
-      {:file_extension => 'csv'},
-      {:content_type   => 'text/csv'},
+      'etc/doap.tsv',
+      {file_name:      'etc/doap.csv'},
+      {file_name:      'etc/doap.tsv'},
+      {file_extension: 'csv'},
+      {file_extension: 'tsv'},
+      {content_type:   'text/csv'},
+      {content_type:   'text/tab-separated-values'},
+      {content_type:   'application/csvm+json'},
     ].each do |arg|
       it "discovers with #{arg.inspect}" do
         expect(RDF::Tabular::Format).to include RDF::Format.for(arg)
