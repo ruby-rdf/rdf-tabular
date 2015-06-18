@@ -285,6 +285,28 @@ describe RDF::Tabular::Reader do
     end
   end
 
+  context "Foreign Keys" do
+    let(:path) {File.expand_path("../data/countries.json", __FILE__)}
+    it "validates consistent foreign keys", focus:true do
+      RDF::Reader.open(path, format: :tabular, validate: true, warnings: []) do |reader|
+        reader.each_statement {}
+        expect(reader.options[:warnings]).to be_empty
+      end
+    end
+
+    it "warns on duplicate primary keys" do
+      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, warnings: []) do |reader|
+        reader.each_statement {}
+        pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
+
+        # Each entry is an array of cells
+        expect(pks.map {|r| r.map(&:value).join(",")}).to eql %w(1 1)
+
+        expect(reader.options[:warnings]).to eq ["Table http://example.org/test232.csv has duplicate primary key 1"]
+      end
+    end
+  end
+
   context "Provenance" do
     {
       "country-codes-and-names.csv" => %(

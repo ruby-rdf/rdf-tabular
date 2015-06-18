@@ -1450,6 +1450,24 @@ module RDF::Tabular
       end
     end
 
+    ##
+    # List of foreign keys referencing the specified table
+    #
+    # @param [Table] table
+    # @return [Array<Hash>]
+    def foreign_keys_referencing(table)
+      Array(foreignKeys).select do |fk|
+        reference = fk['reference']
+        if reference['resource']
+          ref = context.base.join(reference['resource']).to_s
+          table.url == ref
+        else # schemaReference
+          ref = context.base.join(reference['schemaReference']).to_s
+          table.tableSchema.id == ref
+        end
+      end
+    end
+
     # Logic for accessing elements as accessors
     def method_missing(method, *args)
       if INHERITED_PROPERTIES.has_key?(method.to_sym)
