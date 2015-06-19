@@ -25,6 +25,11 @@ module RDF::Tabular
     attr_reader :warnings
 
     ##
+    # Accumulated errors found during processing
+    # @return [Array<String>]
+    attr_reader :errors
+
+    ##
     # Initializes the RDF::Tabular Reader instance.
     #
     # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>, String]       input
@@ -55,6 +60,7 @@ module RDF::Tabular
         end
 
         @options[:depth] ||= 0
+        @errors = @options.fetch(:errors, [])
         @warnings = @options.fetch(:warnings, [])
 
         debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
@@ -156,7 +162,9 @@ module RDF::Tabular
                 add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                 Reader.new(options[:original_input], options.merge(
                     no_found_metadata: true,
-                    table_resource: table_resource
+                    table_resource: table_resource,
+                    warnings: @warnings,
+                    errors: @errors,
                 )) do |r|
                   r.each_statement(&block)
                 end
@@ -177,7 +185,9 @@ module RDF::Tabular
                       base: table.url,
                       no_found_metadata: true,
                       table_resource: table_resource,
-                      fks_referencing_table: fks
+                      fks_referencing_table: fks,
+                      warnings: @warnings,
+                      errors: @errors,
                   )) do |r|
                     r.each_statement(&block)
                   end
@@ -221,6 +231,9 @@ module RDF::Tabular
               if validate? && !warnings.empty? && !@options[:warnings]
                 $stderr.puts "Warnings: #{warnings.join("\n")}"
               end
+              if validate? && !errors.empty? && !@options[:errors]
+                $stderr.puts "Errors: #{errors.join("\n")}"
+              end
             end
           end
           return
@@ -249,25 +262,7 @@ module RDF::Tabular
           # Collect primary and foreign keys if validating
           if validate?
             primary_keys << row.primaryKey
-
-            schema = metadata.tableSchema
-            # Add row as foreignKey source
-            Array(schema ? schema.foreignKeys : []).each do |fk|
-              colRef = Array(fk['columnReference'])
-
-              # Referenced cells, in order
-              cells = colRef.map {|n| row.values.detect {|cell| cell.column.name == n}}.compact
-              (fk[:reference_from] ||= {})[cells.map(&:value)] ||= row
-            end
-
-            # Add row as foreignKey dest
-            Array(options[:fks_referencing_table]).each do |fk|
-              colRef = Array(fk['reference']['columnReference'])
-
-              # Referenced cells, in order
-              cells = colRef.map {|n| row.values.detect {|cell| cell.column.name == n}}.compact
-              (fk[:reference_to] ||= {})[cells.map(&:value)] ||= row
-            end
+            collect_foreign_key_references(metadata, options[:fks_referencing_table], row)
           end
 
           next if metadata.suppressOutput
@@ -285,6 +280,9 @@ module RDF::Tabular
             end
           end
           row.values.each_with_index do |cell, index|
+            # Collect cell errors
+            errors << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
+                      cell.errors.join("\n") unless Array(cell.errors).empty?
             next if cell.column.suppressOutput # Skip ignored cells
             cell_subject = cell.aboutUrl || default_cell_subject
             propertyUrl = cell.propertyUrl || RDF::URI("#{metadata.url}##{cell.column.name}")
@@ -333,6 +331,19 @@ module RDF::Tabular
         end
       end
       enum_for(:each_triple)
+    end
+
+    ##
+    # Validate and raise an exception if any errors are found while processing either metadata or tables
+    # @return [self]
+    # @raise [Error]
+    def validate!
+      each_statement {} # Read all rows
+      raise Error, errors.join("\n") unless errors.empty?
+      self
+    rescue RDF::ReaderError => e
+      raise Error, e.message
+      self
     end
 
     ##
@@ -452,12 +463,18 @@ module RDF::Tabular
               end
             end
 
+            # Lastly, if validating, validate foreign key integrity
+            validate_foreign_keys(input) if validate?
+
             # Result is table_group or array
             minimal? ? tables : table_group
           ensure
             warnings = @warnings.concat(input.warnings)
             if validate? && !warnings.empty? && !@options[:warnings]
               $stderr.puts "Warnings: #{warnings.join("\n")}"
+            end
+            if validate? && !errors.empty? && !@options[:errors]
+              $stderr.puts "Errors: #{errors.join("\n")}"
             end
           end
         end
@@ -480,8 +497,11 @@ module RDF::Tabular
             next
           end
 
-          # Collect primary keys if validating
-          primary_keys << row.primaryKey if validate?
+          # Collect primary and foreign keys if validating
+          if validate?
+            primary_keys << row.primaryKey
+            collect_foreign_key_references(metadata, options[:fks_referencing_table], row)
+          end
 
           # Output row-level metadata
           r, a, values = {}, {}, {}
@@ -667,20 +687,54 @@ module RDF::Tabular
       pk_strings = {}
       primary_keys.reject(&:empty?).each do |row_pks|
         pk_names = row_pks.map {|cell| cell.value}.join(",")
-        warnings << "Table #{metadata.url} has duplicate primary key #{pk_names}" if pk_strings.has_key?(pk_names)
+        errors << "Table #{metadata.url} has duplicate primary key #{pk_names}" if pk_strings.has_key?(pk_names)
         pk_strings[pk_names] ||= 0
         pk_strings[pk_names] += 1
       end
     end
 
+    # Collect foreign key references
+    # @param [Table] metadata
+    # @param [Array<Hash>] foreign_keys referencing this table
+    # @param [Row] row
+    def collect_foreign_key_references(metadata, foreign_keys, row)
+      schema = metadata.tableSchema
+
+      # Add row as foreignKey source
+      Array(schema ? schema.foreignKeys : []).each do |fk|
+        colRef = Array(fk['columnReference'])
+
+        # Referenced cells, in order
+        cells = colRef.map {|n| row.values.detect {|cell| cell.column.name == n}}.compact
+        cell_values = cells.map {|cell| cell.stringValue unless cell.stringValue.to_s.empty?}.compact
+        next if cell_values.empty?  # Don't record if empty
+        (fk[:reference_from] ||= {})[cell_values] ||= row
+      end
+
+      # Add row as foreignKey dest
+      Array(foreign_keys).each do |fk|
+        colRef = Array(fk['reference']['columnReference'])
+
+        # Referenced cells, in order
+        cells = colRef.map {|n| row.values.detect {|cell| cell.column.name == n}}.compact
+        fk[:reference_to] ||= {}
+        cell_values = cells.map {|cell| cell.stringValue unless cell.stringValue.to_s.empty?}.compact
+        next if cell_values.empty?  # Don't record if empty
+        errors << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}): found duplicate foreign key target: #{cell_values.map(&:to_s).inspect}" if fk[:reference_to][cell_values]
+        fk[:reference_to][cell_values] ||= row
+      end
+    end
+
     # Validate foreign keys
     def validate_foreign_keys(metadata)
-      metadata.tables.map(&:tableSchema).compact.each do |schema|
+      metadata.tables.each do |table|
+        next if (schema = table.tableSchema).nil?
         schema.foreignKeys.each do |fk|
           # Verify that reference_from entry exists in reference_to
           fk.fetch(:reference_from, {}).each do |cell_values, row|
             unless fk.fetch(:reference_to, {}).has_key?(cell_values)
-              warnings << "Foreign Key violation, expected to find #{cell_values.map(&:to_s).inspect}"
+              errors << "Table #{table.url} row #{row.number}(src #{row.sourceNumber}): " +
+                        "Foreign Key violation, expected to find #{cell_values.map(&:to_s).inspect}"
             end
           end
         end if schema.foreignKeys

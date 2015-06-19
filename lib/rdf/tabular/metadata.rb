@@ -358,7 +358,7 @@ module RDF::Tabular
               value
             else
               warn "#{type} has invalid property '@id' (#{value.inspect}): expected a string"
-              ""
+              ""  # Default value
             end
             @id = @options[:base].join(object[:@id])
           else
@@ -993,7 +993,7 @@ module RDF::Tabular
     end
 
     def inspect
-      self.class.name + object.inspect
+      self.class.name + (respond_to?(:to_atd) ? to_atd : object).inspect
     end
 
     # Proxy to @object
@@ -1995,6 +1995,10 @@ module RDF::Tabular
           "errors" => self.errors
         }.delete_if {|k,v| Array(v).empty?}
       end
+
+      def inspect
+        self.class.name + to_atd.inspect
+      end
     end
 
     # Row values, hashed by `name`
@@ -2113,7 +2117,6 @@ module RDF::Tabular
         end
         cell.value = (column.separator ? cell_values : cell_values.first)
         cell.errors = cell_errors
-        metadata.send(:warn, "row #{self.number}(src #{self.sourceNumber}, col #{cell.column.sourceNumber}): " + cell.errors.join("\n")) unless cell_errors.empty?
 
         map_values[columns[index - skipColumns].name] = (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
@@ -2147,11 +2150,15 @@ module RDF::Tabular
       {
         "@id" => id.to_s,
         "@type" => "Row",
-        "table" => (table.id.to_s if table.id),
+        "table" => (table.id || table.url),
         "number" => self.number,
         "sourceNumber" => self.sourceNumber,
-        "cells" => @values.map(&:to_atd)
+        "cells" => @values.map(&:value)
       }.delete_if {|k,v| v.nil?}
+    end
+
+    def inspect
+      self.class.name + to_atd.inspect
     end
 
   private

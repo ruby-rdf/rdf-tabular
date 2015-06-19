@@ -16,18 +16,20 @@ describe RDF::Tabular::Reader do
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
-            #next unless t.id.match(/25\d/)
+            #next unless t.id.match(/validation/)
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               t.debug = []
               t.warnings = []
+              t.errors = []
               begin
                 RDF::Tabular::Reader.open(t.action,
                   t.reader_options.merge(
                     base_uri: t.base,
                     validate: t.validation?,
                     debug:    t.debug,
-                    warnings: t.warnings
+                    warnings: t.warnings,
+                    errors: t.errors,
                   )
                 ) do |reader|
                   expect(reader).to be_a RDF::Reader
@@ -48,37 +50,36 @@ describe RDF::Tabular::Reader do
                         expect(::JSON.parse(result)).to be_a(Hash)
                       end
                     else # RDF or Validation
-                      begin
-                        graph << reader
-                      rescue Exception => e
-                        expect(e.message).to produce("Not exception #{e.inspect}\n#{e.backtrace.join("\n")}", t.debug)
-                      end
-
                       if t.sparql?
+                        graph << reader
                         RDF::Util::File.open_file(t.result) do |query|
                           expect(graph).to pass_query(query, t)
                         end
                       elsif t.evaluate?
+                        graph << reader
                         output_graph = RDF::Repository.load(t.result, format: :ttl, base_uri:  t.base)
                         expect(graph).to be_equivalent_graph(output_graph, t)
                       elsif t.validation?
-                        expect(graph).to be_a(RDF::Enumerable)
+                        expect {reader.validate!}.not_to raise_error
 
                         if t.warning?
                           expect(t.warnings.length).to be >= 1
                         else
                           expect(t.warnings).to produce [], t
                         end
+                        expect(t.errors).to produce [], t
                       end
                     end
                   elsif t.json?
                     expect {
                       reader.to_json
                     }.to raise_error(RDF::Tabular::Error)
-                  else
+                  elsif t.sparql? || t.evaluate?
                     expect {
                       graph << reader
                     }.to raise_error(RDF::ReaderError)
+                  elsif t.validation?
+                    expect {reader.validate!}.to raise_error(RDF::Tabular::Error)
                   end
                 end
               rescue IOError, RDF::Tabular::Error
