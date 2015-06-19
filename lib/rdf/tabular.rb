@@ -1,9 +1,5 @@
 $:.unshift(File.expand_path("..", __FILE__))
 require 'rdf' # @see http://rubygems.org/gems/rdf
-begin
-  require 'byebug'  # REMOVE ME
-rescue LoadError
-end
 require 'csv'
 
 module RDF
@@ -27,6 +23,9 @@ module RDF
     autoload :TableGroup, 'rdf/tabular/metadata'
     autoload :Transformation,   'rdf/tabular/metadata'
     autoload :VERSION,    'rdf/tabular/version'
+
+    # Metadata errors detected
+    class Error < RDF::ReaderError; end
 
     def self.debug?; @debug; end
     def self.debug=(value); @debug = value; end

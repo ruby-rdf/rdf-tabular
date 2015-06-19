@@ -56,7 +56,7 @@
     "byte": "xsd:byte",
     "date": "xsd:date",
     "dateTime": "xsd:dateTime",
-    "dateTimeDuration": "xsd:dateTimeDuration",
+    "dayTimeDuration": "xsd:dayTimeDuration",
     "dateTimeStamp": "xsd:dateTimeStamp",
     "decimal": "xsd:decimal",
     "double": "xsd:double",

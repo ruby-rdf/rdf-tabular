@@ -7,7 +7,7 @@ require 'open-uri'
 # For now, override RDF::Utils::File.open_file to look for the file locally before attempting to retrieve it
 module RDF::Util
   module File
-    REMOTE_PATH = "http://w3c.github.io/csvw/"
+    REMOTE_PATH = "http://www.w3.org/2013/csvw/"
     LOCAL_PATH = ::File.expand_path("../w3c-csvw", __FILE__) + '/'
 
     class << self
@@ -28,14 +28,18 @@ module RDF::Util
       when filename_or_url.to_s =~ /^file:/
         path = filename_or_url.to_s[5..-1]
         Kernel.open(path.to_s, &block)
-      when (filename_or_url.to_s =~ %r{^#{REMOTE_PATH}} && ::File.exist?(filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)))
+      when filename_or_url.to_s =~ %r{http://www.w3.org/ns/csvw/?}
+        ::File.open(::File.expand_path("../../etc/csvw.jsonld", __FILE__), &block)
+      when (filename_or_url.to_s =~ %r{^#{REMOTE_PATH}} && Dir.exist?(LOCAL_PATH))
         begin
           #puts "attempt to open #{filename_or_url} locally"
-          localpath = filename_or_url.to_s.sub(REMOTE_PATH, LOCAL_PATH)
+          localpath = RDF::URI(filename_or_url)
+          localpath.query = nil
+          localpath = localpath.to_s.sub(REMOTE_PATH, LOCAL_PATH)
           response = begin
             ::File.open(localpath)
-          rescue Errno::ENOENT
-            Kernel.open(filename_or_url.to_s, "r:utf-8", 'Accept' => "application/ld+json, application/json, text/csv")
+          rescue Errno::ENOENT => e
+            raise IOError, e.message
           end
           document_options = {
             base_uri:     RDF::URI(filename_or_url),
@@ -67,7 +71,22 @@ module RDF::Util
           end
         end
       else
-        original_open_file(filename_or_url, options, &block)
+        original_open_file(filename_or_url, options) do |remote_document|
+          # Add Link header, if necessary
+          remote_document.headers[:link] = options[:httpLink] if options[:httpLink]
+
+          # Override content_type
+          if options[:contentType]
+            remote_document.headers[:content_type] = options[:contentType]
+            remote_document.instance_variable_set(:@content_type, options[:contentType].split(';').first)
+          end
+
+          if block_given?
+            yield remote_document
+          else
+            remote_document
+          end
+        end
       end
     end
   end
@@ -75,10 +94,9 @@ end
 
 module Fixtures
   module SuiteTest
-    BASE = "http://w3c.github.io/csvw/tests/"
+    BASE = "http://www.w3.org/2013/csvw/tests/"
     class Manifest < JSON::LD::Resource
       def self.open(file, base)
-        #puts "open: #{file}"
         RDF::Util::File.open_file(file) do |file|
           json = ::JSON.load(file.read)
           yield Manifest.new(json, context: json['@context'].merge('@base' => base))
@@ -94,6 +112,7 @@ module Fixtures
     class Entry < JSON::LD::Resource
       attr_accessor :debug
       attr_accessor :warnings
+      attr_accessor :errors
       attr_accessor :metadata
 
       def id
@@ -110,7 +129,7 @@ module Fixtures
       end
 
       def result
-        RDF::URI(context['@base']).join(attributes["result"]).to_s
+        RDF::URI(context['@base']).join(attributes["result"]).to_s if attributes["result"]
       end
 
       def input
@@ -118,15 +137,15 @@ module Fixtures
       end
 
       def expected
-        @expected ||= RDF::Util::File.open_file(result) {|f| f.read}
+        @expected ||= RDF::Util::File.open_file(result) {|f| f.read} rescue nil
       end
       
       def evaluate?
-        type.include?("To")
+        type.to_s.include?("To")
       end
       
       def sparql?
-        type.include?("Sparql")
+        type.to_s.include?("Sparql")
       end
 
       def rdf?
@@ -138,11 +157,11 @@ module Fixtures
       end
 
       def validation?
-        type.include?("Validation")
+        type.to_s.include?("Validation")
       end
 
       def warning?
-        type.include?("Warning")
+        type.to_s.include?("Warning")
       end
 
       def positive_test?
@@ -150,7 +169,7 @@ module Fixtures
       end
       
       def negative_test?
-        type.include?("Negative")
+        type.to_s.include?("Negative")
       end
 
       def reader_options

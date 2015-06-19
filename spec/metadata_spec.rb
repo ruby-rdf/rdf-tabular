@@ -37,7 +37,15 @@ describe RDF::Tabular::Metadata do
         valid: (%w(anyAtomicType string token language Name NCName boolean gYear number binary datetime any xml html json) +
                [{"base" => "string"}]
                ),
-        invalid: [1, true, "foo", "anyType", "anySimpleType", "IDREFS"]
+        invalid: [1, true, "http://example.org/",
+                 {"base" => "foo"},
+                 {"base" => "anyType"},
+                 {"base" => "anySimpleType"},
+                 {"base" => "IDREFS"},
+                 ],
+        errors: [{"@id" => "_:foo"},
+                 {"@id" => "http://www.w3.org/2001/XMLSchema#string"},
+               ]
       },
       default: {
         valid: ["foo"],
@@ -68,8 +76,8 @@ describe RDF::Tabular::Metadata do
         invalid: [nil, "foo", 1, 0, "true", "false", "TrUe", "fAlSe", "1", "0"],
       },
       separator: {
-        valid: %w(, a | :) + [nil],
-        invalid: [1, false] + %w(foo ::)
+        valid: %w(, a | : foo ::) + [nil],
+        invalid: [1, false]
       },
       "textDirection" => {
         valid: %w(rtl ltr),
@@ -87,17 +95,23 @@ describe RDF::Tabular::Metadata do
       context prop.to_s do
         if allowed
           it "validates" do
-            params[:valid].each do |v|
+            params.fetch(:valid, {}).each do |v|
               subject.send("#{prop}=".to_sym, v)
               expect(subject.errors).to be_empty
               expect(subject.warnings).to be_empty
             end
           end
           it "invalidates" do
-            params[:invalid].each do |v|
+            params.fetch(:invalid, {}).each do |v|
               subject.send("#{prop}=".to_sym, v)
               expect(subject.errors).to be_empty
               expect(subject.warnings).not_to be_empty
+            end
+          end
+          it "errors" do
+            params.fetch(:error, {}).each do |v|
+              subject.send("#{prop}=".to_sym, v)
+              expect(subject.errors).not_to be_empty
             end
           end
         else
@@ -592,8 +606,8 @@ describe RDF::Tabular::Metadata do
         warning: %w(foo true 1)
       },
       transformations: {
-        valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
-        warning: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+        valid: [[RDF::Tabular::Transformation.new({url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"))]],
+        warning: [RDF::Tabular::Transformation.new({url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"))] +
                  %w(foo true 1)
       },
       dialect: {
@@ -651,8 +665,8 @@ describe RDF::Tabular::Metadata do
         warning: [1]
       },
       transformations: {
-        valid: [[RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")]],
-        warning: [RDF::Tabular::Transformation.new(url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/")] +
+        valid: [[RDF::Tabular::Transformation.new({url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"))]],
+        warning: [RDF::Tabular::Transformation.new({url: "http://example", targetFormat: "http://example", scriptFormat: "http://example/"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"))] +
                  %w(foo true 1)
       },
       notes: {
@@ -1014,6 +1028,7 @@ describe RDF::Tabular::Metadata do
         # Strings
         "string with no constraints" => {base: "string", value: "foo", result: "foo"},
         "string with matching length" => {base: "string", value: "foo", length: 3, result: "foo"},
+        "string matching null when required" => {base: "string", value: "NULL", null: "NULL", required: true},
         "string with wrong length" => {
           base: "string",
           value: "foo",
@@ -1040,12 +1055,12 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with matching pattern" => {
           base: "decimal",
-          format: {pattern: '\d{3}'},
+          format: {"pattern" => '\d{3}'},
           value: "123"
         },
         "decimal with wrong pattern" => {
           base: "decimal",
-          format: {pattern: '\d{4}'},
+          format: {"pattern" => '\d{4}'},
           value: "123",
           errors: [/123 does not match pattern/]
         },
@@ -1056,20 +1071,20 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with explicit groupChar" => {
           base: "decimal",
-          format: {groupChar: ";"},
+          format: {"groupChar" => ";"},
           value: "123;456.789",
           result: "123456.789"
         },
         "decimal with repeated groupChar" => {
           base: "decimal",
-          format: {groupChar: ";"},
+          format: {"groupChar" => ";"},
           value: "123;;456.789",
           result: "123;;456.789",
           errors: [/has repeating/]
         },
         "decimal with explicit decimalChar" => {
           base: "decimal",
-          format: {decimalChar: ";"},
+          format: {"decimalChar" => ";"},
           value: "123456;789",
           result: "123456.789"
         },
@@ -1121,7 +1136,7 @@ describe RDF::Tabular::Metadata do
         "NaN number" => {base: "number", value: "NaN"},
         "INF number" => {base: "number", value: "INF"},
         "-INF number" => {base: "number", value: "-INF"},
-        "valid float" => {base: "float", value: "1234.456E789"},
+        "valid float" => {base: "float", value: "1234.456E7"},
         "invalid float" => {base: "float", value: "1z", errors: ["1z is not a valid float"]},
         "NaN float" => {base: "float", value: "NaN"},
         "INF float" => {base: "float", value: "INF"},
@@ -1152,6 +1167,7 @@ describe RDF::Tabular::Metadata do
         "validate date M.d.yyyy" => {base: "date", value: "3.22.2015", format: "M.d.yyyy", result: "2015-03-22"},
 
         # Times
+        "valid time HH:mm:ss.S" => {base: "time", value: "15:02:37.1", format: "HH:mm:ss.S", result: "15:02:37.1"},
         "valid time HH:mm:ss" => {base: "time", value: "15:02:37", format: "HH:mm:ss", result: "15:02:37"},
         "valid time HHmmss" => {base: "time", value: "150237", format: "HHmmss", result: "15:02:37"},
         "valid time HH:mm" => {base: "time", value: "15:02", format: "HH:mm", result: "15:02:00"},
@@ -1159,6 +1175,7 @@ describe RDF::Tabular::Metadata do
 
         # DateTimes
         "valid dateTime yyyy-MM-ddTHH:mm:ss" => {base: "dateTime", value: "2015-03-15T15:02:37", format: "yyyy-MM-ddTHH:mm:ss", result: "2015-03-15T15:02:37"},
+        "valid dateTime yyyy-MM-ddTHH:mm:ss.S" => {base: "dateTime", value: "2015-03-15T15:02:37.1", format: "yyyy-MM-ddTHH:mm:ss.S", result: "2015-03-15T15:02:37.1"},
         "valid dateTime yyyy-MM-dd HH:mm:ss" => {base: "dateTime", value: "2015-03-15 15:02:37", format: "yyyy-MM-dd HH:mm:ss", result: "2015-03-15T15:02:37"},
         "valid dateTime yyyyMMdd HHmmss"   => {base: "dateTime", value: "20150315 150237",   format: "yyyyMMdd HHmmss",   result: "2015-03-15T15:02:37"},
         "valid dateTime dd-MM-yyyy HH:mm" => {base: "dateTime", value: "15-03-2015 15:02", format: "dd-MM-yyyy HH:mm", result: "2015-03-15T15:02:00"},
@@ -1210,17 +1227,6 @@ describe RDF::Tabular::Metadata do
         "valid Name" => {base: "Name", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.Name)},
         "valid NMTOKEN" => {base: "NMTOKEN", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.NMTOKEN)},
 
-        # Unsupported datatypes
-        "anyType not allowed" => {base: "anyType", value: "some thing", errors: [/unsupported datatype/]},
-        "anySimpleType not allowed" => {base: "anySimpleType", value: "some thing", errors: [/unsupported datatype/]},
-        "ENTITIES not allowed" => {base: "ENTITIES", value: "some thing", errors: [/unsupported datatype/]},
-        "IDREFS not allowed" => {base: "IDREFS", value: "some thing", errors: [/unsupported datatype/]},
-        "NMTOKENS not allowed" => {base: "NMTOKENS", value: "some thing", errors: [/unsupported datatype/]},
-        "ENTITY not allowed" => {base: "ENTITY", value: "something", errors: [/unsupported datatype/]},
-        "ID not allowed" => {base: "ID", value: "something", errors: [/unsupported datatype/]},
-        "IDREF not allowed" => {base: "IDREF", value: "something", errors: [/unsupported datatype/]},
-        "NOTATION not allowed" => {base: "NOTATION", value: "some:thing", errors: [/unsupported datatype/]},
-
         # Aliases
         "number is alias for double" => {base: "number", value: "1234.456E789", result: RDF::Literal("1234.456E789", datatype: RDF::XSD.double)},
         "binary is alias for base64Binary" => {base: "binary", value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)},
@@ -1268,6 +1274,23 @@ describe RDF::Tabular::Metadata do
           end
 
           specify {expect(subject.value).to eql result}
+        end
+      end
+
+      context "Unsupported datatypes" do
+        %w(anyType anySimpleType ENTITIES IDREFS NMTOKENS ENTITY ID IDREF NOTATAION foo).each do |base|
+          it "detects #{base} as unsupported" do
+            md = RDF::Tabular::Table.new({
+             url: "http://example.com/table.csv",
+              tableSchema: {
+                columns: [{
+                  name: "name",
+                  datatype: base
+                }]
+              }
+            })
+            expect(md.warnings).not_to be_empty
+          end
         end
       end
     end
@@ -1511,11 +1534,26 @@ describe RDF::Tabular::Metadata do
           "url": "http://example.org/table1",
           "tableSchema": {"columns": [{"titles": "foo"}]}
         }),
-        R: true
+        R: false
+      },
+      "tables with mismatch columns on name/titles" => {
+        A: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"name": "foo"}]}
+        }),
+        B: %({
+          "@context": "http://www.w3.org/ns/csvw",
+          "@type": "Table",
+          "url": "http://example.org/table1",
+          "tableSchema": {"columns": [{"titles": "bar"}]}
+        }),
+        R: false
       },
     }.each do |name, props|
       it name do
-        a = described_class.new(::JSON.parse(props[:A]))
+        a = described_class.new(::JSON.parse(props[:A]), validate: true)
         b = described_class.new(::JSON.parse(props[:B]))
         if props[:R]
           expect {a.verify_compatible!(b)}.not_to raise_error

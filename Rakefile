@@ -71,3 +71,12 @@ task :doap do
   RDF::NTriples::Writer.open("etc/doap.nt") {|w| w <<g }
   RDF::Turtle::Writer.open("etc/doap.ttl", standard_prefixes: true) {|w| w <<g }
 end
+
+desc "Generate etc/earl.html from etc/earl.ttl and etc/doap.ttl"
+task :earl => "etc/earl.html"
+file "etc/earl.jsonld" => %w(etc/earl.ttl etc/doap.ttl) do
+  %x{cd etc; earl-report --format json -o earl.jsonld earl.ttl}
+end
+file "etc/earl.html" => "etc/earl.jsonld" do
+  %x{cd etc; earl-report --format json -o earl.jsonld earl.ttl}
+end

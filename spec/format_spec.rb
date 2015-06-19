@@ -4,19 +4,22 @@ require 'spec_helper'
 require 'rdf/spec/format'
 
 describe RDF::Tabular::Format do
-  before :each do
-    @format_class = described_class
+  it_behaves_like 'an RDF::Format' do
+    let(:format_class) {RDF::Tabular::Format}
   end
-
-  include RDF_Format
 
   describe ".for" do
     formats = [
       :tabular,
       'etc/doap.csv',
-      {:file_name      => 'etc/doap.csv'},
-      {:file_extension => 'csv'},
-      {:content_type   => 'text/csv'},
+      'etc/doap.tsv',
+      {file_name:      'etc/doap.csv'},
+      {file_name:      'etc/doap.tsv'},
+      {file_extension: 'csv'},
+      {file_extension: 'tsv'},
+      {content_type:   'text/csv'},
+      {content_type:   'text/tab-separated-values'},
+      {content_type:   'application/csvm+json'},
     ].each do |arg|
       it "discovers with #{arg.inspect}" do
         expect(RDF::Tabular::Format).to include RDF::Format.for(arg)
@@ -25,6 +28,6 @@ describe RDF::Tabular::Format do
   end
 
   describe "#to_sym" do
-    specify {expect(@format_class.to_sym).to eq :tabular}
+    specify {expect(described_class.to_sym).to eq :tabular}
   end
 end

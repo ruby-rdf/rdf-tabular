@@ -3,12 +3,10 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'rdf/spec/reader'
 
 describe RDF::Tabular::Reader do
-  let!(:doap) {File.expand_path("../../etc/doap.ttl", __FILE__)}
-  let!(:doap_count) {File.open(doap).each_line.to_a.length}
+  let!(:doap) {File.expand_path("../../etc/doap.csv", __FILE__)}
+  let!(:doap_count) {9}
 
   before(:each) do
-    @reader = RDF::Tabular::Reader.new(StringIO.new(""), base_uri: "file:#{File.expand_path("..", __FILE__)}")
-
     WebMock.stub_request(:any, %r(.*example.org.*)).
       to_return(lambda {|request|
         file = request.uri.to_s.split('/').last
@@ -18,15 +16,15 @@ describe RDF::Tabular::Reader do
         else 'text/plain'
         end
 
-        case file
-        when "metadata.json", "country-codes-and-names.csv-metadata.json"
-          {status: 401}
-        else
+        path = File.expand_path("../data/#{file}", __FILE__)
+        if File.exist?(path)
           {
-            body: File.read(File.expand_path("../data/#{file}", __FILE__)),
+            body: File.read(path),
             status: 200,
             headers: {'Content-Type' => content_type}
           }
+        else
+          {status: 401}
         end
       })
 
@@ -34,7 +32,12 @@ describe RDF::Tabular::Reader do
   end
   
   # @see lib/rdf/spec/reader.rb in rdf-spec
-  #include RDF_Reader
+  # two failures specific to the way @input is handled in rdf-tabular make this a problem
+  #it_behaves_like 'an RDF::Reader' do
+  #  let(:reader_input) {doap}
+  #  let(:reader) {RDF::Tabular::Reader.new(StringIO.new(""))}
+  #  let(:reader_count) {doap_count}
+  #end
 
   it "should be discoverable" do
     readers = [
@@ -168,7 +171,7 @@ describe RDF::Tabular::Reader do
 
           it "standard mode" do
             expected = File.expand_path("../data/#{ttl}", __FILE__)
-            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, validate: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
               graph = RDF::Graph.new << reader
               graph2 = RDF::Graph.load(expected, base_uri: about)
               expect(graph).to be_equivalent_graph(graph2,
@@ -254,6 +257,41 @@ describe RDF::Tabular::Reader do
             end
           end
         end
+      end
+    end
+  end
+
+  context "Primary Keys" do
+    it "has expected primary keys" do
+      RDF::Reader.open("http://example.org/countries.json", format: :tabular, validate: true) do |reader|
+        reader.each_statement {}
+        pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
+
+        # Each entry is an array of cells
+        expect(pks.map {|r| r.map(&:value).join(",")}).to eql %w(AD AE AF)
+      end
+    end
+
+    it "errors on duplicate primary keys" do
+      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, errors: []) do |reader|
+        expect {reader.validate!}.to raise_error(RDF::Tabular::Error)
+
+        pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
+
+        # Each entry is an array of cells
+        expect(pks.map {|r| r.map(&:value).join(",")}).to eql %w(1 1)
+
+        expect(reader.options[:errors]).to eq ["Table http://example.org/test232.csv has duplicate primary key 1"]
+      end
+    end
+  end
+
+  context "Foreign Keys" do
+    let(:path) {File.expand_path("../data/countries.json", __FILE__)}
+    it "validates consistent foreign keys" do
+      RDF::Reader.open(path, format: :tabular, validate: true, warnings: []) do |reader|
+        reader.each_statement {}
+        expect(reader.options[:warnings]).to be_empty
       end
     end
   end
