@@ -4866,7 +4866,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "As defined in [tabular-data-model], validators MUST check that each row has a unique combination of values of cells in the indicated columns.",
+          "description": "Validators MUST raise errors if there is more than one row with the same primary key",
           "testResult": "http://www.w3.org/2013/csvw/tests/test232.json"
         },
         {
@@ -4916,7 +4916,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "As defined in [tabular-data-model], validators MUST check that each row has a unique combination of values of cells in the indicated columns.",
+          "description": "Validators MUST raise errors if there is more than one row with the same primary key",
           "testResult": "http://www.w3.org/2013/csvw/tests/test234.json"
         },
         {
@@ -5181,11 +5181,12 @@
               "@type": "earl:Assertion",
               "test": "http://www.w3.org/2013/csvw/tests/manifest-json#test248",
               "subject": "http://rubygems.org/gems/rdf-tabular",
-              "mode": "earl:notAvailable",
+              "mode": "earl:automatic",
               "result": {
                 "@type": "earl:TestResult",
-                "outcome": "earl:untested"
-              }
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
           "description": "No Unicode normalization (as specified in [UAX15]) is applied to these string values",
@@ -9904,7 +9905,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "As defined in [tabular-data-model], validators MUST check that each row has a unique combination of values of cells in the indicated columns.",
+          "description": "Validators MUST raise errors if there is more than one row with the same primary key",
           "testResult": "http://www.w3.org/2013/csvw/tests/test232.ttl"
         },
         {
@@ -9954,7 +9955,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "As defined in [tabular-data-model], validators MUST check that each row has a unique combination of values of cells in the indicated columns.",
+          "description": "Validators MUST raise errors if there is more than one row with the same primary key",
           "testResult": "http://www.w3.org/2013/csvw/tests/test234.ttl"
         },
         {
@@ -10219,11 +10220,12 @@
               "@type": "earl:Assertion",
               "test": "http://www.w3.org/2013/csvw/tests/manifest-rdf#test248",
               "subject": "http://rubygems.org/gems/rdf-tabular",
-              "mode": "earl:notAvailable",
+              "mode": "earl:automatic",
               "result": {
                 "@type": "earl:TestResult",
-                "outcome": "earl:untested"
-              }
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
           "description": "No Unicode normalization (as specified in [UAX15]) is applied to these string values",
@@ -11013,7 +11015,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#PositiveValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "roles example",
           "testAction": "http://www.w3.org/2013/csvw/tests/test034/metadata.json",
@@ -11037,7 +11039,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#PositiveValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "roles minimal",
           "testAction": "http://www.w3.org/2013/csvw/tests/test035/metadata.json",
@@ -13149,7 +13151,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "required column with empty cell",
           "testAction": "http://www.w3.org/2013/csvw/tests/test125-metadata.json",
@@ -13173,7 +13175,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "required column with cell matching null",
           "testAction": "http://www.w3.org/2013/csvw/tests/test126-metadata.json",
@@ -13845,7 +13847,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "string format (value not matching format)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test154-metadata.json",
@@ -13917,7 +13919,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "number format (value not matching format)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test157-metadata.json",
@@ -13989,7 +13991,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "number format (not matching values with pattern)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test160-metadata.json",
@@ -14013,7 +14015,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "number format (not matching values without pattern)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test161-metadata.json",
@@ -14037,7 +14039,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "numeric format (consecutive groupChar)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test162-metadata.json",
@@ -14061,7 +14063,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "integer datatype with decimalChar",
           "testAction": "http://www.w3.org/2013/csvw/tests/test163-metadata.json",
@@ -14085,7 +14087,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "decimal datatype with exponent",
           "testAction": "http://www.w3.org/2013/csvw/tests/test164-metadata.json",
@@ -14109,7 +14111,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "decimal type with NaN",
           "testAction": "http://www.w3.org/2013/csvw/tests/test165-metadata.json",
@@ -14133,7 +14135,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "decimal type with INF",
           "testAction": "http://www.w3.org/2013/csvw/tests/test166-metadata.json",
@@ -14157,7 +14159,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "decimal type with -INF",
           "testAction": "http://www.w3.org/2013/csvw/tests/test167-metadata.json",
@@ -14205,7 +14207,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid decimal",
           "testAction": "http://www.w3.org/2013/csvw/tests/test169-metadata.json",
@@ -14277,7 +14279,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid byte",
           "testAction": "http://www.w3.org/2013/csvw/tests/test172-metadata.json",
@@ -14301,7 +14303,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invald unsignedLong",
           "testAction": "http://www.w3.org/2013/csvw/tests/test173-metadata.json",
@@ -14325,7 +14327,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid unsignedShort",
           "testAction": "http://www.w3.org/2013/csvw/tests/test174-metadata.json",
@@ -14349,7 +14351,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid unsignedByte",
           "testAction": "http://www.w3.org/2013/csvw/tests/test175-metadata.json",
@@ -14373,7 +14375,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid positiveInteger",
           "testAction": "http://www.w3.org/2013/csvw/tests/test176-metadata.json",
@@ -14397,7 +14399,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid negativeInteger",
           "testAction": "http://www.w3.org/2013/csvw/tests/test177-metadata.json",
@@ -14421,7 +14423,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid nonPositiveInteger",
           "testAction": "http://www.w3.org/2013/csvw/tests/test178-metadata.json",
@@ -14445,7 +14447,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid nonNegativeInteger",
           "testAction": "http://www.w3.org/2013/csvw/tests/test179-metadata.json",
@@ -14469,7 +14471,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid double",
           "testAction": "http://www.w3.org/2013/csvw/tests/test180-metadata.json",
@@ -14493,7 +14495,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid number",
           "testAction": "http://www.w3.org/2013/csvw/tests/test181-metadata.json",
@@ -14517,7 +14519,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "invalid float",
           "testAction": "http://www.w3.org/2013/csvw/tests/test182-metadata.json",
@@ -14589,7 +14591,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "boolean format (value not matching format)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test185-metadata.json",
@@ -14613,7 +14615,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "boolean format (not matching datatype)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test186-metadata.json",
@@ -14757,7 +14759,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "date format (value not matching format)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test192-metadata.json",
@@ -14805,7 +14807,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "duration format (value not matching format)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test194-metadata.json",
@@ -14853,7 +14855,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "values with wrong length",
           "testAction": "http://www.w3.org/2013/csvw/tests/test196-metadata.json",
@@ -14877,7 +14879,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "values with wrong maxLength",
           "testAction": "http://www.w3.org/2013/csvw/tests/test197-metadata.json",
@@ -14901,7 +14903,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "values with wrong minLength",
           "testAction": "http://www.w3.org/2013/csvw/tests/test198-metadata.json",
@@ -15021,7 +15023,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "float value constraint not matching minimum",
           "testAction": "http://www.w3.org/2013/csvw/tests/test203-metadata.json",
@@ -15045,7 +15047,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "float value constraint not matching maximum",
           "testAction": "http://www.w3.org/2013/csvw/tests/test204-metadata.json",
@@ -15069,7 +15071,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "float value constraint not matching minInclusive",
           "testAction": "http://www.w3.org/2013/csvw/tests/test205-metadata.json",
@@ -15093,7 +15095,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "float value constraint not matching minExclusive",
           "testAction": "http://www.w3.org/2013/csvw/tests/test206-metadata.json",
@@ -15117,7 +15119,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "float value constraint not matching maxInclusive",
           "testAction": "http://www.w3.org/2013/csvw/tests/test207-metadata.json",
@@ -15141,7 +15143,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "float value constraint not matching maxExclusive",
           "testAction": "http://www.w3.org/2013/csvw/tests/test208-metadata.json",
@@ -15189,7 +15191,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "date value constraint not matching minimum",
           "testAction": "http://www.w3.org/2013/csvw/tests/test210-metadata.json",
@@ -15213,7 +15215,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "date value constraint not matching maximum",
           "testAction": "http://www.w3.org/2013/csvw/tests/test211-metadata.json",
@@ -15237,7 +15239,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "date value constraint not matching minInclusive",
           "testAction": "http://www.w3.org/2013/csvw/tests/test212-metadata.json",
@@ -15261,7 +15263,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "date value constraint not matching minExclusive",
           "testAction": "http://www.w3.org/2013/csvw/tests/test213-metadata.json",
@@ -15285,7 +15287,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "date value constraint not matching maxInclusive",
           "testAction": "http://www.w3.org/2013/csvw/tests/test214-metadata.json",
@@ -15309,7 +15311,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "date value constraint not matching maxExclusive",
           "testAction": "http://www.w3.org/2013/csvw/tests/test215-metadata.json",
@@ -15669,7 +15671,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "failing minLength with separator",
           "testAction": "http://www.w3.org/2013/csvw/tests/test230-metadata.json",
@@ -15717,7 +15719,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "single column primaryKey violation",
           "testAction": "http://www.w3.org/2013/csvw/tests/test232-metadata.json",
@@ -15734,7 +15736,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "As defined in [tabular-data-model], validators MUST check that each row has a unique combination of values of cells in the indicated columns."
+          "description": "Validators MUST raise errors if there is more than one row with the same primary key"
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test233",
@@ -15765,7 +15767,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "multiple column primaryKey violation",
           "testAction": "http://www.w3.org/2013/csvw/tests/test234-metadata.json",
@@ -15782,7 +15784,7 @@
               "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
-          "description": "As defined in [tabular-data-model], validators MUST check that each row has a unique combination of values of cells in the indicated columns."
+          "description": "Validators MUST raise errors if there is more than one row with the same primary key"
         },
         {
           "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test235",
@@ -16005,7 +16007,7 @@
           "@type": [
             "earl:TestCriterion",
             "earl:TestCase",
-            "http://www.w3.org/2013/csvw/tests/vocab#WarningValidationTest"
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
           ],
           "title": "date format (extra milliseconds)",
           "testAction": "http://www.w3.org/2013/csvw/tests/test247-metadata.json",
@@ -16038,14 +16040,255 @@
               "@type": "earl:Assertion",
               "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test248",
               "subject": "http://rubygems.org/gems/rdf-tabular",
-              "mode": "earl:notAvailable",
+              "mode": "earl:automatic",
               "result": {
                 "@type": "earl:TestResult",
-                "outcome": "earl:untested"
-              }
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
             }
           ],
           "description": "No Unicode normalization (as specified in [UAX15]) is applied to these string values"
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test249",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#PositiveValidationTest"
+          ],
+          "title": "http normalization",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test249.csv",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test249",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "When comparing URLs, processors MUST use Syntax-Based Normalization as defined in [[RFC3968]]. Processors perform Scheme-Based Normalization for HTTP (80) and HTTPS (443)"
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test250",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#PositiveValidationTest"
+          ],
+          "title": "valid case",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test250-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test250",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "As defined in [tabular-data-model], validators MUST check that, for each row, the combination of cells in the referencing columns references a unique row within the referenced table through a combination of cells in the referenced columns."
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test251",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
+          ],
+          "title": "missing source reference",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test251-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test251",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "As defined in [tabular-data-model], validators MUST check that, for each row, the combination of cells in the referencing columns references a unique row within the referenced table through a combination of cells in the referenced columns."
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test252",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
+          ],
+          "title": "missing destination reference column",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test252-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test252",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "As defined in [tabular-data-model], validators MUST check that, for each row, the combination of cells in the referencing columns references a unique row within the referenced table through a combination of cells in the referenced columns."
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test253",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
+          ],
+          "title": "missing destination table",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test253-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test253",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "As defined in [tabular-data-model], validators MUST check that, for each row, the combination of cells in the referencing columns references a unique row within the referenced table through a combination of cells in the referenced columns."
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test254",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#PositiveValidationTest"
+          ],
+          "title": "foreign key single column same table",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test254-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test254",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "The combination of cells in the referencing columns references a unique row within the referenced table through a combination of cells in the referenced columns."
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test255",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#PositiveValidationTest"
+          ],
+          "title": "foreign key single column different table",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test255-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test255",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "The combination of cells in the referencing columns references a unique row within the referenced table through a combination of cells in the referenced columns."
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test256",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#PositiveValidationTest"
+          ],
+          "title": "foreign key multiple columns",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test256-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test256",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "The combination of cells in the referencing columns references a unique row within the referenced table through a combination of cells in the referenced columns."
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test257",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
+          ],
+          "title": "foreign key no referenced row",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test257-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test257",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "Validators MUST raise errors for each row that does not have a referenced row for each of the foreign keys on the table in which the row appears"
+        },
+        {
+          "@id": "http://www.w3.org/2013/csvw/tests/manifest-validation#test258",
+          "@type": [
+            "earl:TestCriterion",
+            "earl:TestCase",
+            "http://www.w3.org/2013/csvw/tests/vocab#NegativeValidationTest"
+          ],
+          "title": "foreign key multiple referenced rows",
+          "testAction": "http://www.w3.org/2013/csvw/tests/test258-metadata.json",
+          "assertions": [
+            {
+              "@type": "earl:Assertion",
+              "test": "http://www.w3.org/2013/csvw/tests/manifest-validation#test258",
+              "subject": "http://rubygems.org/gems/rdf-tabular",
+              "mode": "earl:automatic",
+              "result": {
+                "@type": "earl:TestResult",
+                "outcome": "earl:passed"
+              },
+              "assertedBy": "http://greggkellogg.net/foaf#me"
+            }
+          ],
+          "description": "Validators MUST raise errors for each row that does not have a referenced row for each of the foreign keys on the table in which the row appears"
         }
       ],
       "title": "CSVW Validation Tests",
