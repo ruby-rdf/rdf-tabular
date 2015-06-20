@@ -602,7 +602,7 @@ describe RDF::Tabular::Metadata do
         invalid: [1, true, nil]
       },
       tableDirection: {
-        valid: %w(rtl ltr default),
+        valid: %w(rtl ltr auto),
         warning: %w(foo true 1)
       },
       transformations: {
@@ -657,7 +657,7 @@ describe RDF::Tabular::Metadata do
         warning: [1, true, nil]
       },
       tableDirection: {
-        valid: %w(rtl ltr default),
+        valid: %w(rtl ltr auto),
         warning: %w(foo true 1)
       },
       dialect: {

@@ -1212,7 +1212,7 @@ module RDF::Tabular
       transformations:     :array,
     }.freeze
     DEFAULTS = {
-      tableDirection:      "default".freeze,
+      tableDirection:      "auto".freeze,
     }.freeze
     REQUIRED = [:tables].freeze
 
@@ -1222,7 +1222,7 @@ module RDF::Tabular
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :tableDirection
-          "rtl, ltr, or default" unless %(rtl ltr default).include?(value)
+          "rtl, ltr, or auto" unless %(rtl ltr auto).include?(value)
         when :notes, :tables, :tableSchema, :dialect, :transformations
           # We handle this through a separate setters
         end
@@ -1303,7 +1303,7 @@ module RDF::Tabular
     }.freeze
     DEFAULTS = {
       suppressOutput:      false,
-      tableDirection:      "default".freeze,
+      tableDirection:      "auto".freeze,
     }.freeze
     REQUIRED = [:url].freeze
 
@@ -1315,7 +1315,7 @@ module RDF::Tabular
         when :suppressOutput
           "boolean true or false" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
         when :tableDirection
-          "rtl, ltr, or default" unless %(rtl ltr default).include?(value)
+          "rtl, ltr, or auto" unless %(rtl ltr auto).include?(value)
         when :url
           "valid URL" unless value.is_a?(String) && context.base.join(value).valid?
         when :notes, :tableSchema, :dialect, :transformations
