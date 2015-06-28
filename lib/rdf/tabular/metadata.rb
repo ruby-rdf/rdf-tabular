@@ -381,7 +381,7 @@ module RDF::Tabular
               value
             else
               warn "#{type} has invalid property '@id' (#{value.inspect}): expected a string"
-              ""
+              ""  # Default value
             end
             @id = @options[:base].join(object[:@id])
           else
@@ -1016,7 +1016,7 @@ module RDF::Tabular
     end
 
     def inspect
-      self.class.name + object.inspect
+      self.class.name + (respond_to?(:to_atd) ? to_atd : object).inspect
     end
 
     # Proxy to @object
@@ -1024,7 +1024,7 @@ module RDF::Tabular
     def []=(key, value); object[key] = value; end
     def each(&block); object.each(&block); end
     def ==(other)
-      object == (other.is_a?(Hash) ? other : other.object)
+      object == (other.is_a?(Hash) ? other : (other.respond_to?(:object) ? other.object : other))
     end
     def to_json(args=nil); object.to_json(args); end
 
@@ -1235,7 +1235,7 @@ module RDF::Tabular
       transformations:     :array,
     }.freeze
     DEFAULTS = {
-      tableDirection:      "default".freeze,
+      tableDirection:      "auto".freeze,
     }.freeze
     REQUIRED = [:tables].freeze
 
@@ -1245,7 +1245,7 @@ module RDF::Tabular
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :tableDirection
-          "rtl, ltr, or default" unless %(rtl ltr default).include?(value)
+          "rtl, ltr, or auto" unless %(rtl ltr auto).include?(value)
         when :notes, :tables, :tableSchema, :dialect, :transformations
           # We handle this through a separate setters
         end
@@ -1326,7 +1326,7 @@ module RDF::Tabular
     }.freeze
     DEFAULTS = {
       suppressOutput:      false,
-      tableDirection:      "default".freeze,
+      tableDirection:      "auto".freeze,
     }.freeze
     REQUIRED = [:url].freeze
 
@@ -1338,7 +1338,7 @@ module RDF::Tabular
         when :suppressOutput
           "boolean true or false" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
         when :tableDirection
-          "rtl, ltr, or default" unless %(rtl ltr default).include?(value)
+          "rtl, ltr, or auto" unless %(rtl ltr auto).include?(value)
         when :url
           "valid URL" unless value.is_a?(String) && context.base.join(value).valid?
         when :notes, :tableSchema, :dialect, :transformations
@@ -1470,6 +1470,24 @@ module RDF::Tabular
         warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
         # Remove elements that aren't of the right types
         object[:foreignKeys] = object[:foreignKeys].select! {|v| v.is_a?(Hash)}
+      end
+    end
+
+    ##
+    # List of foreign keys referencing the specified table
+    #
+    # @param [Table] table
+    # @return [Array<Hash>]
+    def foreign_keys_referencing(table)
+      Array(foreignKeys).select do |fk|
+        reference = fk['reference']
+        if reference['resource']
+          ref = context.base.join(reference['resource']).to_s
+          table.url == ref
+        else # schemaReference
+          ref = context.base.join(reference['schemaReference']).to_s
+          table.tableSchema.id == ref
+        end
       end
     end
 
@@ -2000,6 +2018,10 @@ module RDF::Tabular
           "errors" => self.errors
         }.delete_if {|k,v| Array(v).empty?}
       end
+
+      def inspect
+        self.class.name + to_atd.inspect
+      end
     end
 
     # Row values, hashed by `name`
@@ -2118,7 +2140,6 @@ module RDF::Tabular
         end
         cell.value = (column.separator ? cell_values : cell_values.first)
         cell.errors = cell_errors
-        metadata.send(:warn, "row #{self.number}(src #{self.sourceNumber}, col #{cell.column.sourceNumber}): " + cell.errors.join("\n")) unless cell_errors.empty?
 
         map_values[columns[index - skipColumns].name] = (column.separator ? cell_values.map(&:to_s) : cell_values.first.to_s)
       end
@@ -2152,11 +2173,15 @@ module RDF::Tabular
       {
         "@id" => id.to_s,
         "@type" => "Row",
-        "table" => (table.id.to_s if table.id),
+        "table" => (table.id || table.url),
         "number" => self.number,
         "sourceNumber" => self.sourceNumber,
-        "cells" => @values.map(&:to_atd)
+        "cells" => @values.map(&:value)
       }.delete_if {|k,v| v.nil?}
+    end
+
+    def inspect
+      self.class.name + to_atd.inspect
     end
 
   private

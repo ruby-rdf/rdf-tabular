@@ -32,9 +32,10 @@ describe RDF::Tabular::Reader do
   end
   
   # @see lib/rdf/spec/reader.rb in rdf-spec
+  # two failures specific to the way @input is handled in rdf-tabular make this a problem
   #it_behaves_like 'an RDF::Reader' do
   #  let(:reader_input) {doap}
-  #  let(:reader) {RDF::Tabular::Reader.new(StringIO.new(""), base_uri: "file:#{File.expand_path("..", __FILE__)}")}
+  #  let(:reader) {RDF::Tabular::Reader.new(StringIO.new(""))}
   #  let(:reader_count) {doap_count}
   #end
 
@@ -271,15 +272,26 @@ describe RDF::Tabular::Reader do
       end
     end
 
-    it "warns on duplicate primary keys" do
-      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, warnings: []) do |reader|
-        reader.each_statement {}
+    it "errors on duplicate primary keys" do
+      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, errors: []) do |reader|
+        expect {reader.validate!}.to raise_error(RDF::Tabular::Error)
+
         pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
 
         # Each entry is an array of cells
         expect(pks.map {|r| r.map(&:value).join(",")}).to eql %w(1 1)
 
-        expect(reader.options[:warnings]).to eq ["Table http://example.org/test232.csv has duplicate primary key 1"]
+        expect(reader.options[:errors]).to eq ["Table http://example.org/test232.csv has duplicate primary key 1"]
+      end
+    end
+  end
+
+  context "Foreign Keys" do
+    let(:path) {File.expand_path("../data/countries.json", __FILE__)}
+    it "validates consistent foreign keys" do
+      RDF::Reader.open(path, format: :tabular, validate: true, warnings: []) do |reader|
+        reader.each_statement {}
+        expect(reader.options[:warnings]).to be_empty
       end
     end
   end

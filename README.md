@@ -220,10 +220,10 @@ It can also generate JSON output (not complete JSON-LD, but compatible with it),
       ]
     }
 
-## Examples
+## Tutorials
 
-    require 'rubygems'
-    require 'rdf/tabular'
+* [CSV on the Web](http://greggkellogg.net/CSV-on-the-Web)
+* [Implementing CSV on the Web](http://greggkellogg.net/2015/04/implementing-csv-on-the-web/)
 
 ## RDF Reader
 RDF::Tabular also acts as a normal RDF reader, using the standard RDF.rb Reader interface:

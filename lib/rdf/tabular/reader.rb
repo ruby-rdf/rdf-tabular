@@ -25,6 +25,11 @@ module RDF::Tabular
     attr_reader :warnings
 
     ##
+    # Accumulated errors found during processing
+    # @return [Array<String>]
+    attr_reader :errors
+
+    ##
     # Initializes the RDF::Tabular Reader instance.
     #
     # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>, String]       input
@@ -37,6 +42,8 @@ module RDF::Tabular
     # @option options [Boolean] :noProv do not output optional provenance information
     # @option options [Array] :warnings
     #   array for placing warnings found when processing metadata. If not set, and validating, warnings are output to `$stderr`
+    # @option optinons [Array<Hash>] :fks_referencing_table
+    #   When called with Table metadata, a list of the foreign keys referencing this table
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored
@@ -53,6 +60,7 @@ module RDF::Tabular
         end
 
         @options[:depth] ||= 0
+        @errors = @options.fetch(:errors, [])
         @warnings = @options.fetch(:warnings, [])
 
         debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
@@ -69,7 +77,7 @@ module RDF::Tabular
         depth do
           # If input is JSON, then the input is the metadata
           content_type = @input.respond_to?(:content_type) ? @input.content_type : ""
-          if @options[:base] =~ /\.json(?:ld)?$/ || content_type =~ %r(application/(csvm+|ld+)?json)
+          if @options[:base] =~ /\.json(?:ld)?$/ || content_type =~ %r(application/(csvm\+|ld\+)?json)
             @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
             # If @metadata is for a Table, turn it into a TableGroup
             @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
@@ -132,93 +140,100 @@ module RDF::Tabular
           debug("each_statement: metadata") {input.inspect}
 
           depth do
-            # Get Metadata to invoke and open referenced files
-            case input.type
-            when :TableGroup
-              begin
-                # Validate metadata
-                input.validate!
+            begin
+              # Validate metadata
+              input.validate!
 
-                # Use resolved @id of TableGroup, if available
-                table_group = input.id || RDF::Node.new
-                add_statement(0, table_group, RDF.type, CSVW.TableGroup) unless minimal?
+              # Use resolved @id of TableGroup, if available
+              table_group = input.id || RDF::Node.new
+              add_statement(0, table_group, RDF.type, CSVW.TableGroup) unless minimal?
 
-                # Common Properties
-                input.each do |key, value|
-                  next unless key.to_s.include?(':') || key == :notes
-                  input.common_properties(table_group, key, value) do |statement|
-                    add_statement(0, statement)
-                  end
-                end unless minimal?
+              # Common Properties
+              input.each do |key, value|
+                next unless key.to_s.include?(':') || key == :notes
+                input.common_properties(table_group, key, value) do |statement|
+                  add_statement(0, statement)
+                end
+              end unless minimal?
 
-                # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
-                if Array(input.tables).empty? && options[:original_input]
-                  table_resource = RDF::Node.new
+              # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
+              if Array(input.tables).empty? && options[:original_input]
+                table_resource = RDF::Node.new
+                add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
+                Reader.new(options[:original_input], options.merge(
+                    no_found_metadata: true,
+                    table_resource: table_resource,
+                    warnings: @warnings,
+                    errors: @errors,
+                )) do |r|
+                  r.each_statement(&block)
+                end
+              else
+                input.each_table do |table|
+                  # If validating, continue on to process value restrictions
+                  next if table.suppressOutput && !validate?
+
+                  # Foreign Keys referencing this table
+                  fks = input.tables.map do |t|
+                    t.tableSchema && t.tableSchema.foreign_keys_referencing(table)
+                  end.flatten.compact
+                  table_resource = table.id || RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
-                  Reader.new(options[:original_input], options.merge(
+                  Reader.open(table.url, options.merge(
+                      format: :tabular,
+                      metadata: table,
+                      base: table.url,
                       no_found_metadata: true,
-                      table_resource: table_resource
+                      table_resource: table_resource,
+                      fks_referencing_table: fks,
+                      warnings: @warnings,
+                      errors: @errors,
                   )) do |r|
                     r.each_statement(&block)
                   end
-                else
-                  input.each_table do |table|
-                    next if table.suppressOutput
-                    table_resource = table.id || RDF::Node.new
-                    add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
-                    Reader.open(table.url, options.merge(
-                        format: :tabular,
-                        metadata: table,
-                        base: table.url,
-                        no_found_metadata: true,
-                        table_resource: table_resource
-                    )) do |r|
-                      r.each_statement(&block)
-                    end
-                  end
                 end
 
-                # Provenance
-                if prov?
-                  activity = RDF::Node.new
-                  add_statement(0, table_group, RDF::PROV.wasGeneratedBy, activity)
-                  add_statement(0, activity, RDF.type, RDF::PROV.Activity)
-                  add_statement(0, activity, RDF::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
-                  add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
-                  add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
+                # Lastly, if validating, validate foreign key integrity
+                validate_foreign_keys(input) if validate?
+              end
 
-                  unless (urls = input.tables.map(&:url)).empty?
-                    usage = RDF::Node.new
-                    add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-                    add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-                    urls.each do |url|
-                      add_statement(0, usage, RDF::PROV.entity, RDF::URI(url))
-                    end
-                    add_statement(0, usage, RDF::PROV.hadRole, CSVW.csvEncodedTabularData)
-                  end
+              # Provenance
+              if prov?
+                activity = RDF::Node.new
+                add_statement(0, table_group, RDF::PROV.wasGeneratedBy, activity)
+                add_statement(0, activity, RDF.type, RDF::PROV.Activity)
+                add_statement(0, activity, RDF::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
+                add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
+                add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
 
-                  unless Array(input.filenames).empty?
-                    usage = RDF::Node.new
-                    add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-                    add_statement(0, usage, RDF.type, RDF::PROV.Usage)
-                    Array(input.filenames).each do |fn|
-                      add_statement(0, usage, RDF::PROV.entity, RDF::URI(fn))
-                    end
-                    add_statement(0, usage, RDF::PROV.hadRole, CSVW.tabularMetadata)
+                unless (urls = input.tables.map(&:url)).empty?
+                  usage = RDF::Node.new
+                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                  urls.each do |url|
+                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(url))
                   end
+                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.csvEncodedTabularData)
                 end
-              ensure
-                warnings = @warnings.concat(input.warnings)
-                if validate? && !warnings.empty? && !@options[:warnings]
-                  $stderr.puts "Warnings: #{warnings.join("\n")}"
+
+                unless Array(input.filenames).empty?
+                  usage = RDF::Node.new
+                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
+                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                  Array(input.filenames).each do |fn|
+                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(fn))
+                  end
+                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.tabularMetadata)
                 end
               end
-            when :Table
-              Reader.open(input.url, options.merge(format: :tabular, metadata: input, base: input.url, no_found_metadata: true)) do |r|
-                r.each_statement(&block)
+            ensure
+              warnings = @warnings.concat(input.warnings)
+              if validate? && !warnings.empty? && !@options[:warnings]
+                $stderr.puts "Warnings: #{warnings.join("\n")}"
               end
-            else
-              raise "Opened inappropriate metadata type: #{input.type}"
+              if validate? && !errors.empty? && !@options[:errors]
+                $stderr.puts "Errors: #{errors.join("\n")}"
+              end
             end
           end
           return
@@ -226,7 +241,7 @@ module RDF::Tabular
 
         # Output Table-Level RDF triples
         table_resource = options.fetch(:table_resource, (metadata.id || RDF::Node.new))
-        unless minimal?
+        unless minimal? || metadata.suppressOutput
           add_statement(0, table_resource, RDF.type, CSVW.Table)
           add_statement(0, table_resource, CSVW.url, RDF::URI(metadata.url))
         end
@@ -239,13 +254,18 @@ module RDF::Tabular
           if row.is_a?(RDF::Statement)
             # May add additional comments
             row.subject = table_resource
-            add_statement(last_row_num + 1, row)
+            add_statement(last_row_num + 1, row) unless metadata.suppressOutput
             next
           end
           last_row_num = row.sourceNumber
 
-          # Collect primary keys if validating
-          primary_keys << row.primaryKey if validate?
+          # Collect primary and foreign keys if validating
+          if validate?
+            primary_keys << row.primaryKey
+            collect_foreign_key_references(metadata, options[:fks_referencing_table], row)
+          end
+
+          next if metadata.suppressOutput
 
           # Output row-level metadata
           row_resource = RDF::Node.new
@@ -260,6 +280,9 @@ module RDF::Tabular
             end
           end
           row.values.each_with_index do |cell, index|
+            # Collect cell errors
+            errors << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
+                      cell.errors.join("\n") unless Array(cell.errors).empty?
             next if cell.column.suppressOutput # Skip ignored cells
             cell_subject = cell.aboutUrl || default_cell_subject
             propertyUrl = cell.propertyUrl || RDF::URI("#{metadata.url}##{cell.column.name}")
@@ -308,6 +331,19 @@ module RDF::Tabular
         end
       end
       enum_for(:each_triple)
+    end
+
+    ##
+    # Validate and raise an exception if any errors are found while processing either metadata or tables
+    # @return [self]
+    # @raise [Error]
+    def validate!
+      each_statement {} # Read all rows
+      raise Error, errors.join("\n") unless errors.empty?
+      self
+    rescue RDF::ReaderError => e
+      raise Error, e.message
+      self
     end
 
     ##
@@ -381,77 +417,65 @@ module RDF::Tabular
         debug("each_statement: metadata") {input.inspect}
         depth do
           # Get Metadata to invoke and open referenced files
-          case input.type
-          when :TableGroup
-            begin
-              # Validate metadata
-              input.validate!
+          begin
+            # Validate metadata
+            input.validate!
 
-              tables = []
-              table_group = {}
-              table_group['@id'] = input.id.to_s if input.id
+            tables = []
+            table_group = {}
+            table_group['@id'] = input.id.to_s if input.id
 
-              # Common Properties
-              input.each do |key, value|
-                next unless key.to_s.include?(':') || key == :notes
-                table_group[key] = input.common_properties(nil, key, value)
-                table_group[key] = [table_group[key]] if key == :notes && !table_group[key].is_a?(Array)
+            # Common Properties
+            input.each do |key, value|
+              next unless key.to_s.include?(':') || key == :notes
+              table_group[key] = input.common_properties(nil, key, value)
+              table_group[key] = [table_group[key]] if key == :notes && !table_group[key].is_a?(Array)
+            end
+
+            table_group['table'] = tables
+
+            if input.tables.empty? && options[:original_input]
+              Reader.new(options[:original_input], options.merge(
+                  base:               options.fetch(:base, "http://example.org/default-metadata"),
+                  minimal:            minimal?,
+                  no_found_metadata: true
+              )) do |r|
+                case table = r.to_hash(options)
+                when Array then tables += table
+                when Hash  then tables << table
+                end
               end
-
-              table_group['table'] = tables
-
-              if input.tables.empty? && options[:original_input]
-                Reader.new(options[:original_input], options.merge(
-                    base:               options.fetch(:base, "http://example.org/default-metadata"),
-                    minimal:            minimal?,
-                    no_found_metadata: true
+            else
+              input.each_table do |table|
+                next if table.suppressOutput && !validate?
+                Reader.open(table.url, options.merge(
+                  format:             :tabular,
+                  metadata:           table,
+                  base:               table.url,
+                  minimal:            minimal?,
+                  no_found_metadata:  true
                 )) do |r|
-                  case table = r.to_hash(options)
-                  when Array then tables += table
-                  when Hash  then tables << table
-                  end
-                end
-              else
-                input.each_table do |table|
-                  next if table.suppressOutput
-                  Reader.open(table.url, options.merge(
-                    format:             :tabular,
-                    metadata:           table,
-                    base:               table.url,
-                    minimal:            minimal?,
-                    no_found_metadata:  true
-                  )) do |r|
-                    case table = r.to_hash(options)
-                    when Array then tables += table
-                    when Hash  then tables << table
-                    end
+                  case t = r.to_hash(options)
+                  when Array then tables += t unless table.suppressOutput
+                  when Hash  then tables << t unless table.suppressOutput
                   end
                 end
               end
-
-              # Result is table_group or array
-              minimal? ? tables : table_group
-            ensure
-              warnings = @warnings.concat(input.warnings)
-              if validate? && !warnings.empty? && !@options[:warnings]
-                $stderr.puts "Warnings: #{warnings.join("\n")}"
-              end
-            end
-          when :Table
-            table = nil
-            Reader.open(input.url, options.merge(
-              format:             :tabular,
-              metadata:           input,
-              base:               input.url,
-              minimal:            minimal?,
-              no_found_metadata:  true
-            )) do |r|
-              table = r.to_hash(options)
             end
 
-            table
-          else
-            raise "Opened inappropriate metadata type: #{input.type}"
+            # Lastly, if validating, validate foreign key integrity
+            validate_foreign_keys(input) if validate?
+
+            # Result is table_group or array
+            minimal? ? tables : table_group
+          ensure
+            warnings = @warnings.concat(input.warnings)
+            if validate? && !warnings.empty? && !@options[:warnings]
+              $stderr.puts "Warnings: #{warnings.join("\n")}"
+            end
+            if validate? && !errors.empty? && !@options[:errors]
+              $stderr.puts "Errors: #{errors.join("\n")}"
+            end
           end
         end
       else
@@ -473,8 +497,11 @@ module RDF::Tabular
             next
           end
 
-          # Collect primary keys if validating
-          primary_keys << row.primaryKey if validate?
+          # Collect primary and foreign keys if validating
+          if validate?
+            primary_keys << row.primaryKey
+            collect_foreign_key_references(metadata, options[:fks_referencing_table], row)
+          end
 
           # Output row-level metadata
           r, a, values = {}, {}, {}
@@ -660,9 +687,57 @@ module RDF::Tabular
       pk_strings = {}
       primary_keys.reject(&:empty?).each do |row_pks|
         pk_names = row_pks.map {|cell| cell.value}.join(",")
-        warnings << "Table #{metadata.url} has duplicate primary key #{pk_names}" if pk_strings.has_key?(pk_names)
+        errors << "Table #{metadata.url} has duplicate primary key #{pk_names}" if pk_strings.has_key?(pk_names)
         pk_strings[pk_names] ||= 0
         pk_strings[pk_names] += 1
+      end
+    end
+
+    # Collect foreign key references
+    # @param [Table] metadata
+    # @param [Array<Hash>] foreign_keys referencing this table
+    # @param [Row] row
+    def collect_foreign_key_references(metadata, foreign_keys, row)
+      schema = metadata.tableSchema
+
+      # Add row as foreignKey source
+      Array(schema ? schema.foreignKeys : []).each do |fk|
+        colRef = Array(fk['columnReference'])
+
+        # Referenced cells, in order
+        cells = colRef.map {|n| row.values.detect {|cell| cell.column.name == n}}.compact
+        cell_values = cells.map {|cell| cell.stringValue unless cell.stringValue.to_s.empty?}.compact
+        next if cell_values.empty?  # Don't record if empty
+        (fk[:reference_from] ||= {})[cell_values] ||= row
+      end
+
+      # Add row as foreignKey dest
+      Array(foreign_keys).each do |fk|
+        colRef = Array(fk['reference']['columnReference'])
+
+        # Referenced cells, in order
+        cells = colRef.map {|n| row.values.detect {|cell| cell.column.name == n}}.compact
+        fk[:reference_to] ||= {}
+        cell_values = cells.map {|cell| cell.stringValue unless cell.stringValue.to_s.empty?}.compact
+        next if cell_values.empty?  # Don't record if empty
+        errors << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}): found duplicate foreign key target: #{cell_values.map(&:to_s).inspect}" if fk[:reference_to][cell_values]
+        fk[:reference_to][cell_values] ||= row
+      end
+    end
+
+    # Validate foreign keys
+    def validate_foreign_keys(metadata)
+      metadata.tables.each do |table|
+        next if (schema = table.tableSchema).nil?
+        schema.foreignKeys.each do |fk|
+          # Verify that reference_from entry exists in reference_to
+          fk.fetch(:reference_from, {}).each do |cell_values, row|
+            unless fk.fetch(:reference_to, {}).has_key?(cell_values)
+              errors << "Table #{table.url} row #{row.number}(src #{row.sourceNumber}): " +
+                        "Foreign Key violation, expected to find #{cell_values.map(&:to_s).inspect}"
+            end
+          end
+        end if schema.foreignKeys
       end
     end
 

@@ -39,6 +39,7 @@ def run_tc(t, options)
   json_result = nil
   result = nil
   t.warnings = []
+  t.errors = []
 
   begin
     puts "open #{t.action}" if options[:verbose]
@@ -48,7 +49,8 @@ def run_tc(t, options)
                              t.reader_options.merge(
                                base_uri:  t.base,
                                validate:  t.validation?,
-                               warnings:  t.warnings)
+                               warnings:  t.warnings,
+                               errors:    t.errors)
     ) do |reader|
       t.metadata = reader.metadata
 
@@ -62,31 +64,26 @@ def run_tc(t, options)
             ::JSON.parse(result).is_a?(Hash) ? "passed" : "failed"
           end
         else # RDF or Validation
-          begin
-            graph << reader
-          rescue ::RDF::Tabular::Error => e
-            STDERR.puts "Unexpected exception: #{e.inspect}" if options[:verbose]
-            result = "failed"
-          end
-
           result = if result
             result
           elsif t.sparql?
             # FIXME
             "passed"
           elsif t.evaluate?
+            graph << reader
             output_graph = RDF::Repository.load(t.result, format:  :turtle, base_uri:  t.base)
             graph.isomorphic_with?(output_graph) ? "passed" : "failed"
           elsif t.validation?
+            reader.validate!
             result = (t.warning? ? (t.warnings.length > 0) : t.warnings.empty?) ? "passed" : "failed"
-          else
-            result = graph.empty? ? "failed" : "passed"
           end
         end
       else
         begin
           if t.json?
             reader.to_json
+          elsif t.validation?
+            reader.validate!
           else
             graph << reader
           end
