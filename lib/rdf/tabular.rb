@@ -31,7 +31,7 @@ module RDF
     SITE_WIDE_CONFIG = "/.well-known/csvm".freeze
     SITE_WIDE_DEFAULT = %(
       {+url}-metadata.json
-      metadata.json
+      csv-metadata.json
     ).gsub(/^\s+/, '').freeze
 
     def self.debug?; @debug; end
