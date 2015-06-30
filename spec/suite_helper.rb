@@ -33,7 +33,7 @@ module RDF::Util
       when (filename_or_url.to_s =~ %r{^#{REMOTE_PATH}} && Dir.exist?(LOCAL_PATH))
         begin
           #puts "attempt to open #{filename_or_url} locally"
-          localpath = RDF::URI(filename_or_url)
+          localpath = RDF::URI(filename_or_url).dup
           localpath.query = nil
           localpath = localpath.to_s.sub(REMOTE_PATH, LOCAL_PATH)
           response = begin

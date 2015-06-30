@@ -14,7 +14,7 @@ describe RDF::Tabular::Metadata do
         end
 
         case file
-        when "metadata.json", "country-codes-and-names.csv-metadata.json"
+        when "csv-metadata.json", "country-codes-and-names.csv-metadata.json"
           {status: 401}
         else
           {
