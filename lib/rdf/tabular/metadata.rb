@@ -166,7 +166,7 @@ module RDF::Tabular
       # Only load if we haven't tried before. Use `SITE_WIDE_DEFAULT` if not found
       if @cache[config_loc].nil?
         @cache[config_loc] = RDF::Util::File.open_file(config_loc) do |rd|
-          rd.lines
+          rd.each_line.to_a
         end rescue SITE_WIDE_DEFAULT.split
       end
       @cache[config_loc]
@@ -208,10 +208,12 @@ module RDF::Tabular
       # If we still don't have metadata, load the site-wide configuration file and use templates found there as locations
       if !found_metadata && base
         templates = site_wide_config(base)
+        debug("for_input", options) {"templates: #{templates.map(&:to_s).inspect}"}
         locs = templates.map do |template|
           t = Addressable::Template.new(template)
           RDF::URI(base).join(t.expand(url: base).to_s)
         end
+        debug("for_input", options) {"locs: #{locs.map(&:to_s).inspect}"}
 
         locs.each do |loc|
           metadata ||= begin
@@ -1665,7 +1667,7 @@ module RDF::Tabular
       skipColumns:        0,
       skipInitialSpace:   false,
       skipRows:           0,
-      trim:               false
+      trim:               true
     }.freeze
 
     PROPERTIES = {
@@ -1734,7 +1736,7 @@ module RDF::Tabular
     # default for trim comes from skipInitialSpace
     # @return [Boolean, String]
     def trim
-      object.fetch(:trim, self.skipInitialSpace ? 'start' : false)
+      object.fetch(:trim, self.skipInitialSpace ? 'start' : true)
     end
 
     ##
