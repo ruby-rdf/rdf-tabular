@@ -528,7 +528,7 @@ module RDF::Tabular
             co['@id'] = subject.to_s unless subject == 'null'
             prop = case cell.propertyUrl
             when RDF.type then '@type'
-            when nil then column.name
+            when nil then URI.decode(column.name) # Use URI-decoded name
             else
               # Compact the property to a term or prefixed name
               metadata.context.compact_iri(cell.propertyUrl, vocab: true)
