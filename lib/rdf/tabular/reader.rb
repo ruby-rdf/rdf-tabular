@@ -432,7 +432,7 @@ module RDF::Tabular
               table_group[key] = [table_group[key]] if key == :notes && !table_group[key].is_a?(Array)
             end
 
-            table_group['table'] = tables
+            table_group['tables'] = tables
 
             if input.tables.empty? && options[:original_input]
               Reader.new(options[:original_input], options.merge(
@@ -509,7 +509,7 @@ module RDF::Tabular
           r["rownum"] = row.number
 
           # Row titles
-          Array(row.titles).each { |t| merge_compacted_value(r, "title", t.to_s) unless t.nil?}
+          Array(row.titles).each { |t| merge_compacted_value(r, "titles", t.to_s) unless t.nil?}
 
           row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]
