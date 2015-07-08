@@ -44,15 +44,12 @@ module RDF::Tabular
       valueUrl:           :uri_template,
     }.freeze
     INHERITED_DEFAULTS = {
-      aboutUrl:           "".freeze,
       default:            "".freeze,
       lang:               "und",
       null:               "".freeze,
       ordered:            false,
-      propertyUrl:        "".freeze,
       required:           false,
       textDirection:      "ltr".freeze,
-      valueUrl:           "".freeze,
     }.freeze
 
     # Valid datatypes
