@@ -721,11 +721,22 @@ module RDF::Tabular
             end
           end
         when :length, :minLength, :maxLength
-          # Applications must raise an error if both length and minLength are specified and they do not have the same value.
-          # Similarly, applications must raise an error if both length and maxLength are specified and they do not have the same value.
-          if object[:length] && value != object[:length]
-            errors << "#{type} has invalid property '#{key}': both length and #{key} requires they be equal"
+          # Applications must raise an error if both length and minLength are specified and length is less than minLength.
+          # Similarly, applications must raise an error if both length and maxLength are specified and length is greater than maxLength.
+          if object[:length]
+            case key
+            when :minLength
+              errors << "#{type} has invalid property minLength': both length and minLength requires length be greater than or equal to minLength" if object[:length] > value
+            when :maxLength
+              errors << "#{type} has invalid property maxLength': both length and maxLength requires length be less than or equal to maxLength" if object[:length] < value
+            end
           end
+
+          # Applications must raise an error if minLength and maxLength are both specified and minLength is greater than maxLength.
+          if key == :maxLength && object[:minLength]
+            errors << "#{type} has invalid property #{key}': both minLength and maxLength requires minLength be less than or equal to maxLength" if object[:minLength] > value
+          end
+
           # Applications must raise an error if length, maxLength, or minLength are specified and the base datatype is not string or one of its subtypes, or a binary type.
           unless %w(string normalizedString token language Name NMTOKEN hexBinary base64Binary binary).include?(self.base)
             errors << "#{type} has invalid property '#{key}': only allowed on string or binary datatypes"
