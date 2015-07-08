@@ -92,7 +92,7 @@ module RDF::Tabular
             dialect.header = false if (input.headers.fetch(:content_type, '').split(';').include?('header=absent') rescue false)
             dialect.encoding = input.charset if (input.charset rescue nil)
             dialect.separator = "\t" if (input.content_type == "text/tsv" rescue nil)
-            embed_options = {base: "http://example.org/default-metadata"}.merge(@options)
+            embed_options = @options.dup
             embed_options[:lang] = dialect_metadata.lang if dialect_metadata.lang
             embedded_metadata = dialect.embedded_metadata(input, @options[:metadata], embed_options)
 
@@ -157,7 +157,7 @@ module RDF::Tabular
               end unless minimal?
 
               # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
-              if Array(input.tables).empty? && options[:original_input]
+              if options[:original_input] && input.tables.first.url.to_s.empty?
                 table_resource = RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                 Reader.new(options[:original_input], options.merge(
@@ -318,7 +318,7 @@ module RDF::Tabular
       end
       enum_for(:each_statement)
     rescue IOError => e
-      raise RDF::ReaderError, e.message
+      raise RDF::ReaderError, e.message, e.backtrace
     end
 
     ##
@@ -434,9 +434,9 @@ module RDF::Tabular
 
             table_group['tables'] = tables
 
-            if input.tables.empty? && options[:original_input]
+            if options[:original_input] && input.tables.first.url.to_s.empty?
               Reader.new(options[:original_input], options.merge(
-                  base:               options.fetch(:base, "http://example.org/default-metadata"),
+                  base:               options[:base],
                   minimal:            minimal?,
                   no_found_metadata: true
               )) do |r|
@@ -606,7 +606,7 @@ module RDF::Tabular
             table_group = input.to_atd
             if input.tables.empty? && options[:original_input]
               Reader.new(options[:original_input], options.merge(
-                  base:               options.fetch(:base, "http://example.org/default-metadata"),
+                  base:              options[:base],
                   no_found_metadata: true
               )) do |r|
                 table_group["tables"] << r.to_atd(options)

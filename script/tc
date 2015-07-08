@@ -31,8 +31,8 @@ def run_tc(t, options)
 
   if options[:verbose]
     puts "\nTestCase: #{t.inspect}"
-    puts "\nInput:\n" + t.input 
-    puts "\nExpected:\n" + t.expected if t.result
+    puts "\nInput:\n" + t.input if t.input
+    puts "\nExpected:\n" + t.expected if t.expected
   end
 
   graph = RDF::Repository.new

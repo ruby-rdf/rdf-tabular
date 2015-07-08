@@ -9,14 +9,14 @@ describe RDF::Tabular::Reader do
   before(:all) {WebMock.allow_net_connect!(net_http_connect_on_start: true)}
   after(:all) {WebMock.allow_net_connect!(net_http_connect_on_start: false)}
 
-  %w(rdf json validation).each do |variant|
+  %w(rdf json validation nonnorm).each do |variant|
     describe "w3c csvw #{variant.upcase} tests" do
       manifest = Fixtures::SuiteTest::BASE + "manifest-#{variant}.jsonld"
 
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
-            #next unless t.id.match(/validation/)
+            #next unless t.id.match(/test098/)
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               t.debug = []

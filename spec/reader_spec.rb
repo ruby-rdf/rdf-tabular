@@ -87,10 +87,10 @@ describe RDF::Tabular::Reader do
       JSON.parse(%({
         "tables": [
           {
-            "url": "http://example.org/default-metadata",
+            "url": "",
             "row": [
               {
-                "url": "http://example.org/default-metadata#row=2",
+                "url": "#row=2",
                 "rownum": 1,
                 "describes": [
                   {
@@ -100,7 +100,7 @@ describe RDF::Tabular::Reader do
                 ]
               },
               {
-                "url": "http://example.org/default-metadata#row=3",
+                "url": "#row=3",
                 "rownum": 2,
                 "describes": [
                   {
@@ -110,7 +110,7 @@ describe RDF::Tabular::Reader do
                 ]
               },
               {
-                "url": "http://example.org/default-metadata#row=4",
+                "url": "#row=4",
                 "rownum": 3,
                 "describes": [
                   {
@@ -120,7 +120,7 @@ describe RDF::Tabular::Reader do
                 ]
               },
               {
-                "url": "http://example.org/default-metadata#row=5",
+                "url": "#row=5",
                 "rownum": 4,
                 "describes": [
                   {

@@ -238,7 +238,7 @@ module RDF::Tabular
       metadata = case
       when metadata then metadata
       when base     then TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: base}]}, options)
-      else               TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: []}, options)
+      else               TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: nil}]}, options)
       end
 
       # Make TableGroup, if not already
@@ -622,6 +622,7 @@ module RDF::Tabular
               errors << "#{type} has invalid property '#{key}': unexpected value #{value.class.name}"
             end
           end
+          errors << "#{type} has invalid property 'tables': must not be empty" if key == :tables && Array(value).empty?
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
           value.each do |fk|
