@@ -85,7 +85,7 @@ describe RDF::Tabular::Reader do
   context "non-file input" do
     let(:expected) {
       JSON.parse(%({
-        "table": [
+        "tables": [
           {
             "url": "http://example.org/default-metadata",
             "row": [

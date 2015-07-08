@@ -685,7 +685,8 @@ module RDF::Tabular
               nonNegativeInteger positiveInteger nonPositiveInteger negativeInteger
               unsignedLong unsignedInt unsignedShort unsignedByte
             ).include?(self.base)
-              errors << "#{type} has invalid property '#{key}': Object form only allowed on string or binary datatypes"
+              warn "#{type} has invalid property '#{key}': Object form only allowed on string or binary datatypes"
+              object.delete(:format) # act as if not set
             end
 
             # Otherwise, if it exists, its a regular expression
@@ -693,28 +694,32 @@ module RDF::Tabular
               begin
                 Regexp.compile(value["pattern"].to_s)
               rescue
-                errors << "#{type} has invalid property '#{key}' pattern: #{$!.message}"
+                warn "#{type} has invalid property '#{key}' pattern: #{$!.message}"
+                value.delete("pattern") # act as if not set
               end
             end
           else
             case self.base
             when 'boolean'
               unless value.split("|").length == 2
-                errors << "#{type} has invalid property '#{key}': annotation provides the true and false values expected, separated by '|'"
+                warn "#{type} has invalid property '#{key}': annotation provides the true and false values expected, separated by '|'"
+                object.delete(:format) # act as if not set
               end
             when 'date', 'dateTime', 'datetime', 'dateTimeStamp', 'time'
               # Parse and validate format
               begin
                 parse_uax35(value, nil)
               rescue ArgumentError => e
-                errors << "#{type} has invalid property '#{key}': #{e.message}"
+                warn "#{type} has invalid property '#{key}': #{e.message}"
+                object.delete(:format) # act as if not set
               end
             else
               # Otherwise, if it exists, its a regular expression
               begin
                 Regexp.compile(value)
               rescue
-                errors << "#{type} has invalid property '#{key}': #{$!.message}"
+                warn "#{type} has invalid property '#{key}': #{$!.message}"
+                object.delete(:format) # act as if not set
               end
             end
           end
