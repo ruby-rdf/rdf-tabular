@@ -2312,6 +2312,22 @@ module RDF::Tabular
         else
           value_errors << "#{value} does not match format #{format}"
         end
+      when :hexBinary, :base64Binary
+        lit = RDF::Literal.new(value, datatype: expanded_dt)
+        unless lit.valid?
+          value_errors << "#{value} is invalid"
+          lit = RDF::Literal.new(value)
+        else
+          if datatype.length && lit.object.length != datatype.length
+            value_errors << "decoded #{value} does not have length #{datatype.length}"
+          end
+          if datatype.minLength && lit.object.length < datatype.minLength
+            value_errors << "decoded #{value} does not have length >= #{datatype.length}"
+          end
+          if datatype.maxLength && lit.object.length < datatype.maxLength
+            value_errors << "decoded #{value} does not have length <= #{datatype.length}"
+          end
+        end
       when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,
            :ENTITY, :ID, :IDREF, :NOTATION
         value_errors << "#{value} uses unsupported datatype: #{datatype.base}"
@@ -2331,13 +2347,13 @@ module RDF::Tabular
         end
       end
 
-      if datatype.length && value.to_s.length != datatype.length
+      if datatype.length && value.to_s.length != datatype.length && ![:hexBinary, :base64Binary].include?(datatype.base.to_sym)
         value_errors << "#{value} does not have length #{datatype.length}"
       end
-      if datatype.minLength && value.to_s.length < datatype.minLength
+      if datatype.minLength && value.to_s.length < datatype.minLength && ![:hexBinary, :base64Binary].include?(datatype.base.to_sym)
         value_errors << "#{value} does not have length >= #{datatype.minLength}"
       end
-      if datatype.maxLength && value.to_s.length > datatype.maxLength
+      if datatype.maxLength && value.to_s.length > datatype.maxLength && ![:hexBinary, :base64Binary].include?(datatype.base.to_sym)
         value_errors << "#{value} does not have length <= #{datatype.maxLength}"
       end
 
