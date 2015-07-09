@@ -113,7 +113,7 @@ module RDF::Tabular
 
     # Local version of the context
     # @return [JSON::LD::Context]
-    LOCAL_CONTEXT = ::JSON::LD::Context.new.parse(File.expand_path("../../../../etc/csvw.jsonld", __FILE__))
+    LOCAL_CONTEXT = ::JSON::LD::Context.new.parse(File.expand_path("../../../../etc/csvw.jsonld", __FILE__)).freeze
 
     # ID of this Metadata
     # @return [RDF::URI]
@@ -195,9 +195,9 @@ module RDF::Tabular
       all_locs = []
       if !metadata && input.respond_to?(:links) && 
         link = input.links.find_link(%w(rel describedby))
-        loc = RDF::URI(base).join(link.href).to_s
-        md = Metadata.open(loc, options.merge(filenames: loc, reason: "load linked metadata: #{loc}"))
-        all_locs << loc if md
+        link_loc = RDF::URI(base).join(link.href).to_s
+        md = Metadata.open(link_loc, options.merge(filenames: loc, reason: "load linked metadata: #{link_loc}"))
+        all_locs << link_loc if md
         # Metadata must describe file to be useful
         metadata = md if md && md.describes_file?(base)
       end
@@ -332,15 +332,15 @@ module RDF::Tabular
       @context = case input['@context']
       when Array
         warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
-        LOCAL_CONTEXT.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
+        LOCAL_CONTEXT.dup.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
       when Hash
         warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
-        LOCAL_CONTEXT.parse(input['@context'])
-      when "http://www.w3.org/ns/csvw" then LOCAL_CONTEXT
+        LOCAL_CONTEXT.dup.parse(input['@context'])
+      when "http://www.w3.org/ns/csvw" then LOCAL_CONTEXT.dup
       else
         if self.is_a?(TableGroup) || self.is_a?(Table) && !@parent
           warn "Context missing required value 'http://www.w3.org/ns/csvw'"
-          LOCAL_CONTEXT
+          LOCAL_CONTEXT.dup
         end
       end
 
@@ -1326,7 +1326,7 @@ module RDF::Tabular
       object.inject({
         "@id" => (id.to_s if id),
         "@type" => "AnnotatedTableGroup",
-        "tables" => []
+        "tables" => Array(self.tables).map(&:to_atd)
       }) do |memo, (k, v)|
         memo[k.to_s] ||= v
         memo
@@ -1404,7 +1404,7 @@ module RDF::Tabular
         "@id" => (id.to_s if id),
         "@type" => "AnnotatedTable",
         "url" => self.url.to_s,
-        "columns" => tableSchema.columns.map(&:to_atd),
+        "columns" => Array(tableSchema ? tableSchema.columns : []).map(&:to_atd),
         "rows" => []
       }) do |memo, (k, v)|
         memo[k.to_s] ||= v
