@@ -192,18 +192,19 @@ module RDF::Tabular
       # Search for metadata until found
 
       # load link metadata, if available
+      all_locs = []
       if !metadata && input.respond_to?(:links) && 
         link = input.links.find_link(%w(rel describedby))
         loc = RDF::URI(base).join(link.href).to_s
         md = Metadata.open(loc, options.merge(filenames: loc, reason: "load linked metadata: #{loc}"))
+        all_locs << loc if md
         # Metadata must describe file to be useful
-        metadata = md if md && md.describes_file(base)
+        metadata = md if md && md.describes_file?(base)
       end
 
-      found_metadata = !!metadata
       locs = []
       # If we still don't have metadata, load the site-wide configuration file and use templates found there as locations
-      if !found_metadata && base
+      if !metadata && base
         templates = site_wide_config(base)
         debug("for_input", options) {"templates: #{templates.map(&:to_s).inspect}"}
         locs = templates.map do |template|
@@ -216,8 +217,8 @@ module RDF::Tabular
           metadata ||= begin
             md = Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
             # Metadata must describe file to be useful
-            found_metadata ||= loc if md
-            md if md && md.describes_file(base)
+            all_locs << loc if md
+            md if md && md.describes_file?(base)
           rescue IOError
             debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
             nil
@@ -226,9 +227,9 @@ module RDF::Tabular
       end
 
       # If Metadata was found, but no metadata describes the file, issue a warning
-      if found_metadata && !metadata
+      if !all_locs.empty? && !metadata
         warnings = options.fetch(:warnings, [])
-        warnings << "Found metadata at #{locs.join(",")}, which does not describe #{base}, ignoring"
+        warnings << "Found metadata at #{all_locs.join(",")}, which does not describe #{base}, ignoring"
         if options[:validate] && !options[:warnings]
           $stderr.puts "Warnings: #{warnings.join("\n")}"
         end
@@ -954,7 +955,7 @@ module RDF::Tabular
     # Does this metadata describe the file (URL)?
     # @param [RDF::URL] url
     # @return [Boolean]
-    def describes_file(url)
+    def describes_file?(url)
       case self
       when TableGroup
         tables.any? {|t| t.url == url}
@@ -977,8 +978,13 @@ module RDF::Tabular
         end
       else
         # Tables must have the same url
-        raise Error, "Tables must have the same url: #{url.inspect} vs #{other.url.inspect}}" unless
-          url == other.url
+        unless url == other.url
+          if @options[:validate]
+            raise Error, "Tables must have the same url: #{url.inspect} vs #{other.url.inspect}}"
+          else
+            warn "Tables must have the same url: #{url.inspect} vs #{other.url.inspect}}"
+          end
+        end
 
         # Each column description within B MUST match the corresponding column description in A for non-virtual columns
         non_virtual_columns = Array(tableSchema.columns).reject(&:virtual)

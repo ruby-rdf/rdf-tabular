@@ -156,11 +156,14 @@ module RDF::Tabular
                 end
               end unless minimal?
 
-              # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
-              if options[:original_input] && input.tables.first.url.to_s.empty?
+              # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input.
+              # This case also handles found metadata that doesn't describe the input file
+              if options[:original_input] && !input.describes_file?(options[:base_uri])
                 table_resource = RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                 Reader.new(options[:original_input], options.merge(
+                    metadata: input.tables.first,
+                    base: input.tables.first.url,
                     no_found_metadata: true,
                     table_resource: table_resource,
                     warnings: @warnings,
@@ -180,7 +183,6 @@ module RDF::Tabular
                   table_resource = table.id || RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                   Reader.open(table.url, options.merge(
-                      format: :tabular,
                       metadata: table,
                       base: table.url,
                       no_found_metadata: true,
@@ -434,26 +436,30 @@ module RDF::Tabular
 
             table_group['tables'] = tables
 
-            if options[:original_input] && input.tables.first.url.to_s.empty?
+            if options[:original_input] && !input.describes_file?(options[:base_uri])
               Reader.new(options[:original_input], options.merge(
-                  base:               options[:base],
+                  metadata:           input.tables.first,
+                  base:               input.tables.first.url,
                   minimal:            minimal?,
-                  no_found_metadata: true
+                  no_found_metadata:  true,
+                  warnings:           @warnings,
+                  errors:             @errors,
               )) do |r|
-                case table = r.to_hash(options)
-                when Array then tables += table
-                when Hash  then tables << table
+                case t = r.to_hash(options)
+                when Array then tables += t unless input.tables.first.suppressOutput
+                when Hash  then tables << t unless input.tables.first.suppressOutput
                 end
               end
             else
               input.each_table do |table|
                 next if table.suppressOutput && !validate?
                 Reader.open(table.url, options.merge(
-                  format:             :tabular,
                   metadata:           table,
                   base:               table.url,
                   minimal:            minimal?,
-                  no_found_metadata:  true
+                  no_found_metadata:  true,
+                  warnings:           @warnings,
+                  errors:             @errors,
                 )) do |r|
                   case t = r.to_hash(options)
                   when Array then tables += t unless table.suppressOutput

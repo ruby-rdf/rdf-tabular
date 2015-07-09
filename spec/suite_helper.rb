@@ -144,10 +144,6 @@ module Fixtures
         type.to_s.include?("To")
       end
       
-      def sparql?
-        type.to_s.include?("Sparql")
-      end
-
       def rdf?
         result.to_s.end_with?(".ttl")
       end
