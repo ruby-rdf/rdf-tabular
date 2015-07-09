@@ -283,7 +283,7 @@ module RDF::Tabular
           end
           row.values.each_with_index do |cell, index|
             # Collect cell errors
-            errors << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
+            (validate? ? errors : warnings) << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
                       cell.errors.join("\n") unless Array(cell.errors).empty?
             next if cell.column.suppressOutput # Skip ignored cells
             cell_subject = cell.aboutUrl || default_cell_subject
@@ -519,6 +519,10 @@ module RDF::Tabular
 
           row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]
+
+            # Collect cell errors
+            (validate? ? errors : warnings) << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
+                      cell.errors.join("\n") unless Array(cell.errors).empty?
 
             # Ignore suppressed columns
             next if column.suppressOutput

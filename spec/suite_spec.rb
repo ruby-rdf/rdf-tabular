@@ -16,7 +16,7 @@ describe RDF::Tabular::Reader do
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
-            #next unless t.id.match(/test13/)
+            #next unless t.id.match(/test2../)
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               t.debug = []
