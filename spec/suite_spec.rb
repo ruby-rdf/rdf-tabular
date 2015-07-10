@@ -19,6 +19,8 @@ describe RDF::Tabular::Reader do
             #next unless t.id.match(/test195/)
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
+              pending "user metadata overrides" if t.id.to_s.include?("test121")
+              pending "number formats" if t.id.to_s =~ /test15[578]|test16[08]|test17[01]/
               t.debug = []
               t.warnings = []
               t.errors = []

@@ -196,7 +196,7 @@ module RDF::Tabular
       if !metadata && input.respond_to?(:links) && 
         link = input.links.find_link(%w(rel describedby))
         link_loc = RDF::URI(base).join(link.href).to_s
-        md = Metadata.open(link_loc, options.merge(filenames: loc, reason: "load linked metadata: #{link_loc}"))
+        md = Metadata.open(link_loc, options.merge(filenames: link_loc, reason: "load linked metadata: #{link_loc}"))
         all_locs << link_loc if md
         # Metadata must describe file to be useful
         metadata = md if md && md.describes_file?(base)
@@ -411,8 +411,14 @@ module RDF::Tabular
       end
     end
 
-    # Setters
+    # Getters and Setters
     INHERITED_PROPERTIES.keys.each do |key|
+      define_method(key) do
+        object.fetch(key) do
+          parent ? parent.send(key) : default_value(key)
+        end
+      end
+
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :aboutUrl, :default, :propertyUrl, :valueUrl
@@ -434,7 +440,7 @@ module RDF::Tabular
 
         if invalid
           warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = default_value(key) unless default_value(key).nil?
+          object.delete(key)
         else
           object[key] = value
         end
@@ -461,7 +467,7 @@ module RDF::Tabular
         md[:@id] ||= link
         md
       when Hash
-        Metadata.new(value, @options.merge(parent: self, context: nil))
+        Schema.new(value, @options.merge(parent: self, context: nil))
       when Schema
         value
       else
@@ -508,7 +514,7 @@ module RDF::Tabular
         md[:@id] ||= link
         md
       when Hash
-        Metadata.new(value, @options.merge(parent: self, context: nil))
+        Dialect.new(value, @options.merge(parent: self, context: nil))
       when Dialect
         value
       else
@@ -1205,13 +1211,6 @@ module RDF::Tabular
       end
     end
 
-    def inherited_property_value(method)
-      # Inherited properties
-      object.fetch(method.to_sym) do
-        parent.send(method) if parent
-      end
-    end
-
     def default_value(prop)
       self.class.const_get(:DEFAULTS).merge(INHERITED_DEFAULTS)[prop]
     end
@@ -1261,9 +1260,15 @@ module RDF::Tabular
     }.freeze
     REQUIRED = [:tables].freeze
 
-    # Setters
+    # Getters and Setters
     PROPERTIES.each do |key, type|
-      next if [:tables, :tableSchema, :dialect, :transformations].include?(key)
+      next if [:dialect].include?(key)
+
+      define_method(key) do
+        object.fetch(key, DEFAULTS[key])
+      end
+
+      next if [:tables, :tableSchema, :transformations].include?(key)
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :tableDirection
@@ -1274,7 +1279,7 @@ module RDF::Tabular
 
         if invalid
           warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = default_value(key) unless default_value(key).nil?
+          object.delete(key)
         else
           object[key] = value
         end
@@ -1285,15 +1290,6 @@ module RDF::Tabular
     # @return [Boolean]
     def has_annotations?
       super || tables.any? {|t| t.has_annotations? }
-    end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      if INHERITED_PROPERTIES.has_key?(method.to_sym)
-        inherited_property_value(method.to_sym)
-      else
-        PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
-      end
     end
 
     ##
@@ -1352,9 +1348,14 @@ module RDF::Tabular
     }.freeze
     REQUIRED = [:url].freeze
 
-    # Setters
+    # Getters and Setters
     PROPERTIES.each do |key, type|
-      next if [:tableSchema, :dialect, :transformations].include?(key)
+      next if [:dialect, :url].include?(key)
+      define_method(key) do
+        object.fetch(key, DEFAULTS[key])
+      end
+
+      next if [:tableSchema, :transformations].include?(key)
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :suppressOutput
@@ -1369,7 +1370,7 @@ module RDF::Tabular
 
         if invalid
           warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = default_value(key) unless default_value(key).nil?
+          object.delete(key)
         elsif key == :url
           # URL of CSV relative to metadata
           object[:url] = value
@@ -1411,15 +1412,6 @@ module RDF::Tabular
         memo
       end.delete_if {|k,v| v.nil? || v.is_a?(Metadata) || k.to_s == "@context"}
     end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      if INHERITED_PROPERTIES.has_key?(method.to_sym)
-        inherited_property_value(method.to_sym)
-      else
-        PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
-      end
-    end
   end
 
   class Schema < Metadata
@@ -1434,8 +1426,12 @@ module RDF::Tabular
     DEFAULTS = {}.freeze
     REQUIRED = [].freeze
 
-    # Setters
+    # Getters and Setters
     PROPERTIES.each do |key, type|
+      define_method(key) do
+        object.fetch(key, DEFAULTS[key])
+      end
+
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :primaryKey, :rowTitles
@@ -1444,7 +1440,7 @@ module RDF::Tabular
 
         if invalid
           warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = default_value(key) unless default_value(key).nil?
+          object.delete(key)
         else
           object[key] = value
         end
@@ -1512,15 +1508,6 @@ module RDF::Tabular
         end
       end
     end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      if INHERITED_PROPERTIES.has_key?(method.to_sym)
-        inherited_property_value(method.to_sym)
-      else
-        PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
-      end
-    end
   end
 
   class Column < Metadata
@@ -1564,8 +1551,12 @@ module RDF::Tabular
       super || columns.any? {|c| c.has_annotations? }
     end
 
-    # Setters
+    # Getters and Setters
     PROPERTIES.each do |key, t|
+      define_method(key) do
+        object.fetch(key, DEFAULTS[key])
+      end
+
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :name
@@ -1582,7 +1573,7 @@ module RDF::Tabular
           object.delete(key) if object[key].nil?
         elsif invalid
           warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = default_value(key) unless default_value(key).nil?
+          object.delete(key)
         else
           object[key] = value
         end
@@ -1603,7 +1594,7 @@ module RDF::Tabular
     # @return [RDF::URI]
     def id;
       url = table ? table.url : RDF::URI("")
-      url + "#col=#{self.sourceNumber}";
+      url.to_s + "#col=#{self.sourceNumber}";
     end
 
     # Return Annotated Column representation
@@ -1623,15 +1614,6 @@ module RDF::Tabular
         memo
       end.delete_if {|k,v| v.nil?}
     end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      if INHERITED_PROPERTIES.has_key?(method.to_sym)
-        inherited_property_value(method.to_sym)
-      else
-        PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
-      end
-    end
   end
 
   class Transformation < Metadata
@@ -1647,8 +1629,13 @@ module RDF::Tabular
     DEFAULTS = {}.freeze
     REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
 
-    # Setters
+    # Getters and Setters
     PROPERTIES.each do |key, type|
+      next if [:url].include?(key)
+      define_method(key) do
+        object.fetch(key, DEFAULTS[key])
+      end
+
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :scriptFormat, :targetFormat
@@ -1659,16 +1646,11 @@ module RDF::Tabular
 
         if invalid
           warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = default_value(key) unless default_value(key).nil?
+          object.delete(key)
         else
           object[key] = value
         end
       end
-    end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
     end
   end
 
@@ -1710,8 +1692,12 @@ module RDF::Tabular
 
     REQUIRED = [].freeze
 
-    # Setters
+    # Getters and Setters
     PROPERTIES.keys.each do |key|
+      define_method(key) do
+        object.fetch(key, DEFAULTS[key])
+      end
+
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :commentPrefix, :delimiter, :quoteChar, :lineTerminators
@@ -1734,7 +1720,7 @@ module RDF::Tabular
           object.delete(key) if object[key].nil?
         elsif invalid
           warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = default_value(key) unless default_value(key).nil?
+          object.delete(key)
         else
           object[key] = value
         end
@@ -1827,16 +1813,6 @@ module RDF::Tabular
 
       Table.new(table, options.merge(reason: "load embedded metadata: #{table['@id']}"))
     end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      if DEFAULTS.has_key?(method.to_sym)
-        # As set, or with default
-        object.fetch(method.to_sym, DEFAULTS[method.to_sym])
-      else
-        super
-      end
-    end
   end
 
   class Datatype < Metadata
@@ -1863,8 +1839,12 @@ module RDF::Tabular
     # Override `base` in Metadata
     def base; object[:base]; end
 
-    # Setters
+    # Getters and Setters
     PROPERTIES.each do |key, type|
+      define_method(key) do
+        object.fetch(key, DEFAULTS[key])
+      end
+
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
         when :base
@@ -1893,7 +1873,7 @@ module RDF::Tabular
 
         if invalid
           warn "#{self.type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = default_value(key) unless default_value(key).nil?
+          object.delete(key)
         else
           object[key] = value
         end
@@ -1994,11 +1974,6 @@ module RDF::Tabular
 
       value = [vd, vt].compact.join('T')
       value += tz_part.to_s
-    end
-
-    # Logic for accessing elements as accessors
-    def method_missing(method, *args)
-      PROPERTIES.has_key?(method.to_sym) ? object[method.to_sym] : super
     end
   end
 
@@ -2107,7 +2082,7 @@ module RDF::Tabular
       end
 
       # Make sure that the row length is at least as long as the number of column definitions, to implicitly include virtual columns
-      columns.each_with_index {|c, index| row[index] ||= (c.null || '')}
+      columns.each_with_index {|c, index| row[index] ||= c.null}
 
       row.each_with_index do |value, index|
 
@@ -2151,7 +2126,7 @@ module RDF::Tabular
               lit_or_errors
             else
               cell_errors += lit_or_errors
-              RDF::Literal(v, language: column.lang)
+              RDF::Literal(v, language: (column.lang unless column.lang == "und"))
             end
           end
         end.compact
@@ -2340,7 +2315,7 @@ module RDF::Tabular
         lit = if value_errors.empty?
           if expanded_dt == RDF::XSD.string
             # Type string will still use language
-            RDF::Literal(value, language: language)
+            RDF::Literal(value, language: (language unless language == "und"))
           else
             RDF::Literal(value, datatype: expanded_dt)
           end
