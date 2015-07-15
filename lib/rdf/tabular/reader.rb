@@ -110,7 +110,7 @@ module RDF::Tabular
             @metadata.dialect = dialect
           else
             # It's tabluar data. Find metadata and proceed as if it was specified in the first place
-            @options[:original_input] = @input
+            @options[:original_input] = @input unless @options[:metadata]
             @input = @metadata = Metadata.for_input(@input, @options).normalize!
           end
 
