@@ -694,14 +694,12 @@ module RDF::Tabular
               object.delete(:format) # act as if not set
             end
 
-            # Otherwise, if it exists, its a regular expression
-            if value["pattern"]
-              begin
-                Regexp.compile(value["pattern"].to_s)
-              rescue
-                warn "#{type} has invalid property '#{key}' pattern: #{$!.message}"
-                value.delete("pattern") # act as if not set
-              end
+            # Otherwise, if it exists, its a UAX35 number pattern
+            begin
+              parse_uax35_number(value["pattern"], nil, value.fetch('groupChar', ','), value.fetch('decimalChar', '.'))
+            rescue ArgumentError => e
+              warn "#{type} has invalid property '#{key}' pattern: #{e.message}"
+              object.delete("pattern") # act as if not set
             end
           else
             case self.base
@@ -710,10 +708,21 @@ module RDF::Tabular
                 warn "#{type} has invalid property '#{key}': annotation provides the true and false values expected, separated by '|'"
                 object.delete(:format) # act as if not set
               end
+            when :decimal, :integer, :long, :int, :short, :byte,
+                 :nonNegativeInteger, :positiveInteger,
+                 :unsignedLong, :unsignedInt, :unsignedShort, :unsignedByte,
+                 :nonPositiveInteger, :negativeInteger,
+                 :double, :float, :number
+              begin
+                parse_uax35_number(value, nil)
+              rescue ArgumentError => e
+                warn "#{type} has invalid property '#{key}': #{e.message}"
+                object.delete(:format) # act as if not set
+              end
             when 'date', 'dateTime', 'datetime', 'dateTimeStamp', 'time'
               # Parse and validate format
               begin
-                parse_uax35(value, nil)
+                parse_uax35_date(value, nil)
               rescue ArgumentError => e
                 warn "#{type} has invalid property '#{key}': #{e.message}"
                 object.delete(:format) # act as if not set
@@ -1881,14 +1890,14 @@ module RDF::Tabular
     end
 
     ##
-    # Parse the format (if provided), and match against the value (if provided)
+    # Parse the date format (if provided), and match against the value (if provided)
     # Otherwise, validate format and raise an error
     #
     # @param [String] format
     # @param [String] value
     # @return [String] XMLSchema version of value
-    # @raise [ArgumentError] if format is not valid
-    def parse_uax35(format, value)
+    # @raise [ArgumentError] if format is not valid, or nil, if value does not match
+    def parse_uax35_date(format, value)
       tz, date_format, time_format = nil, nil, nil
       return value unless format
       value ||= ""
@@ -1974,6 +1983,107 @@ module RDF::Tabular
 
       value = [vd, vt].compact.join('T')
       value += tz_part.to_s
+    end
+
+    ##
+    # Parse the date format (if provided), and match against the value (if provided)
+    # Otherwise, validate format and raise an error
+    #
+    # @param [String] pattern
+    # @param [String] value
+    # @param [String] groupChar
+    # @param [String] decimalChar
+    # @return [String] XMLSchema version of value or nil, if value does not match
+    # @raise [ArgumentError] if format is not valid
+    def parse_uax35_number(pattern, value, groupChar=",", decimalChar=".")
+      return value if pattern.to_s.empty?
+      value ||= ""
+
+      re = build_number_re(pattern, groupChar, decimalChar)
+
+      # Upcase value and remove internal spaces
+      value = value.upcase.gsub(/\s+/, '')
+
+      # Remove groupChar from value
+      value = value.gsub(groupChar, '')
+
+      # Replace decimalChar with "."
+      value = value.gsub(decimalChar, '.')
+
+      if value =~ re
+        # result re-assembles parts removed from value
+        value
+      else
+        # no match
+        nil
+      end
+    end
+
+    # Build a regular expression from the provided pattern to match value, after suitable modifications
+    #
+    # @param [String] pattern
+    # @param [String] groupChar
+    # @param [String] decimalChar
+    # @return [Regexp] Regular expression matching value
+    # @raise [ArgumentError] if format is not valid
+    def build_number_re(pattern, groupChar, decimalChar)
+      # pattern must be composed of only 0, #, decimalChar, groupChar, E, +, -, %, and ‰
+      legal_number_pattern = /\A
+        ([%‰])?
+        ([+-])?
+        # Mantissa
+        (\#|#{groupChar == '.' ? '\.' : groupChar})*
+        (0|#{groupChar == '.' ? '\.' : groupChar})*
+        # Fractional
+        (?:#{decimalChar == '.' ? '\.' : decimalChar}
+          (0|#{groupChar == '.' ? '\.' : groupChar})*
+          (\#|#{groupChar == '.' ? '\.' : groupChar})*
+          # Exponent
+          (E
+            [+-]?
+            (?:\#|#{groupChar == '.' ? '\.' : groupChar})*
+            (?:0|#{groupChar == '.' ? '\.' : groupChar})*
+          )?
+        )?
+        ([%‰])?
+      \Z/x
+
+      unless pattern =~ legal_number_pattern
+        raise ArgumentError, "unrecognized number pattern #{pattern}"
+      end
+
+      # Remove groupChar from pattern
+      pattern = pattern.gsub(groupChar, '')
+
+      # Replace decimalChar with "."
+      pattern = pattern.gsub(decimalChar, '.')
+
+      # Split on decimalChar and E
+      parts = pattern.split(/[\.E]/)
+
+      # Construct regular expression
+      mantissa_str = case parts[0]
+      when /\A([%‰])?([+-])?#+(0+)([%‰])?\Z/ then "#{$1}#{$2}\\d{#{$3.length},}#{$4}"
+      when /\A([%‰])?([+-])?(0+)([%‰])?\Z/   then "#{$1}#{$2}\\d{#{$3.length}}#{$4}"
+      when /\A([%‰])?([+-])?#+([%‰])?\Z/     then "#{$1}#{$2}\\d*#{$4}"
+      end
+
+      fractional_str = case parts[1]
+      when /\A(0+)(#+)([%‰])?\Z/ then "\\d{#{$1.length},#{$1.length+$2.length}}#{$3}"
+      when /\A(0+)([%‰])?\Z/     then "\\d{#{$1.length}}#{$2}"
+      when /\A(#+)([%‰])?\Z/     then "\\d{,#{$1.length}}#{$2}"
+      end
+      fractional_str = "\\.#{fractional_str}" if fractional_str
+
+      #require 'byebug'; byebug
+      exponent_str = case parts[2]
+      when /\A([+-])?(#+)(0+)([%‰])?\Z/ then "#{$1}\\d{#{$3.length},#{$2.length+$3.length}}#{$4}"
+      when /\A([+-])?(0+)([%‰])?\Z/    then "#{$1}\\d{#{$2.length}}#{$3}"
+      when /\A([+-])?(#+)([%‰])?\Z/     then "#{$1}\\d{,#{$2.length}}#{$3}"
+      end
+      exponent_str = "E#{exponent_str}" if exponent_str
+
+      Regexp.new("^#{mantissa_str}#{fractional_str}#{exponent_str}$")
     end
   end
 
@@ -2206,25 +2316,30 @@ module RDF::Tabular
         else {}
         end
 
-        groupChar = format["groupChar"] || ','
+        groupChar = format["groupChar"]
         decimalChar = format["decimalChar"] || '.'
-        pattern = Regexp.new(format["pattern"]) rescue nil if format["pattern"]
+        pattern = format["pattern"]
 
-        value_errors << "#{value} does not match pattern #{pattern}" if pattern && !value.match(pattern)
+        if !datatype.parse_uax35_number(pattern, value, groupChar || ",", decimalChar)
+          value_errors << "#{value} does not match pattern #{pattern}"
+        end
 
         # pattern facet failed
-        value_errors << "#{value} has repeating #{groupChar.inspect}" if value.include?(groupChar*2)
-        value = value.gsub(groupChar, '').sub(decimalChar, '.')
+        value_errors << "#{value} has repeating #{groupChar.inspect}" if groupChar && value.include?(groupChar*2)
+        value = value.gsub(groupChar, '') if groupChar
+        value = value.sub(decimalChar, '.')
 
         # Extract percent or per-mille sign
         percent = permille = false
-        case value
-        when /%$/
-          value = value[0..-2]
-          percent = true
-        when /‰$/
-          value = value[0..-2]
-          permille = true
+        if groupChar
+          case value
+          when /%/
+            value = value.sub('%', '')
+            percent = true
+          when /‰/
+            value = value.sub('‰', '')
+            permille = true
+          end
         end
 
         lit = RDF::Literal(value, datatype: expanded_dt)
@@ -2274,7 +2389,7 @@ module RDF::Tabular
           end
         end
       when :date, :time, :dateTime, :dateTimeStamp, :datetime
-        if value = datatype.parse_uax35(format, value)
+        if value = datatype.parse_uax35_date(format, value)
           lit = RDF::Literal(value, datatype: expanded_dt)
         else
           value_errors << "#{original_value} does not match format #{format}"

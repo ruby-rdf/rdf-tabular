@@ -1055,19 +1055,14 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with matching pattern" => {
           base: "decimal",
-          format: {"pattern" => '\d{3}'},
+          format: {"pattern" => '000'},
           value: "123"
         },
         "decimal with wrong pattern" => {
           base: "decimal",
-          format: {"pattern" => '\d{4}'},
+          format: {"pattern" => '0000'},
           value: "123",
           errors: [/123 does not match pattern/]
-        },
-        "decimal with implicit groupChar" => {
-          base: "decimal",
-          value: %("123,456.789"),
-          result: "123456.789"
         },
         "decimal with explicit groupChar" => {
           base: "decimal",
@@ -1096,11 +1091,13 @@ describe RDF::Tabular::Metadata do
         },
         "decimal with percent" => {
           base: "decimal",
+          format: {"groupChar" => ","},
           value: "123456.789%",
           result: "1234.56789"
         },
         "decimal with per-mille" => {
           base: "decimal",
+          format: {"groupChar" => ","},
           value: "123456.789‰",
           result: "123.456789"
         },
@@ -1292,6 +1289,55 @@ describe RDF::Tabular::Metadata do
             expect(md.warnings).not_to be_empty
           end
         end
+      end
+    end
+  end
+
+  describe "#build_number_re" do
+    subject {RDF::Tabular::Datatype.new({})}
+    {
+      '#,##0.##'   => /^\d{1,}\.\d{,2}$/,
+      '#,##0.###'  => /^\d{1,}\.\d{,3}$/,
+      '###0.#####' => /^\d{1,}\.\d{,5}$/,
+      '###0.0000#' => /^\d{1,}\.\d{4,5}$/,
+      '00000.0000' => /^\d{5}\.\d{4}$/,
+      
+      '0'          => /^\d{1}$/,
+      '00'         => /^\d{2}$/,
+      '#'          => /^\d*$/,
+      '##'         => /^\d*$/,
+      
+      '.0'         => /^\.\d{1}$/,
+      '.00'        => /^\.\d{2}$/,
+      '.#'         => /^\.\d{,1}$/,
+      '.##'        => /^\.\d{,2}$/,
+      
+      '+0'         => /^+\d{1}$/,
+      '-0'         => /^-\d{1}$/,
+      '%0'         => /^%\d{1}$/,
+      '‰0'         => /^‰\d{1}$/,
+      '0%'         => /^\d{1}%$/,
+      '0‰'         => /^\d{1}‰$/,
+      '0.0%'       => /^\d{1}\.\d{1}%$/,
+
+      '#0.0#E#0'   => /^\d{1,}\.\d{1,2}E\d{1,2}$/,
+      '#0.0#E+#'   => /^\d{1,}\.\d{1,2}E+\d{,1}$/,
+      '#0.0#E-00'  => /^\d{1,}\.\d{1,2}E-\d{2}$/,
+      '#0.0#E#0%'  => /^\d{1,}\.\d{1,2}E\d{1,2}%$/,
+    }.each do |pattern,regexp|
+      it "generates #{regexp} for #{pattern}" do
+        expect(subject.build_number_re(pattern, ",", ".")).to eql regexp
+      end
+    end
+
+    %W{
+      +%0
+      0#
+      0E0
+      0-
+    }.each do |pattern|
+      it "recognizes bad pattern #{pattern}" do
+        expect{subject.build_number_re(pattern, ",", ".")}.to raise_error(ArgumentError)
       end
     end
   end
