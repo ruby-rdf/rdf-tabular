@@ -555,6 +555,8 @@ module RDF::Tabular
               cell.valueUrl.to_s
             when cell.value.is_a?(RDF::Literal::Double)
               cell.value.object.nan? || cell.value.object.infinite? ? cell.value : cell.value.object
+            when cell.value.is_a?(RDF::Literal::Decimal)
+              cell.value.object.to_f
             when cell.value.is_a?(RDF::Literal::Numeric)
               cell.value.object
             when cell.value.is_a?(RDF::Literal::Boolean)
