@@ -47,8 +47,8 @@ RSpec::Matchers.define :be_equivalent_graph do |expected, info|
     else
       "Graph differs\n"
     end +
-    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: prefixes)}" +
-    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: prefixes)}" +
+    "Expected:\n#{@expected.dump(:ttl, standard_prefixes: true, prefixes: prefixes, literal_shorthand: false)}" +
+    "Results:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: prefixes, literal_shorthand: false)}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
     (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     (@info.debug ? "\nDebug:\n#{@info.debug}" : "")
@@ -85,7 +85,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
       "Query returned true (expected #{@info.result})"
     end +
     "\n#{@expected}" +
-    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
+    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'}, literal_shorthand: false)}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
     (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     "\nDebug:\n#{@info.debug}"
@@ -103,7 +103,7 @@ RSpec::Matchers.define :pass_query do |expected, info|
       "Query returned true (expected #{@info.result})"
     end +
     "\n#{@expected}" +
-    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'})}" +
+    "\nResults:\n#{@actual.dump(:ttl, standard_prefixes: true, prefixes: {'' => @info.action + '#'}, literal_shorthand: false)}" +
     (@info.metadata ? "\nMetadata:\n#{@info.metadata.to_json(JSON_STATE)}\n" : "") +
     (@info.metadata && !@info.metadata.errors.empty? ? "\nMetadata Errors:\n#{@info.metadata.errors.join("\n")}\n" : "") +
     "\nDebug:\n#{@info.debug}"

@@ -69,6 +69,7 @@ def run_tc(t, options)
           elsif t.evaluate?
             graph << reader
             output_graph = RDF::Repository.load(t.result, format:  :turtle, base_uri:  t.base)
+            require 'byebug'; byebug
             graph.isomorphic_with?(output_graph) ? "passed" : "failed"
           elsif t.validation?
             reader.validate!
@@ -116,7 +117,7 @@ def run_tc(t, options)
   if t.json?
     options[:output].puts("\nOutput:\n" + json_result) unless options[:quiet]
   else
-    options[:output].puts("\nOutput:\n" + graph.dump(:ttl, standard_prefixes: true)) unless options[:quiet]
+    options[:output].puts("\nOutput:\n" + graph.dump(:ttl, standard_prefixes: true, literal_shorthand: false)) unless options[:quiet]
   end
 
   if options[:earl]
