@@ -743,9 +743,9 @@ module RDF::Tabular
           if object[:length]
             case key
             when :minLength
-              errors << "#{type} has invalid property minLength': both length and minLength requires length be greater than or equal to minLength" if object[:length] > value
+              errors << "#{type} has invalid property minLength': both length and minLength requires length be greater than or equal to minLength" if object[:length] < value
             when :maxLength
-              errors << "#{type} has invalid property maxLength': both length and maxLength requires length be less than or equal to maxLength" if object[:length] < value
+              errors << "#{type} has invalid property maxLength': both length and maxLength requires length be less than or equal to maxLength" if object[:length] > value
             end
           end
 
