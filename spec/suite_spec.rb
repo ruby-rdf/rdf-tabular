@@ -16,11 +16,9 @@ describe RDF::Tabular::Reader do
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
-            #next unless t.id.match(/test195/)
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
-              pending "user metadata overrides" if t.id.to_s.include?("test121")
-              pending "number formats" if t.id.to_s =~ /test15[578]|test16[08]|test17[01]/
+              pending "rdf#test158 should be isomorphic" if t.id.include?("rdf#test158")
               t.debug = []
               t.warnings = []
               t.errors = []

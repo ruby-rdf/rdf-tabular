@@ -699,7 +699,7 @@ module RDF::Tabular
               parse_uax35_number(value["pattern"], nil, value.fetch('groupChar', ','), value.fetch('decimalChar', '.'))
             rescue ArgumentError => e
               warn "#{type} has invalid property '#{key}' pattern: #{e.message}"
-              object.delete("pattern") # act as if not set
+              object[:format].delete("pattern") # act as if not set
             end
           else
             case self.base
@@ -2075,7 +2075,6 @@ module RDF::Tabular
       end
       fractional_str = "\\.#{fractional_str}" if fractional_str
 
-      #require 'byebug'; byebug
       exponent_str = case parts[2]
       when /\A([+-])?(#+)(0+)([%‰])?\Z/ then "#{$1}\\d{#{$3.length},#{$2.length+$3.length}}#{$4}"
       when /\A([+-])?(0+)([%‰])?\Z/    then "#{$1}\\d{#{$2.length}}#{$3}"
