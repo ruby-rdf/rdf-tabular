@@ -30,10 +30,12 @@ module RDF::Util
         Kernel.open(path.to_s, &block)
       when filename_or_url.to_s =~ %r{http://www.w3.org/ns/csvw/?}
         ::File.open(::File.expand_path("../../etc/csvw.jsonld", __FILE__), &block)
+      when filename_or_url.to_s == "http://www.w3.org/.well-known/csvm"
+        ::File.open(::File.expand_path("../../etc/well-known", __FILE__), &block)
       when (filename_or_url.to_s =~ %r{^#{REMOTE_PATH}} && Dir.exist?(LOCAL_PATH))
         begin
           #puts "attempt to open #{filename_or_url} locally"
-          localpath = RDF::URI(filename_or_url)
+          localpath = RDF::URI(filename_or_url).dup
           localpath.query = nil
           localpath = localpath.to_s.sub(REMOTE_PATH, LOCAL_PATH)
           response = begin
@@ -144,10 +146,6 @@ module Fixtures
         type.to_s.include?("To")
       end
       
-      def sparql?
-        type.to_s.include?("Sparql")
-      end
-
       def rdf?
         result.to_s.end_with?(".ttl")
       end

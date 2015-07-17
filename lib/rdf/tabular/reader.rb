@@ -92,7 +92,7 @@ module RDF::Tabular
             dialect.header = false if (input.headers.fetch(:content_type, '').split(';').include?('header=absent') rescue false)
             dialect.encoding = input.charset if (input.charset rescue nil)
             dialect.separator = "\t" if (input.content_type == "text/tsv" rescue nil)
-            embed_options = {base: "http://example.org/default-metadata"}.merge(@options)
+            embed_options = @options.dup
             embed_options[:lang] = dialect_metadata.lang if dialect_metadata.lang
             embedded_metadata = dialect.embedded_metadata(input, @options[:metadata], embed_options)
 
@@ -110,7 +110,7 @@ module RDF::Tabular
             @metadata.dialect = dialect
           else
             # It's tabluar data. Find metadata and proceed as if it was specified in the first place
-            @options[:original_input] = @input
+            @options[:original_input] = @input unless @options[:metadata]
             @input = @metadata = Metadata.for_input(@input, @options).normalize!
           end
 
@@ -156,11 +156,14 @@ module RDF::Tabular
                 end
               end unless minimal?
 
-              # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input
-              if Array(input.tables).empty? && options[:original_input]
+              # If we were originally given tabular data as input, simply use that, rather than opening the table URL. This allows buffered data to be used as input.
+              # This case also handles found metadata that doesn't describe the input file
+              if options[:original_input] && !input.describes_file?(options[:base_uri])
                 table_resource = RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                 Reader.new(options[:original_input], options.merge(
+                    metadata: input.tables.first,
+                    base: input.tables.first.url,
                     no_found_metadata: true,
                     table_resource: table_resource,
                     warnings: @warnings,
@@ -180,7 +183,6 @@ module RDF::Tabular
                   table_resource = table.id || RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
                   Reader.open(table.url, options.merge(
-                      format: :tabular,
                       metadata: table,
                       base: table.url,
                       no_found_metadata: true,
@@ -281,7 +283,7 @@ module RDF::Tabular
           end
           row.values.each_with_index do |cell, index|
             # Collect cell errors
-            errors << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
+            (validate? ? errors : warnings) << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
                       cell.errors.join("\n") unless Array(cell.errors).empty?
             next if cell.column.suppressOutput # Skip ignored cells
             cell_subject = cell.aboutUrl || default_cell_subject
@@ -318,7 +320,7 @@ module RDF::Tabular
       end
       enum_for(:each_statement)
     rescue IOError => e
-      raise RDF::ReaderError, e.message
+      raise RDF::ReaderError, e.message, e.backtrace
     end
 
     ##
@@ -432,28 +434,32 @@ module RDF::Tabular
               table_group[key] = [table_group[key]] if key == :notes && !table_group[key].is_a?(Array)
             end
 
-            table_group['table'] = tables
+            table_group['tables'] = tables
 
-            if input.tables.empty? && options[:original_input]
+            if options[:original_input] && !input.describes_file?(options[:base_uri])
               Reader.new(options[:original_input], options.merge(
-                  base:               options.fetch(:base, "http://example.org/default-metadata"),
+                  metadata:           input.tables.first,
+                  base:               input.tables.first.url,
                   minimal:            minimal?,
-                  no_found_metadata: true
+                  no_found_metadata:  true,
+                  warnings:           @warnings,
+                  errors:             @errors,
               )) do |r|
-                case table = r.to_hash(options)
-                when Array then tables += table
-                when Hash  then tables << table
+                case t = r.to_hash(options)
+                when Array then tables += t unless input.tables.first.suppressOutput
+                when Hash  then tables << t unless input.tables.first.suppressOutput
                 end
               end
             else
               input.each_table do |table|
                 next if table.suppressOutput && !validate?
                 Reader.open(table.url, options.merge(
-                  format:             :tabular,
                   metadata:           table,
                   base:               table.url,
                   minimal:            minimal?,
-                  no_found_metadata:  true
+                  no_found_metadata:  true,
+                  warnings:           @warnings,
+                  errors:             @errors,
                 )) do |r|
                   case t = r.to_hash(options)
                   when Array then tables += t unless table.suppressOutput
@@ -509,10 +515,14 @@ module RDF::Tabular
           r["rownum"] = row.number
 
           # Row titles
-          Array(row.titles).each { |t| merge_compacted_value(r, "title", t.to_s) unless t.nil?}
+          Array(row.titles).each { |t| merge_compacted_value(r, "titles", t.to_s) unless t.nil?}
 
           row.values.each_with_index do |cell, index|
             column = metadata.tableSchema.columns[index]
+
+            # Collect cell errors
+            (validate? ? errors : warnings) << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
+                      cell.errors.join("\n") unless Array(cell.errors).empty?
 
             # Ignore suppressed columns
             next if column.suppressOutput
@@ -528,7 +538,7 @@ module RDF::Tabular
             co['@id'] = subject.to_s unless subject == 'null'
             prop = case cell.propertyUrl
             when RDF.type then '@type'
-            when nil then column.name
+            when nil then URI.decode(column.name) # Use URI-decoded name
             else
               # Compact the property to a term or prefixed name
               metadata.context.compact_iri(cell.propertyUrl, vocab: true)
@@ -545,8 +555,10 @@ module RDF::Tabular
               cell.valueUrl.to_s
             when cell.value.is_a?(RDF::Literal::Double)
               cell.value.object.nan? || cell.value.object.infinite? ? cell.value : cell.value.object
+            when cell.value.is_a?(RDF::Literal::Integer)
+              cell.value.object.to_i
             when cell.value.is_a?(RDF::Literal::Numeric)
-              cell.value.object
+              cell.value.object.to_f
             when cell.value.is_a?(RDF::Literal::Boolean)
               cell.value.object
             when cell.value
@@ -606,7 +618,7 @@ module RDF::Tabular
             table_group = input.to_atd
             if input.tables.empty? && options[:original_input]
               Reader.new(options[:original_input], options.merge(
-                  base:               options.fetch(:base, "http://example.org/default-metadata"),
+                  base:              options[:base],
                   no_found_metadata: true
               )) do |r|
                 table_group["tables"] << r.to_atd(options)

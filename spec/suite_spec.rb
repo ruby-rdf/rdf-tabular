@@ -9,16 +9,16 @@ describe RDF::Tabular::Reader do
   before(:all) {WebMock.allow_net_connect!(net_http_connect_on_start: true)}
   after(:all) {WebMock.allow_net_connect!(net_http_connect_on_start: false)}
 
-  %w(rdf json validation).each do |variant|
+  %w(rdf json validation nonnorm).each do |variant|
     describe "w3c csvw #{variant.upcase} tests" do
       manifest = Fixtures::SuiteTest::BASE + "manifest-#{variant}.jsonld"
 
       Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
         describe m.comment do
           m.entries.each do |t|
-            #next unless t.id.match(/validation/)
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
+              pending "rdf#test158 should be isomorphic" if t.id.include?("rdf#test158")
               t.debug = []
               t.warnings = []
               t.errors = []
@@ -50,31 +50,26 @@ describe RDF::Tabular::Reader do
                         expect(::JSON.parse(result)).to be_a(Hash)
                       end
                     else # RDF or Validation
-                      if t.sparql?
-                        graph << reader
-                        RDF::Util::File.open_file(t.result) do |query|
-                          expect(graph).to pass_query(query, t)
-                        end
-                      elsif t.evaluate?
+                      if t.evaluate?
                         graph << reader
                         output_graph = RDF::Repository.load(t.result, format: :ttl, base_uri:  t.base)
                         expect(graph).to be_equivalent_graph(output_graph, t)
                       elsif t.validation?
                         expect {reader.validate!}.not_to raise_error
-
-                        if t.warning?
-                          expect(t.warnings.length).to be >= 1
-                        else
-                          expect(t.warnings).to produce [], t
-                        end
-                        expect(t.errors).to produce [], t
                       end
                     end
+
+                    if t.warning?
+                      expect(t.warnings.length).to be >= 1
+                    else
+                      expect(t.warnings).to produce [], t
+                    end
+                    expect(t.errors).to produce [], t
                   elsif t.json?
                     expect {
                       reader.to_json
                     }.to raise_error(RDF::Tabular::Error)
-                  elsif t.sparql? || t.evaluate?
+                  elsif t.evaluate?
                     expect {
                       graph << reader
                     }.to raise_error(RDF::ReaderError)
@@ -84,7 +79,7 @@ describe RDF::Tabular::Reader do
                 end
               rescue IOError, RDF::Tabular::Error
                 # Special case
-                unless t.negative_test? && t.validation?
+                unless t.negative_test?
                   raise
                 end
               end

@@ -70,7 +70,7 @@ describe RDF::Tabular::Reader do
       expect_any_instance_of(RDF::Tabular::Dialect).to receive(:encoding=).with("ISO-8859-4")
       RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
     end
-    it "sets lang to de in metadata given Content-Language=de" do
+    it "sets lang to de in metadata given Content-Language=de", pending: "affecting some RSpec matcher" do
       input = double("input", content_type: "text/csv", headers: {content_language: "de"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Metadata).to receive(:lang=).with("de")
       RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
@@ -85,12 +85,12 @@ describe RDF::Tabular::Reader do
   context "non-file input" do
     let(:expected) {
       JSON.parse(%({
-        "table": [
+        "tables": [
           {
-            "url": "http://example.org/default-metadata",
+            "url": "",
             "row": [
               {
-                "url": "http://example.org/default-metadata#row=2",
+                "url": "#row=2",
                 "rownum": 1,
                 "describes": [
                   {
@@ -100,7 +100,7 @@ describe RDF::Tabular::Reader do
                 ]
               },
               {
-                "url": "http://example.org/default-metadata#row=3",
+                "url": "#row=3",
                 "rownum": 2,
                 "describes": [
                   {
@@ -110,7 +110,7 @@ describe RDF::Tabular::Reader do
                 ]
               },
               {
-                "url": "http://example.org/default-metadata#row=4",
+                "url": "#row=4",
                 "rownum": 3,
                 "describes": [
                   {
@@ -120,7 +120,7 @@ describe RDF::Tabular::Reader do
                 ]
               },
               {
-                "url": "http://example.org/default-metadata#row=5",
+                "url": "#row=5",
                 "rownum": 4,
                 "describes": [
                   {
