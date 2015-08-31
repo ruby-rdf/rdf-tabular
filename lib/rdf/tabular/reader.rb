@@ -100,6 +100,9 @@ module RDF::Tabular
 
             if (@metadata = @options[:metadata]) && @metadata.tableSchema
               @metadata.verify_compatible!(embedded_metadata)
+
+              # Add embedded annotations to metadata
+              @metadata.merge!(embedded_metadata)
             else
               @metadata = embedded_metadata.normalize!
             end

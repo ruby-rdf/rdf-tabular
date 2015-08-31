@@ -1008,12 +1008,24 @@ module RDF::Tabular
         non_virtual_columns = Array(tableSchema.columns).reject(&:virtual)
         object_columns = Array(other.tableSchema.columns)
 
-        # Special case, if there is no header, then there are no column definitions, allow this as being compatile
-        raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}" if
-          non_virtual_columns.length != object_columns.length && !object_columns.empty?
+        # Special case, if there is no header, then there are no column definitions, allow this as being compatible
+        if non_virtual_columns.length != object_columns.length && !object_columns.empty?
+          if @options[:validate]
+            raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
+          else
+            warn "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
+            virtual_columns = Array(tableSchema.columns).select(&:virtual)
+            while non_virtual_columns.length < object_columns.length
+              non_virtual_columns << nil
+            end
+
+            # Create necessary column entries
+            tableSchema.columns = non_virtual_columns + virtual_columns
+          end
+        end
         index = 0
         object_columns.all? do |cb|
-          ca = non_virtual_columns[index]
+          ca = non_virtual_columns[index] || Column.new({})
           ta = ca.titles || {}
           tb = cb.titles || {}
           if !ca.object.has_key?(:name) && !cb.object.has_key?(:name) && ta.empty? && tb.empty?
@@ -1053,6 +1065,60 @@ module RDF::Tabular
         end
       end
       true
+    end
+
+    # Merge metadata into self. This is used only to merge embedded annotations into found metadata. This is limited to titles right now.
+    def merge!(metadata)
+      raise "Merging non-equivalent metadata types: #{self.class} vs #{metadata.class}" unless self.class == metadata.class
+
+      case self
+      when Table
+        # Normalize A (this) and B (metadata) values into normal form
+        self.normalize!
+        metadata = metadata.dup.normalize!
+        if !self.tableSchema
+          self.tableSchema = metadata.tableSchema.dup
+        else
+          self.tableSchema.merge!(metadata.tableSchema)
+        end
+      when Schema
+        # Merge columns
+        if !self.columns
+          self.columns = metadata.columns.dup
+        else
+          metadata.columns.each_with_index do |cb, index|
+            if !(ca = object[:columns][index])
+              object[:columns][index] = cb.dup
+            else
+              ca.merge!(cb)
+            end
+          end
+        end
+      when Column
+        # Add titles, only if no titles are defined
+        if !(a = object[:titles])
+          object[:titles] = metadata.titles
+        else
+          b = metadata.titles
+          debug("merge!: natural_language") {
+            "A: #{a.inspect}, B: #{b.inspect}"
+          }
+          b.each do |k, v|
+            a[k] = Array(a[k]) + (Array(b[k]) - Array(a[k]))
+          end
+          # eliminate titles with no language where the same string exists with a language
+          #if a.has_key?("und")
+          #  a["und"] = a["und"].reject do |v|
+          #    a.any? {|lang, values| lang != 'und' && values.include?(v)}
+          #  end
+          #  a.delete("und") if a["und"].empty?
+          #end
+          object[:titles] = a
+        end
+      end
+
+      debug("merge!") {self.inspect}
+      self
     end
 
     def inspect
@@ -1594,7 +1660,7 @@ module RDF::Tabular
 
     # Return or create a name for the column from titles, if it exists
     def name
-      self[:name] || if titles && (ts = titles[context.default_language || 'und'])
+      self[:name] || if titles && (ts = titles[context.default_language || 'und'] || titles[self.lang || 'und'])
         n = Array(ts).first
         n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
         n1 = URI.encode(n[1..-1], /[^\w\.]/)
