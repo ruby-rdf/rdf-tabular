@@ -1210,8 +1210,7 @@ module RDF::Tabular
           elsif (value.keys.sort & %w(@language @type)) == %w(@language @type)
             raise Error, "Value object may not contain both @type and @language: #{value.to_json}"
           elsif value['@language'] && !BCP47::Language.identify(value['@language'].to_s)
-            warn "Value object with @language must use valid language: #{value.to_json}"
-            value.delete('@language')
+            raise Error, "Value object with @language must use valid language: #{value.to_json}"
           elsif value['@type'] && (value['@type'].start_with?('_:') || !context.expand_iri(value['@type'], vocab: true).absolute?)
             raise Error, "Value object with @type must defined type: #{value.to_json}"
           end
