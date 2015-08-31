@@ -802,7 +802,10 @@ module RDF::Tabular
           # A column reference property that holds either a single reference to a column description object or an array of references.
           "#{type} has invalid property '#{key}': no column references found" unless Array(value).length > 0
           Array(value).each do |k|
-            errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c[:name] == k}
+            unless self.columns.any? {|c| c[:name] == k}
+              warn "#{type} has invalid property '#{key}': column reference not found #{k}"
+              object.delete(key)
+            end
           end
         when :@context
           # Skip these

@@ -308,9 +308,10 @@ describe RDF::Tabular::Metadata do
 
       its(:type) {is_expected.to eql :Schema}
 
-      it "is invalid if referenced column does not exist" do
+      it "is valid if referenced column does not exist" do
         subject[:columns] = []
-        expect(subject).not_to be_valid
+        expect(subject).to be_valid
+        expect(subject.warnings).not_to be_empty
       end
 
       it "is valid with multiple names" do
@@ -322,13 +323,14 @@ describe RDF::Tabular::Metadata do
         expect(v).to be_valid
       end
 
-      it "is invalid with multiple names if any column missing" do
+      it "is valid with multiple names if any column missing" do
         v = described_class.new({
           "columns" => [column],
           "primaryKey" => [column["name"], column2["name"]]},
           base: RDF::URI("http://example.org/base",
           debug: @debug))
-        expect(v).not_to be_valid
+        expect(v).to be_valid
+        expect(v.warnings).not_to be_empty
       end
     end
 
