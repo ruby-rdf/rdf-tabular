@@ -1917,8 +1917,8 @@ module RDF::Tabular
       value ||= ""
 
       # Extract tz info
-      if md = format.match(/^(.*[dyms])+(\s*[xX]{1,5})$/)
-        format, tz = md[1], md[2]
+      if md = format.match(/^(.*[dyms])+(\s*[xX]+)$/)
+        format, tz_format = md[1], md[2]
       end
 
       date_format, time_format = format.split(' ')
@@ -1985,8 +1985,21 @@ module RDF::Tabular
       time_part = date_part if date_part && date_part.names.include?("hr")
 
       # If there's a timezone, it may optionally start with whitespace
-      value = value.lstrip if tz.to_s.start_with?(' ')
-      tz_part = value if tz
+      value = value.lstrip if tz_format.to_s.start_with?(' ')
+      tz_part = case tz_format.to_s.lstrip
+      when 'x'    then value.match(/^(?:(?<hr>[+-]\d{2})(?<mi>\d{2})?)$/)
+      when 'X'    then value.match(/^(?:(?:(?<hr>[+-]\d{2})(?<mi>\d{2})?)|(?<z>Z))$/)
+      when 'xx'   then value.match(/^(?:(?<hr>[+-]\d{2})(?<mi>\d{2}))|$/)
+      when 'XX'   then value.match(/^(?:(?:(?<hr>[+-]\d{2})(?<mi>\d{2}))|(?<z>Z))$/)
+      when 'xxx'  then value.match(/^(?:(?<hr>[+-]\d{2}):(?<mi>\d{2}))$/)
+      when 'XXX'  then value.match(/^(?:(?:(?<hr>[+-]\d{2}):(?<mi>\d{2}))|(?<z>Z))$/)
+      else
+        raise ArgumentError, "unrecognized timezone format #{tz_format.to_s.lstrip}" if tz_format
+        nil
+      end
+
+      # If there's a tz_format but no time_part, match fails
+      return nil if tz_format && tz_part.nil?
 
       # Compose normalized value
       vd = ("%04d-%02d-%02d" % [date_part[:yr].to_i, date_part[:mo].to_i, date_part[:da].to_i]) if date_part
@@ -1996,7 +2009,8 @@ module RDF::Tabular
       vt += ".#{time_part[:ms]}" if time_part && !time_part[:ms].empty?
 
       value = [vd, vt].compact.join('T')
-      value += tz_part.to_s
+      value += tz_part[:z] ? "Z" : ("%s:%02d" % [tz_part[:hr], tz_part[:mi].to_i]) if tz_part
+      value
     end
 
     ##
