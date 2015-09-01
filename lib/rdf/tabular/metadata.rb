@@ -1067,60 +1067,6 @@ module RDF::Tabular
       true
     end
 
-    # Merge metadata into self. This is used only to merge embedded annotations into found metadata. This is limited to titles right now.
-    def merge!(metadata)
-      raise "Merging non-equivalent metadata types: #{self.class} vs #{metadata.class}" unless self.class == metadata.class
-
-      case self
-      when Table
-        # Normalize A (this) and B (metadata) values into normal form
-        self.normalize!
-        metadata = metadata.dup.normalize!
-        if !self.tableSchema
-          self.tableSchema = metadata.tableSchema.dup
-        else
-          self.tableSchema.merge!(metadata.tableSchema)
-        end
-      when Schema
-        # Merge columns
-        if !self.columns
-          self.columns = metadata.columns.dup
-        else
-          metadata.columns.each_with_index do |cb, index|
-            if !(ca = object[:columns][index])
-              object[:columns][index] = cb.dup
-            else
-              ca.merge!(cb)
-            end
-          end
-        end
-      when Column
-        # Add titles, only if no titles are defined
-        if !(a = object[:titles])
-          object[:titles] = metadata.titles
-        else
-          b = metadata.titles
-          debug("merge!: natural_language") {
-            "A: #{a.inspect}, B: #{b.inspect}"
-          }
-          b.each do |k, v|
-            a[k] = Array(a[k]) + (Array(b[k]) - Array(a[k]))
-          end
-          # eliminate titles with no language where the same string exists with a language
-          #if a.has_key?("und")
-          #  a["und"] = a["und"].reject do |v|
-          #    a.any? {|lang, values| lang != 'und' && values.include?(v)}
-          #  end
-          #  a.delete("und") if a["und"].empty?
-          #end
-          object[:titles] = a
-        end
-      end
-
-      debug("merge!") {self.inspect}
-      self
-    end
-
     def inspect
       self.class.name + (respond_to?(:to_atd) ? to_atd : object).inspect
     end
