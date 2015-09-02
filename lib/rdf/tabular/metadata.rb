@@ -338,7 +338,9 @@ module RDF::Tabular
         warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
         c = LOCAL_CONTEXT.dup
         c.base = RDF::URI(opt_base)
-        c.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
+        obj = input['@context'].detect {|e| e.is_a?(Hash)} || {}
+        raise Error, "@context has object with properties other than @base and @language" unless (obj.keys.map(&:to_s) - %w(@base @language)).empty?
+        c.parse(obj)
       when Hash
         warn "Context missing required value 'http://www.w3.org/ns/csvw'"
         c = LOCAL_CONTEXT.dup
