@@ -329,29 +329,39 @@ module RDF::Tabular
 
       # Get context from input
       # Optimize by using built-in version of context, and just extract @base, @lang
+      opt_base = @options[:base]
+      opt_base ||= input.base_uri if input.respond_to?(:base_uri)
+      opt_base ||= input.filename if input.respond_to?(:filename)
+
       @context = case input['@context']
       when Array
         warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
-        LOCAL_CONTEXT.dup.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
+        c = LOCAL_CONTEXT.dup
+        c.base = RDF::URI(opt_base)
+        c.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
       when Hash
-        warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
-        LOCAL_CONTEXT.dup.parse(input['@context'])
-      when "http://www.w3.org/ns/csvw" then LOCAL_CONTEXT.dup
+        warn "Context missing required value 'http://www.w3.org/ns/csvw'"
+        c = LOCAL_CONTEXT.dup
+        c.base = RDF::URI(opt_base)
+        c.parse(input['@context'])
+      when "http://www.w3.org/ns/csvw"
+        LOCAL_CONTEXT.dup
+        c = LOCAL_CONTEXT.dup
+        c.base = RDF::URI(opt_base)
+        c
       else
         if self.is_a?(TableGroup) || self.is_a?(Table) && !@parent
           warn "Context missing required value 'http://www.w3.org/ns/csvw'"
           LOCAL_CONTEXT.dup
+          c = LOCAL_CONTEXT.dup
+          c.base = RDF::URI(opt_base)
+          c
         end
       end
 
       reason = @options.delete(:reason)
 
-      @options[:base] ||= @context.base if @context
-      @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
-      @options[:base] ||= input.filename if input.respond_to?(:filename)
-      @options[:base] = RDF::URI(@options[:base])
-
-      @context.base = @options[:base] if @context
+      @options[:base] = @context ? @context.base : RDF::URI(opt_base)
 
       if @context && @context.default_language && !BCP47::Language.identify(@context.default_language.to_s)
         warn "Context has invalid @language (#{@context.default_language.inspect}): expected valid BCP47 language tag"
@@ -541,7 +551,7 @@ module RDF::Tabular
     end
 
     # Type of this Metadata
-    # @return [:TableGroup, :Table, :Transformation, :Schema, :Column]
+    # @return [:TableGroup, :Table, :Template, :Schema, :Column]
     def type; self.class.name.split('::').last.to_sym; end
 
     # Base URL of metadata
@@ -1656,6 +1666,10 @@ module RDF::Tabular
     }.freeze
     DEFAULTS = {}.freeze
     REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
+
+    # Type of this Metadata
+    # @return [:Template]
+    def type; :Template; end
 
     # Getters and Setters
     PROPERTIES.each do |key, type|

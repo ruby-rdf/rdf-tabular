@@ -371,10 +371,10 @@ describe RDF::Tabular::Metadata do
               "columnReference" => ["b1", "b2"]
             }
           },
-          "references single column with tableSchema" => {
+          "references single column with schemaReference" => {
             "columnReference" => "a1",
             "reference" => {
-              "tableSchema" => "b_s",
+              "schemaReference" => "b_s",
               "columnReference" => "b1"
             }
           }
@@ -456,7 +456,7 @@ describe RDF::Tabular::Metadata do
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties")
-    its(:type) {is_expected.to eql :Transformation}
+    its(:type) {is_expected.to eql :Template}
 
     {
       source: {
@@ -774,13 +774,13 @@ describe RDF::Tabular::Metadata do
       {
         ":type TableGroup" => [{}, {type: :TableGroup}, RDF::Tabular::TableGroup],
         ":type Table" => [{}, {type: :Table}, RDF::Tabular::Table],
-        ":type Transformation" => [{}, {type: :Transformation}, RDF::Tabular::Transformation],
+        ":type Template" => [{}, {type: :Template}, RDF::Tabular::Transformation],
         ":type Schema" => [{}, {type: :Schema}, RDF::Tabular::Schema],
         ":type Column" => [{}, {type: :Column}, RDF::Tabular::Column],
         ":type Dialect" => [{}, {type: :Dialect}, RDF::Tabular::Dialect],
         "@type TableGroup" => [{"@type" => "TableGroup"}, RDF::Tabular::TableGroup],
         "@type Table" => [{"@type" => "Table"}, RDF::Tabular::Table],
-        "@type Transformation" => [{"@type" => "Transformation"}, RDF::Tabular::Transformation],
+        "@type Template" => [{"@type" => "Template"}, RDF::Tabular::Transformation],
         "@type Schema" => [{"@type" => "Schema"}, RDF::Tabular::Schema],
         "@type Column" => [{"@type" => "Column"}, RDF::Tabular::Column],
         "@type Dialect" => [{"@type" => "Dialect"}, RDF::Tabular::Dialect],
@@ -1251,7 +1251,7 @@ describe RDF::Tabular::Metadata do
           }
           let(:md) {
             RDF::Tabular::Table.new({
-             url: "http://example.com/table.csv",
+              url: "http://example.com/table.csv",
               dialect: {header: false},
               tableSchema: {
                 columns: [{
