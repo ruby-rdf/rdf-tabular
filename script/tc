@@ -98,14 +98,14 @@ def run_tc(t, options)
     if t.negative_test?
       result = "passed"
     else
-      STDERR.puts "#{"exception:" unless options[:quiet]}: #{e}"
+      STDERR.puts "#{"exception" unless options[:quiet]}: #{e}"
       result = "failed"
     end
   rescue Interrupt
     STDERR.puts "\nHalting"
     exit(1)
   rescue Exception => e
-    STDERR.puts "#{"exception:" unless options[:quiet]}: #{e}"
+    STDERR.puts "#{"exception" unless options[:quiet]}: #{e}"
     if options[:quiet]
       return
     else

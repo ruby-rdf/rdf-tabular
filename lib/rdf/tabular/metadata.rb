@@ -822,10 +822,13 @@ module RDF::Tabular
         when :@type
           # Must not be a BNode
           if value.to_s.start_with?("_:")
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:'"
+            errors << "#{type} has invalid property '@type': #{value.inspect}, must not start with '_:'"
           end
-          unless value.to_sym == type
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected #{type}"
+          case type
+          when :Transformation
+            errors << "#{type} has invalid property '@type': #{value.inspect}, expected #{type}" unless value.to_sym == :Template
+          else
+            errors << "#{type} has invalid property '@type': #{value.inspect}, expected #{type}" unless value.to_sym == type
           end
         when ->(k) {key.to_s.include?(':')}
           begin
