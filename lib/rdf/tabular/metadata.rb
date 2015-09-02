@@ -644,6 +644,7 @@ module RDF::Tabular
             end
 
             if reference.is_a?(Hash)
+              errors << "#{type} has invalid property '#{key}': reference has extra entries #{reference.keys.inspect}" unless (reference.keys - %w(resource schemaReference columnReference)).empty?
               ref_cols = reference['columnReference']
               schema = if reference.has_key?('resource')
                 if reference.has_key?('schemaReference')
