@@ -279,7 +279,7 @@ module RDF::Tabular
           type ||= case
           when %w(tables).any? {|k| object_keys.include?(k)} then :TableGroup
           when %w(dialect tableSchema transformations).any? {|k| object_keys.include?(k)} then :Table
-          when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Transformation
+          when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Template
           when %w(columns primaryKey foreignKeys rowTitles).any? {|k| object_keys.include?(k)} then :Schema
           when %w(name virtual).any? {|k| object_keys.include?(k)} then :Column
           when %w(commentPrefix delimiter doubleQuote encoding header headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
@@ -289,7 +289,7 @@ module RDF::Tabular
           case type.to_s.to_sym
           when :TableGroup, :"" then RDF::Tabular::TableGroup
           when :Table then RDF::Tabular::Table
-          when :Transformation then RDF::Tabular::Transformation
+          when :Template then RDF::Tabular::Transformation
           when :Schema then RDF::Tabular::Schema
           when :Column then RDF::Tabular::Column
           when :Dialect then RDF::Tabular::Dialect
@@ -1246,10 +1246,11 @@ module RDF::Tabular
     end
   private
     # Options passed to CSV.new based on dialect
+    # @todo lineTerminators is ignored, as CSV parser uses single string or `:auto`
     def csv_options
       {
         col_sep: (is_a?(Dialect) ? self : dialect).delimiter,
-        row_sep: Array((is_a?(Dialect) ? self : dialect).lineTerminators).first,
+        #row_sep: Array((is_a?(Dialect) ? self : dialect).lineTerminators).first,
         quote_char: (is_a?(Dialect) ? self : dialect).quoteChar,
         encoding: (is_a?(Dialect) ? self : dialect).encoding
       }
@@ -1723,8 +1724,10 @@ module RDF::Tabular
 
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
-        when :commentPrefix, :delimiter, :quoteChar, :lineTerminators
+        when :commentPrefix, :delimiter, :quoteChar
           "a string" unless value.is_a?(String)
+        when :lineTerminators
+          "a string or array of strings" unless Array(value).all? {|e| e.is_a?(String)}
         when :doubleQuote, :header, :skipInitialSpace, :skipBlankRows
           "boolean true or false" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
         when :encoding
