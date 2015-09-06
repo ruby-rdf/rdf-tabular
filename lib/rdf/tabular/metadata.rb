@@ -179,6 +179,7 @@ module RDF::Tabular
     # @return [Metadata]
     def self.for_input(input, options = {})
       base = options[:base]
+      warnings = options.fetch(:warnings, [])
 
       # Use user metadata, if provided
       metadata = case options[:metadata]
@@ -192,14 +193,21 @@ module RDF::Tabular
       # Search for metadata until found
 
       # load link metadata, if available
-      all_locs = []
       if !metadata && input.respond_to?(:links) && 
         link = input.links.find_link(%w(rel describedby))
         link_loc = RDF::URI(base).join(link.href).to_s
         md = Metadata.open(link_loc, options.merge(filenames: link_loc, reason: "load linked metadata: #{link_loc}"))
-        all_locs << link_loc if md
-        # Metadata must describe file to be useful
-        metadata = md if md && md.describes_file?(base)
+        if md
+          # Metadata must describe file to be useful
+          if md.describes_file?(base)
+            metadata = md
+          else
+            warnings << "Found metadata at #{link_loc}, which does not describe #{base}, ignoring"
+            if options[:validate] && !options[:warnings]
+              $stderr.puts "Warnings: #{warnings.join("\n")}"
+            end
+          end
+        end
       end
 
       locs = []
@@ -217,21 +225,22 @@ module RDF::Tabular
           metadata ||= begin
             md = Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
             # Metadata must describe file to be useful
-            all_locs << loc if md
-            md if md && md.describes_file?(base)
+            if md
+              # Metadata must describe file to be useful
+              if md.describes_file?(base)
+                md
+              else
+                warnings << "Found metadata at #{loc}, which does not describe #{base}, ignoring"
+                if options[:validate] && !options[:warnings]
+                  $stderr.puts "Warnings: #{warnings.join("\n")}"
+                end
+                nil
+              end
+            end
           rescue IOError
             debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
             nil
           end
-        end
-      end
-
-      # If Metadata was found, but no metadata describes the file, issue a warning
-      if !all_locs.empty? && !metadata
-        warnings = options.fetch(:warnings, [])
-        warnings << "Found metadata at #{all_locs.join(",")}, which does not describe #{base}, ignoring"
-        if options[:validate] && !options[:warnings]
-          $stderr.puts "Warnings: #{warnings.join("\n")}"
         end
       end
 
