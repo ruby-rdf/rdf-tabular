@@ -10,8 +10,13 @@
 
 RDF::Tabular parses CSV or other Tabular Data into [RDF][] and JSON using the [W3C CSVW][] specifications, currently undergoing development.
 
+* Parses [number patterns](http://www.unicode.org/reports/tr35/tr35-39/tr35-numbers.html#Number_Patterns) from [UAX35][]
+* Parses [date formats](http://www.unicode.org/reports/tr35/tr35-39/tr35-dates.html#Contents) from [UAX35][]
+
+## Installation
 Install with `gem install rdf-tabular`
 
+## Description
 RDF::Tabular parses CSVs, TSVs, and potentially other tabular data formats. Using rules defined for [W3C CSVW][], it can also parse metadata files (in JSON-LD format) to find a set of tabular data files, or locate a metadata file given a CSV:
 
 * Given a CSV `http://example.org/mycsv.csv` look for `http://example.org/mycsv.csv-metata.json` or `http://example.org/metadata.json`. Metadata can also be specified using the `describedby` link header to reference a metadata file.
@@ -281,3 +286,4 @@ see <http://unlicense.org/> or the accompanying {file:UNLICENSE} file.
 [CSV]:              http://en.wikipedia.org/wiki/Comma-separated_values
 [W3C CSVW]:         http://www.w3.org/2013/csvw/wiki/Main_Page
 [URI template]:     https://tools.ietf.org/html/rfc6570
+[UAX35]:            http://www.unicode.org/reports/tr15/

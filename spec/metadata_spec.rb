@@ -1300,51 +1300,85 @@ describe RDF::Tabular::Metadata do
     end
   end
 
-  describe "#build_number_re" do
-    subject {RDF::Tabular::Datatype.new({})}
+  context "Number formats" do
     {
-      '#,##0.##'   => /^\d{1,}\.\d{,2}$/,
-      '#,##0.###'  => /^\d{1,}\.\d{,3}$/,
-      '###0.#####' => /^\d{1,}\.\d{,5}$/,
-      '###0.0000#' => /^\d{1,}\.\d{4,5}$/,
-      '00000.0000' => /^\d{5}\.\d{4}$/,
-      
-      '0'          => /^\d{1}$/,
-      '00'         => /^\d{2}$/,
-      '#'          => /^\d*$/,
-      '##'         => /^\d*$/,
-      
-      '.0'         => /^\.\d{1}$/,
-      '.00'        => /^\.\d{2}$/,
-      '.#'         => /^\.\d{,1}$/,
-      '.##'        => /^\.\d{,2}$/,
-      
-      '+0'         => /^+\d{1}$/,
-      '-0'         => /^-\d{1}$/,
-      '%0'         => /^%\d{1}$/,
-      '‰0'         => /^‰\d{1}$/,
-      '0%'         => /^\d{1}%$/,
-      '0‰'         => /^\d{1}‰$/,
-      '0.0%'       => /^\d{1}\.\d{1}%$/,
+      #'#,##0.##'   => {re: /^\d{1,}\.\d{,2}$/},
+      #'#,##0.###'  => {re: /^\d{1,}\.\d{,3}$/},
+      '###0.#####' => {valid: %w(1 1.1 12345.12345), invalid: %w(1,234.1 1.123456), base: "decimal", re: /^\d{1,}\.\d{,5}$/},
+      '###0.0000#' => {valid: %w(1.1234 1.12345 12345.12345), invalid: %w(1.1234 1,234.1234 1.12), base: "decimal", re: /^\d{1,}\.\d{4,5}$/},
+      '00000.0000' => {valid: %w(12345.1234), invalid: %w(1.2 1,234.123,4), base: "decimal", re: /^\d{5}\.\d{4}$/},
+    
+      '0'          => {valid: %w(1 -1 +1), invalid: %w(12 1.2), base: "integer", re: /^[+-]?\d{1}$/},
+      '00'         => {valid: %w(12), invalid: %w(1 123 1,2), base: "integer", re: /^[+-]?\d{2}$/},
+      '#'          => {valid: %w(1 12 123), invalid: %w(1.2), base: "integer", re: /^[+-]?\d{1,}$/},
+      '##'         => {re: /^[+-]?\d{1,}$/},
+      '#0'         => {re: /^[+-]?\d{1,}$/},
 
-      '#0.0#E#0'   => /^\d{1,}\.\d{1,2}E\d{1,2}$/,
-      '#0.0#E+#'   => /^\d{1,}\.\d{1,2}E+\d{,1}$/,
-      '#0.0#E-00'  => /^\d{1,}\.\d{1,2}E-\d{2}$/,
-      '#0.0#E#0%'  => /^\d{1,}\.\d{1,2}E\d{1,2}%$/,
-    }.each do |pattern,regexp|
-      it "generates #{regexp} for #{pattern}" do
-        expect(subject.build_number_re(pattern, ",", ".")).to eql regexp
-      end
-    end
+      # Jeni's
+      '##0'        => {valid: %w(1 12 123 1234), invalid: %w(1,234 123.4), base: "integer", re: /^[+-]?\d{1,}$/},
+      '#,#00'      => {valid: %w(12 123 1,234 1,234,567), invalid: %w(1 1234 12,34 12,34,567), base: "integer", re: /^FIXME$/},
+      '#,##,#00'   => {valid: %w(12 123 1,234 12,34,567), invalid: %w(1 1234 12,34 1,234,567), base: "decimal", re: /^FIXME$/},
+      '#0.#'       => {valid: %w(1 1.2 1234.5), invalid: %w(12.34 1,234.5), base: "decimal", re: /^FIXME$/},
+      '#0.0#,#'    => {valid: %w(12.3 12.34 12.34,5 12.34,56,7), invalid: %w(1 12.345 12.34,567), base: "decimal", re: /^FIXME$/},
+    
+      '0.0'         => {valid: %w(1.1 -1.1), invalid: %w(12.1 1.12), base: "decimal", re: /^[+-]?\d{1,}\.\d{1}$/},
+      '0.00'        => {valid: %w(1.12 +1.12), invalid: %w(12.12 1.1 1.123), base: "decimal", re: /^[+-]?\d{1,}\.\d{2}$/},
+      '0.#'         => {valid: %w(1 1.1 12.1), invalid: %w(1.12), base: "decimal", re: /^\d{1,}([+-]?\.\d{,1})?$/},
+      '0.##'        => {base: "decimal", re: /^\d{1,}([+-]?\.\d{,1})?$/},
 
-    %W{
-      +%0
-      0#
-      0E0
-      0-
-    }.each do |pattern|
-      it "recognizes bad pattern #{pattern}" do
-        expect{subject.build_number_re(pattern, ",", ".")}.to raise_error(ArgumentError)
+      '+0'         => {base: "decimal", re: /^[+-]?\d{1}$/},
+      '-0'         => {base: "decimal", re: /^[+-]?\d{1}$/},
+      '%0'         => {base: "decimal", re: /^%[+-]?\d{1}$/},
+      '‰0'         => {base: "decimal", re: /^‰[+-]?\d{1}$/},
+      '0%'         => {base: "decimal", re: /^[+-]?\d{1}%$/},
+      '0‰'         => {base: "decimal", re: /^[+-]?\d{1}‰$/},
+      '0.0%'       => {base: "decimal", re: /^[+-]?\d{1}\.\d{1}%$/},
+
+      '#0.0#E#0'   => {base: "double", re: /^[+-]?\d{1,}\.\d{1,2}E[+-]?\d{1,2}$/},
+      '#0.0#E#0%'  => {base: "double", re: /^[+-]?\d{1,}\.\d{1,2}E[+-]?\d{1,2}%$/},
+
+      "0#"         => {re: ArgumentError},
+      "0E0"        => {re: ArgumentError},
+
+    }.each do |pattern, props|
+      context pattern do
+        subject {RDF::Tabular::Datatype.new({})}
+        describe "#build_number_re" do
+          it "generates #{props[:re]} for #{pattern}" do
+            expect(subject.build_number_re(pattern, ",", ".")).to eql props[:re]
+          end if props[:re].is_a?(Regexp)
+
+          it "recognizes bad pattern #{pattern}" do
+            expect{subject.build_number_re(pattern, ",", ".")}.to raise_error(ArgumentError)
+          end if props[:re] == ArgumentError
+        end
+
+        describe "Metadata" do
+          let(:md) {
+            RDF::Tabular::Table.new({
+              url: "http://example.com/table.csv",
+              dialect: {header: false},
+              tableSchema: {
+                columns: [{
+                  name: "name",
+                  datatype: {base: props[:base], format: {pattern: pattern}}
+                }]
+              }
+            }, debug: @debug)
+          }
+          it "detects valid number" do
+            props[:valid].each do |num|
+              cell = md.to_enum(:each_row, "#{num}\n").to_a.first.values.first
+              expect(cell).to be_valid
+            end
+          end if props[:valid]
+          it "detects invalid number" do
+            props[:invalid].each do |num|
+              cell = md.to_enum(:each_row, "#{num}\n").to_a.first.values.first
+              expect(cell).not_to be_valid
+            end
+          end if props[:invalid]
+        end
       end
     end
   end
