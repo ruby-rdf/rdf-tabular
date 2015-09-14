@@ -126,19 +126,12 @@ module RDF::Tabular
     # @return [String] XMLSchema version of value or nil, if value does not match
     # @raise [ArgumentError] if format is not valid
     def parse_uax35_number(pattern, value, groupChar=",", decimalChar=".")
-      return value if pattern.to_s.empty?
       value ||= ""
 
       re = build_number_re(pattern, groupChar, decimalChar)
 
       # Upcase value and remove internal spaces
       value = value.upcase.gsub(/\s+/, '')
-
-      # Remove groupChar from value
-      value = value.gsub(groupChar, '')
-
-      # Replace decimalChar with "."
-      value = value.gsub(decimalChar, '.')
 
       if value =~ re
         # result re-assembles parts removed from value
@@ -158,61 +151,162 @@ module RDF::Tabular
     # @raise [ArgumentError] if format is not valid
     def build_number_re(pattern, groupChar, decimalChar)
       # pattern must be composed of only 0, #, decimalChar, groupChar, E, %, and ‰
-      legal_number_pattern = /\A
-        ([%‰])?
-        ([+-])?
-        # Mantissa
-        (\#|#{groupChar == '.' ? '\.' : groupChar})*
-        (0|#{groupChar == '.' ? '\.' : groupChar})*
-        # Fractional
-        (?:#{decimalChar == '.' ? '\.' : decimalChar}
-          (0|#{groupChar == '.' ? '\.' : groupChar})*
-          (\#|#{groupChar == '.' ? '\.' : groupChar})*
-          # Exponent
-          (E
-            [+-]?
-            (?:\#|#{groupChar == '.' ? '\.' : groupChar})*
-            (?:0|#{groupChar == '.' ? '\.' : groupChar})*
+      ge = Regexp.escape groupChar
+      de = Regexp.escape decimalChar
+
+      default_pattern = /^
+        ([+-]?
+         \\d+
+         (#{de}\\d+
+          ([Ee][+-]?\\d+)?
+         )?
+        |NAN|INF|-INF)
+      $/x
+
+      return default_pattern if pattern.nil?
+
+      legal_number_pattern = /^
+        (?<prefix>[^-+\d\##{ge}#{de}E%‰]*)
+        (?<numeric_part>
+          ([%‰])?
+          ([+-])?
+          # Mantissa
+          (\#|#{ge})*
+          (0|#{ge})*
+          # Fractional
+          (?:#{de}
+            (0|#{ge})*
+            (\#|#{ge})*
+            # Exponent
+            (E
+              [+-]?
+              (?:\#|#{ge})*
+              (?:0|#{ge})*
+            )?
           )?
-        )?
-        ([%‰])?
-      \Z/x
+          ([%‰])?
+        )
+        (?<suffix>.*)
+      $/x
 
-      unless pattern =~ legal_number_pattern
-        raise ArgumentError, "unrecognized number pattern #{pattern}"
-      end
+      match = legal_number_pattern.match(pattern)
+      raise ArgumentError, "unrecognized number pattern #{pattern}" unless match
 
-      # Remove groupChar from pattern
-      pattern = pattern.gsub(groupChar, '')
+      prefix, numeric_part, suffix = match["prefix"], match["numeric_part"], match["suffix"]
 
-      # Replace decimalChar with "."
-      pattern = pattern.gsub(decimalChar, '.')
+      leading_per = numeric_part[0] if numeric_part.match(/^[%‰]/)
+      trailing_per = numeric_part[-1] if numeric_part.match(/[%‰]$/)
+      numeric_part = numeric_part[1..-1] if leading_per
+      numeric_part = numeric_part[0..-2] if trailing_per
 
       # Split on decimalChar and E
-      parts = pattern.split(/[\.E]/)
+      parts = numeric_part.split("E")
+      mantissa_part, exponent_part = parts[0].sub(/^[+-]/, ''), (parts[1] || '').sub(/^[+-]/, '')
 
-      # Construct regular expression
-      mantissa_str = case parts[0]
-      when /\A([%‰])?([+-])?#+(0+)([%‰])?\Z/ then "#{$1}#{$2}\\d{#{$3.length},}#{$4}"
-      when /\A([%‰])?([+-])?(0+)([%‰])?\Z/   then "#{$1}#{$2}\\d{#{$3.length}}#{$4}"
-      when /\A([%‰])?([+-])?#+([%‰])?\Z/     then "#{$1}#{$2}\\d*#{$4}"
+      mantissa_parts = mantissa_part.split(decimalChar)
+      raise ArgumentError, "Multiple decimal separators in #{pattern}" if mantissa_parts.length > 2
+      integer_part, fractional_part = mantissa_parts[0], mantissa_parts[1] || ''
+
+      min_integer_digits = integer_part.gsub(groupChar, '').gsub('#', '').length
+      all_integer_digits = integer_part.gsub(groupChar, '').length
+      min_fractional_digits = fractional_part.gsub(groupChar, '').gsub('#', '').length
+      max_fractional_digits = fractional_part.gsub(groupChar, '').length
+      min_exponent_digits = exponent_part.gsub("#", "").length
+      max_exponent_digits = exponent_part.length
+
+      integer_parts = integer_part.split(groupChar)[1..-1]
+      primary_grouping_size = integer_parts[-1].to_s.length
+      secondary_grouping_size = integer_parts.length <= 1 ? primary_grouping_size : integer_parts[-2].length
+
+      fractional_parts = fractional_part.split(groupChar)[0..-2]
+      fractional_grouping_size = fractional_parts[0].to_s.length
+
+      # Construct regular expression for integer part
+      integer_str = if primary_grouping_size == 0
+        all_integer_digits > min_integer_digits ? "\\d{#{min_integer_digits},}" : "\\d{#{min_integer_digits}}"
+      else
+        # These number of groupings must be there
+        integer_parts = []
+        while min_integer_digits >= primary_grouping_size
+          integer_parts << "\\d{#{primary_grouping_size}}"
+          min_integer_digits -= primary_grouping_size
+          all_integer_digits -= primary_grouping_size
+          primary_grouping_size = secondary_grouping_size
+        end
+
+        if min_integer_digits > 0
+          integer_parts << if all_integer_digits > min_integer_digits
+            "\\d{#{min_integer_digits},#{primary_grouping_size}}"
+          else
+            "\\d{#{min_integer_digits}}"
+          end
+          all_integer_digits -= min_integer_digits
+          primary_grouping_size = secondary_grouping_size
+        end
+
+        required_digits = integer_parts.reverse.join(ge)
+        if all_integer_digits == 0
+          required_digits
+        elsif primary_grouping_size != secondary_grouping_size
+          "((\\d{0,#{secondary_grouping_size}}#{ge})*\\d{0,#{primary_grouping_size}}#{ge})?#{required_digits}"
+        else
+          "(\\d{0,#{primary_grouping_size}}#{ge})*#{required_digits}"
+        end
+      end
+      integer_str = "[+-]?" + integer_str
+
+      # Construct regular expression for fractional part
+      fractional_str = if max_fractional_digits > 0
+        if fractional_grouping_size == 0
+          min_fractional_digits == max_fractional_digits ? "\\d{#{max_fractional_digits}}" : "\\d{#{min_fractional_digits},#{max_fractional_digits}}"
+        else
+          # These number of groupings must be there
+          fractional_parts = []
+          fractional_rem = 0
+          while min_fractional_digits > 0
+            sz = [fractional_grouping_size, min_fractional_digits].min
+            fractional_rem = fractional_grouping_size - sz
+            fractional_parts << "\\d{#{sz}}"
+            max_fractional_digits -= sz
+            min_fractional_digits -= sz
+          end
+          required_digits = fractional_parts.join(ge)
+
+          # If max digits fill within existing group
+          if fractional_rem > 0 && max_fractional_digits > 0
+            required_digits += "\\d{#{[fractional_rem, max_fractional_digits].min}}"
+            max_fractional_digits -= fractional_rem
+          end
+
+          # Remaining digits
+          fractional_parts = []
+          while max_fractional_digits > 0
+            fractional_parts << "\\d{0,#{[fractional_grouping_size, max_fractional_digits].min}}"
+            max_fractional_digits -= fractional_grouping_size
+          end
+
+          opt_digits = ""
+          while !fractional_parts.empty?
+            last_group = fractional_parts.pop
+            opt_digits = "(#{ge}#{last_group}#{opt_digits})?"
+          end
+          required_digits + opt_digits
+        end
+      end.to_s
+      fractional_str = de + fractional_str unless fractional_str.empty?
+      fractional_str = "(#{fractional_str})?" if max_fractional_digits.to_i > 0 && min_fractional_digits.to_i == 0
+
+      # Exponent pattern
+      exponent_str = case
+      when max_exponent_digits > 0 && max_exponent_digits == min_exponent_digits
+        "E[+-]?\\d{#{max_exponent_digits}}"
+      when max_exponent_digits > 0
+        "E[+-]?\\d{#{min_exponent_digits},#{max_exponent_digits}}"
+      when min_exponent_digits > 0
+        "E[+-]?\\d{#{min_exponent_digits},#{max_exponent_digits}}"
       end
 
-      fractional_str = case parts[1]
-      when /\A(0+)(#+)([%‰])?\Z/ then "\\d{#{$1.length},#{$1.length+$2.length}}#{$3}"
-      when /\A(0+)([%‰])?\Z/     then "\\d{#{$1.length}}#{$2}"
-      when /\A(#+)([%‰])?\Z/     then "\\d{,#{$1.length}}#{$2}"
-      end
-      fractional_str = "\\.#{fractional_str}" if fractional_str
-
-      exponent_str = case parts[2]
-      when /\A([+-])?(#+)(0+)([%‰])?\Z/ then "#{$1}\\d{#{$3.length},#{$2.length+$3.length}}#{$4}"
-      when /\A([+-])?(0+)([%‰])?\Z/    then "#{$1}\\d{#{$2.length}}#{$3}"
-      when /\A([+-])?(#+)([%‰])?\Z/     then "#{$1}\\d{,#{$2.length}}#{$3}"
-      end
-      exponent_str = "E#{exponent_str}" if exponent_str
-
-      Regexp.new("^#{mantissa_str}#{fractional_str}#{exponent_str}$")
+      Regexp.new("^(?<prefix>#{Regexp.escape prefix})(?<numeric_part>#{leading_per}#{integer_str}#{fractional_str}#{exponent_str}#{trailing_per})(?<suffix>#{Regexp.escape suffix})$")
     end
   end
 end
