@@ -1,3 +1,4 @@
+# encoding: UTF-8
 module RDF::Tabular
   ##
   # Utilities for parsing UAX35 dates and numbers.
@@ -14,7 +15,7 @@ module RDF::Tabular
     # @return [String] XMLSchema version of value
     # @raise [ArgumentError] if format is not valid, or nil, if value does not match
     def parse_uax35_date(format, value)
-      tz, date_format, time_format = nil, nil, nil
+      date_format, time_format = nil, nil
       return value unless format
       value ||= ""
 
@@ -131,9 +132,18 @@ module RDF::Tabular
       re = build_number_re(pattern, groupChar, decimalChar)
 
       # Upcase value and remove internal spaces
-      value = value.upcase.gsub(/\s+/, '')
+      value = value.upcase
 
+      #require 'byebug'; byebug unless value.empty?
       if value =~ re
+
+        # Upcase value and remove internal spaces
+        value = value.
+          upcase.
+          gsub(/\s+/, '').
+          gsub(groupChar, '').
+          gsub(decimalChar, '.')
+
         # result re-assembles parts removed from value
         value
       else
@@ -156,52 +166,44 @@ module RDF::Tabular
 
       default_pattern = /^
         ([+-]?
-         \\d+
-         (#{de}\\d+
-          ([Ee][+-]?\\d+)?
-         )?
+         [\d#{ge}]+
+         (#{de}[\d#{ge}]+
+          ([Ee][+-]?\d+)?
+         )?[%‰]?
         |NAN|INF|-INF)
       $/x
 
       return default_pattern if pattern.nil?
-
-      legal_number_pattern = /^
-        (?<prefix>[^-+\d\##{ge}#{de}E%‰]*)
-        (?<numeric_part>
-          ([%‰])?
-          ([+-])?
-          # Mantissa
-          (\#|#{ge})*
+      numeric_pattern = /
+        # Mantissa
+        (\#|#{ge})*
+        (0|#{ge})*
+        # Fractional
+        (?:#{de}
           (0|#{ge})*
-          # Fractional
-          (?:#{de}
-            (0|#{ge})*
-            (\#|#{ge})*
-            # Exponent
-            (E
-              [+-]?
-              (?:\#|#{ge})*
-              (?:0|#{ge})*
-            )?
+          (\#|#{ge})*
+          # Exponent
+          (E
+            [+-]?
+            (?:\#|#{ge})*
+            (?:0|#{ge})*
           )?
-          ([%‰])?
-        )
-        (?<suffix>.*)
-      $/x
+        )?
+      /x
+
+      legal_number_pattern = /^(?<prefix>[^\#0]*)(?<numeric_part>#{numeric_pattern})(?<suffix>.*)$/x
 
       match = legal_number_pattern.match(pattern)
-      raise ArgumentError, "unrecognized number pattern #{pattern}" unless match
+      raise ArgumentError, "unrecognized number pattern #{pattern}" if match["numeric_part"].empty?
 
       prefix, numeric_part, suffix = match["prefix"], match["numeric_part"], match["suffix"]
-
-      leading_per = numeric_part[0] if numeric_part.match(/^[%‰]/)
-      trailing_per = numeric_part[-1] if numeric_part.match(/[%‰]$/)
-      numeric_part = numeric_part[1..-1] if leading_per
-      numeric_part = numeric_part[0..-2] if trailing_per
+      prefix = Regexp.escape prefix unless prefix.empty?
+      prefix += "[+-]?" unless prefix =~ /[+-]/
+      suffix = Regexp.escape suffix unless suffix.empty?
 
       # Split on decimalChar and E
       parts = numeric_part.split("E")
-      mantissa_part, exponent_part = parts[0].sub(/^[+-]/, ''), (parts[1] || '').sub(/^[+-]/, '')
+      mantissa_part, exponent_part = parts[0], (parts[1] || '')
 
       mantissa_parts = mantissa_part.split(decimalChar)
       raise ArgumentError, "Multiple decimal separators in #{pattern}" if mantissa_parts.length > 2
@@ -211,8 +213,9 @@ module RDF::Tabular
       all_integer_digits = integer_part.gsub(groupChar, '').length
       min_fractional_digits = fractional_part.gsub(groupChar, '').gsub('#', '').length
       max_fractional_digits = fractional_part.gsub(groupChar, '').length
-      min_exponent_digits = exponent_part.gsub("#", "").length
-      max_exponent_digits = exponent_part.length
+      exponent_sign = exponent_part[0] if exponent_part =~ /^[+-]/
+      min_exponent_digits = exponent_part.sub(/[+-]/, '').gsub("#", "").length
+      max_exponent_digits = exponent_part.sub(/[+-]/, '').length
 
       integer_parts = integer_part.split(groupChar)[1..-1]
       primary_grouping_size = integer_parts[-1].to_s.length
@@ -227,33 +230,51 @@ module RDF::Tabular
       else
         # These number of groupings must be there
         integer_parts = []
-        while min_integer_digits >= primary_grouping_size
-          integer_parts << "\\d{#{primary_grouping_size}}"
+        integer_rem = 0
+        while min_integer_digits > 0
+          sz = [primary_grouping_size, min_integer_digits].min
+          integer_rem = primary_grouping_size - sz
+          integer_parts << "\\d{#{sz}}"
           min_integer_digits -= primary_grouping_size
           all_integer_digits -= primary_grouping_size
           primary_grouping_size = secondary_grouping_size
         end
-
-        if min_integer_digits > 0
-          integer_parts << if all_integer_digits > min_integer_digits
-            "\\d{#{min_integer_digits},#{primary_grouping_size}}"
-          else
-            "\\d{#{min_integer_digits}}"
-          end
-          all_integer_digits -= min_integer_digits
-          primary_grouping_size = secondary_grouping_size
-        end
-
         required_digits = integer_parts.reverse.join(ge)
-        if all_integer_digits == 0
-          required_digits
-        elsif primary_grouping_size != secondary_grouping_size
-          "((\\d{0,#{secondary_grouping_size}}#{ge})*\\d{0,#{primary_grouping_size}}#{ge})?#{required_digits}"
+
+        if all_integer_digits > 0
+          # Add digits up to end of group creating
+          # (?:(?:\d)?)\d)? ...
+          integer_parts = []
+          while integer_rem > 0
+            integer_parts << '\d'
+            integer_rem -= 1
+          end
+
+          # If secondary_grouping_size is not primary_grouping_size, add digits up to secondary_grouping_size
+          if secondary_grouping_size != primary_grouping_size
+            primary_grouping_size = secondary_grouping_size
+            integer_rem = primary_grouping_size - 1
+            integer_parts << '\d' + ge
+
+            while integer_rem > 0
+              integer_parts << '\d'
+              integer_rem -= 1
+            end
+          end
+
+          # Allow repeated separated groups
+          if integer_parts.empty?
+            opt_digits = "(?:\\d{1,#{primary_grouping_size}}#{ge})?(?:\\d{#{primary_grouping_size}}#{ge})*"
+          else
+            integer_parts[-1] = "(?:\\d{1,#{primary_grouping_size}}#{ge})?(?:\\d{#{primary_grouping_size}}#{ge})*#{integer_parts[-1]}"
+            opt_digits = integer_parts.reverse.inject("") {|memo, part| "(?:#{memo}#{part})?"}
+          end
+
+          opt_digits + required_digits
         else
-          "(\\d{0,#{primary_grouping_size}}#{ge})*#{required_digits}"
+          required_digits
         end
       end
-      integer_str = "[+-]?" + integer_str
 
       # Construct regular expression for fractional part
       fractional_str = if max_fractional_digits > 0
@@ -273,40 +294,31 @@ module RDF::Tabular
           required_digits = fractional_parts.join(ge)
 
           # If max digits fill within existing group
-          if fractional_rem > 0 && max_fractional_digits > 0
-            required_digits += "\\d{#{[fractional_rem, max_fractional_digits].min}}"
-            max_fractional_digits -= fractional_rem
-          end
-
-          # Remaining digits
           fractional_parts = []
           while max_fractional_digits > 0
-            fractional_parts << "\\d{0,#{[fractional_grouping_size, max_fractional_digits].min}}"
-            max_fractional_digits -= fractional_grouping_size
+            fractional_parts << (fractional_rem == 0 ? ge + '\d' : '\d')
+            max_fractional_digits -= 1
+            fractional_rem = (fractional_rem - 1) % fractional_grouping_size
           end
 
-          opt_digits = ""
-          while !fractional_parts.empty?
-            last_group = fractional_parts.pop
-            opt_digits = "(#{ge}#{last_group}#{opt_digits})?"
-          end
+          opt_digits = fractional_parts.reverse.inject("") {|memo, part| "(?:#{part}#{memo})?"}
           required_digits + opt_digits
         end
       end.to_s
       fractional_str = de + fractional_str unless fractional_str.empty?
-      fractional_str = "(#{fractional_str})?" if max_fractional_digits.to_i > 0 && min_fractional_digits.to_i == 0
+      fractional_str = "(?:#{fractional_str})?" if max_fractional_digits > 0 && min_fractional_digits == 0
 
       # Exponent pattern
       exponent_str = case
       when max_exponent_digits > 0 && max_exponent_digits == min_exponent_digits
-        "E[+-]?\\d{#{max_exponent_digits}}"
+        "E#{exponent_sign ? Regexp.escape(exponent_sign) : '[+-]?'}\\d{#{max_exponent_digits}}"
       when max_exponent_digits > 0
-        "E[+-]?\\d{#{min_exponent_digits},#{max_exponent_digits}}"
+        "E#{exponent_sign ? Regexp.escape(exponent_sign) : '[+-]?'}\\d{#{min_exponent_digits},#{max_exponent_digits}}"
       when min_exponent_digits > 0
-        "E[+-]?\\d{#{min_exponent_digits},#{max_exponent_digits}}"
+        "E#{exponent_sign ? Regexp.escape(exponent_sign) : '[+-]?'}\\d{#{min_exponent_digits},#{max_exponent_digits}}"
       end
 
-      Regexp.new("^(?<prefix>#{Regexp.escape prefix})(?<numeric_part>#{leading_per}#{integer_str}#{fractional_str}#{exponent_str}#{trailing_per})(?<suffix>#{Regexp.escape suffix})$")
+      Regexp.new("^(?<prefix>#{prefix})(?<numeric_part>#{integer_str}#{fractional_str}#{exponent_str})(?<suffix>#{suffix})$")
     end
   end
 end

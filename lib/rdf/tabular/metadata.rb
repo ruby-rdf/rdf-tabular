@@ -1633,8 +1633,8 @@ module RDF::Tabular
     def name
       self[:name] || if titles && (ts = titles[context.default_language || 'und'] || titles[self.lang || 'und'])
         n = Array(ts).first
-        n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
-        n1 = URI.encode(n[1..-1], /[^\w\.]/)
+        n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/).encode("utf-8")
+        n1 = URI.encode(n[1..-1], /[^\w\.]/).encode("utf-8")
         "#{n0}#{n1}"
       end || "_col.#{number}"
     end
@@ -2172,25 +2172,23 @@ module RDF::Tabular
         pattern = format["pattern"]
 
         if !datatype.parse_uax35_number(pattern, value, groupChar || ",", decimalChar)
-          value_errors << "#{value} does not match pattern #{pattern}"
+          value_errors << "#{value} does not match numeric pattern #{pattern ? pattern.inspect : 'default'}"
         end
 
         # pattern facet failed
         value_errors << "#{value} has repeating #{groupChar.inspect}" if groupChar && value.include?(groupChar*2)
-        value = value.gsub(groupChar, '') if groupChar
+        value = value.gsub(groupChar || ',', '')
         value = value.sub(decimalChar, '.')
 
         # Extract percent or per-mille sign
         percent = permille = false
-        if groupChar
-          case value
-          when /%/
-            value = value.sub('%', '')
-            percent = true
-          when /‰/
-            value = value.sub('‰', '')
-            permille = true
-          end
+        case value
+        when /%/
+          value = value.sub('%', '')
+          percent = true
+        when /‰/
+          value = value.sub('‰', '')
+          permille = true
         end
 
         lit = RDF::Literal(value, datatype: expanded_dt)

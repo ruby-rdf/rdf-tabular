@@ -1,4 +1,4 @@
-# coding: utf-8
+# encoding: UTF-8
 $:.unshift "."
 require 'spec_helper'
 
@@ -1060,12 +1060,6 @@ describe RDF::Tabular::Metadata do
           format: {"pattern" => '000'},
           value: "123"
         },
-        "decimal with wrong pattern" => {
-          base: "decimal",
-          format: {"pattern" => '0000'},
-          value: "123",
-          errors: [/123 does not match pattern/]
-        },
         "decimal with explicit groupChar" => {
           base: "decimal",
           format: {"groupChar" => ";"},
@@ -1302,56 +1296,54 @@ describe RDF::Tabular::Metadata do
 
   context "Number formats" do
     {
-      '0'          => {valid: %w(1 -1 +1), invalid: %w(12 1.2), base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1})(?<suffix>)$/},
-      '00'         => {valid: %w(12), invalid: %w(1 123 1,2), base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{2})(?<suffix>)$/},
-      '#'          => {valid: %w(1 12 123), invalid: %w(1.2), base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{0,})(?<suffix>)$/},
-      '##'         => {re: /^(?<prefix>)(?<numeric_part>[+-]?\d{0,})(?<suffix>)$/},
-      '#0'         => {re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1,})(?<suffix>)$/},
+      '0'          => {valid: %w(1 -1 +1), invalid: %w(12 1.2), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1})(?<suffix>)$/},
+      '00'         => {valid: %w(12), invalid: %w(1 123 1,2), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{2})(?<suffix>)$/},
+      '#'          => {valid: %w(1 12 123), invalid: %w(1.2), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{0,})(?<suffix>)$/},
+      '##'         => {re: /^(?<prefix>[+-]?)(?<numeric_part>\d{0,})(?<suffix>)$/},
+      '#0'         => {re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,})(?<suffix>)$/},
 
-      '0.0'         => {valid: %w(1.1 -1.1), invalid: %w(12.1 1.12), base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{1})(?<suffix>)$/},
-      '0.00'        => {valid: %w(1.12 +1.12), invalid: %w(12.12 1.1 1.123), base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{2})(?<suffix>)$/},
-      '0.#'         => {valid: %w(1 1.1 12.1), invalid: %w(1.12), base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}(\.\d{0,1})?)(?<suffix>)$/},
-      '0.##'        => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}(\.\d{0,2})?)(?<suffix>)$/},
+      '0.0'         => {valid: %w(1.1 -1.1), invalid: %w(12.1 1.12), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{1})(?<suffix>)$/},
+      '0.00'        => {valid: %w(1.12 +1.12), invalid: %w(12.12 1.1 1.123), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{2})(?<suffix>)$/},
+      '0.#'         => {valid: %w(1 1.1), invalid: %w(12.1 1.12), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}(?:\.\d{0,1})?)(?<suffix>)$/},
+      '0.##'        => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}(?:\.\d{0,2})?)(?<suffix>)$/},
 
-      '+0'         => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1})(?<suffix>)$/},
-      '-0'         => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1})(?<suffix>)$/},
-      '%0'         => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>%[+-]?\d{1})(?<suffix>)$/},
-      '‰0'         => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>‰[+-]?\d{1})(?<suffix>)$/},
-      '0%'         => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}%)(?<suffix>)$/},
-      '0‰'         => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}‰)(?<suffix>)$/},
-      '0.0%'       => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{1}%)(?<suffix>)$/},
+      '+0'         => {valid: %w(+1), invalid: %w(1 -1 +10), base: "decimal", re: /^(?<prefix>\+)(?<numeric_part>\d{1})(?<suffix>)$/},
+      '-0'         => {valid: %w(-1), invalid: %w(1 +1 -10), base: "decimal", re: /^(?<prefix>\-)(?<numeric_part>\d{1})(?<suffix>)$/},
+      '%000'       => {valid: %w(%123 %+123 %-123), invalid: %w(%12 %1234 123%), base: "decimal", re: /^(?<prefix>%[+-]?)(?<numeric_part>\d{3})(?<suffix>)$/},
+      '‰000'       => {valid: %w(‰123 ‰+123 ‰-123), invalid: %w(‰12 ‰1234 123‰), base: "decimal", re: /^(?<prefix>‰[+-]?)(?<numeric_part>\d{3})(?<suffix>)$/},
+      '000%'       => {valid: %w(123% +123% -123%), invalid: %w(12% 1234% %123), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{3})(?<suffix>%)$/},
+      '000‰'       => {valid: %w(123‰ +123‰ -123‰), invalid: %w(12‰ 1234‰ ‰123), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{3})(?<suffix>‰)$/},
+      '000.0%'     => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{3}\.\d{1})(?<suffix>%)$/},
 
-      '###0.#####' => {valid: %w(1 1.1 12345.12345), invalid: %w(1,234.1 1.123456), base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1,}(\.\d{0,5})?)(?<suffix>)$/},
-      '###0.0000#' => {valid: %w(1.1234 1.12345 12345.12345), invalid: %w(1.1234 1,234.1234 1.12), base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1,}\.\d{4,5})(?<suffix>)$/},
-      '00000.0000' => {valid: %w(12345.1234), invalid: %w(1.2 1,234.123,4), base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{5}\.\d{4})(?<suffix>)$/},
+      '###0.#####' => {valid: %w(1 1.1 12345.12345), invalid: %w(1,234.1 1.123456), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}(?:\.\d{0,5})?)(?<suffix>)$/},
+      '###0.0000#' => {valid: %w(1.1234 1.12345 12345.12345), invalid: %w(1,234.1234 1.12), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{4,5})(?<suffix>)$/},
+      '00000.0000' => {valid: %w(12345.1234), invalid: %w(1.2 1,234.123,4), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{5}\.\d{4})(?<suffix>)$/},
 
-      '#0.0#E#0'   => {base: "double", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1,}\.\d{1,2}E[+-]?\d{1,2})(?<suffix>)$/},
-      '#0.0#E#0%'  => {base: "double", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1,}\.\d{1,2}E[+-]?\d{1,2}%)(?<suffix>)$/},
+      '#0.0#E#0'   => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2})(?<suffix>)$/},
+      '#0.0#E+#0'   => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E\+\d{1,2})(?<suffix>)$/},
+      '#0.0#E#0%'  => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2}%)(?<suffix>)$/},
+      '#0.0#E#0%'  => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2})(?<suffix>%)$/},
 
       # Grouping
-      '#,##,##0'   => {base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?(\d{0,2},)*\d{1,3})(?<suffix>)$/},
-      '#,##,#00'   => {base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?(\d{0,2},)*\d{2,3})(?<suffix>)$/},
-      '#,##,000'   => {base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?(\d{0,2},)*\d{3})(?<suffix>)$/},
-      '#,#0,000'   => {base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?(\d{0,2},)*\d{1,2},\d{3})(?<suffix>)$/},
-      '#,00,000'   => {base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?(\d{0,2},)*\d{2},\d{3})(?<suffix>)$/},
-      '0,00,000'   => {base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1},\d{2},\d{3})(?<suffix>)$/},
+      '#,##,##0'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:(?:(?:\d{1,2},)?(?:\d{2},)*\d)?\d)?\d{1})(?<suffix>)$/},
+      '#,##,#00'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:(?:\d{1,2},)?(?:\d{2},)*\d)?\d{2})(?<suffix>)$/},
+      '#,##,000'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:\d{1,2},)?(?:\d{2},)*\d{3})(?<suffix>)$/},
+      '#,#0,000'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:(?:\d{1,2},)?(?:\d{2},)*\d)?\d{1},\d{3})(?<suffix>)$/},
+      '#,00,000'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:\d{1,2},)?(?:\d{2},)*\d{2},\d{3})(?<suffix>)$/},
+      '0,00,000'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1},\d{2},\d{3})(?<suffix>)$/},
 
-      '0.0##,###'  => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{1}(\d{2}(,\d{3})?)?)(?<suffix>)$/},
-      '0.00#,###'  => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{2}(\d{1}(,\d{3})?)?)(?<suffix>)$/},
-      '0.000,###'  => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{3}(,\d{3})?)(?<suffix>)$/},
-      '0.000,0##'  => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{3},\d{1,3})(?<suffix>)$/},
-      '0.000,00#'  => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{3},\d{2,3})(?<suffix>)$/},
-      '0.000,000'  => {base: "decimal", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1}\.\d{3},\d{3})(?<suffix>)$/},
+      '0.0##,###'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{1}(?:\d(?:\d(?:,\d(?:\d(?:\d)?)?)?)?)?)(?<suffix>)$/},
+      '0.00#,###'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{2}(?:\d(?:,\d(?:\d(?:\d)?)?)?)?)(?<suffix>)$/},
+      '0.000,###'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{3}(?:,\d(?:\d(?:\d)?)?)?)(?<suffix>)$/},
+      '0.000,0##'  => {base: "decimal", re:/^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{3},\d{1}(?:\d(?:\d)?)?)(?<suffix>)$/},
+      '0.000,00#'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{3},\d{2}(?:\d)?)(?<suffix>)$/},
+      '0.000,000'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{3},\d{3})(?<suffix>)$/},
 
       # Jeni's
-      '##0'        => {valid: %w(1 12 123 1234), invalid: %w(1,234 123.4), base: "integer", re: /^(?<prefix>)(?<numeric_part>[+-]?\d{1,})(?<suffix>)$/},
-      '#,#00'      => {valid: %w(12 123 1,234 1,234,567), invalid: %w(1 1234 12,34 12,34,567), base: "integer", re: /^FIXME$/},
-      '#0.#'       => {valid: %w(1 1.2 1234.5), invalid: %w(12.34 1,234.5), base: "decimal", re: /^FIXME$/},
-      '#0.0#,#'    => {valid: %w(12.3 12.34 12.34,5 12.34,56,7), invalid: %w(1 12.345 12.34,567), base: "decimal", re: /^FIXME$/},
-
-      "0#"         => {re: ArgumentError},
-      "0E0"        => {re: ArgumentError},
-
+      '##0'        => {valid: %w(1 12 123 1234), invalid: %w(1,234 123.4), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,})(?<suffix>)$/},
+      '#,#00'      => {valid: %w(12 123 1,234 1,234,567), invalid: %w(1 1234 12,34 12,34,567), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:(?:\d{1,3},)?(?:\d{3},)*\d)?\d{2})(?<suffix>)$/},
+      '#0.#'       => {valid: %w(1 1.2 1234.5), invalid: %w(12.34 1,234.5), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}(?:\.\d{0,1})?)(?<suffix>)$/},
+      '#0.0#,#'    => {valid: %w(12.3 12.34 12.34,5), invalid: %w(1 12.345 12.34,56,7 12.34,567), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1}(?:\d(?:,\d)?)?)(?<suffix>)$/},
     }.each do |pattern, props|
       context pattern do
         subject {RDF::Tabular::Datatype.new({})}
@@ -1373,23 +1365,27 @@ describe RDF::Tabular::Metadata do
               tableSchema: {
                 columns: [{
                   name: "name",
-                  datatype: {base: props[:base], format: {pattern: pattern}}
+                  datatype: {"base" => props[:base], "format" => {"pattern" => pattern}}
                 }]
               }
             }, debug: @debug)
           }
-          it "detects valid number" do
-            props[:valid].each do |num|
-              cell = md.to_enum(:each_row, "#{num}\n").to_a.first.values.first
-              expect(cell).to be_valid
+          describe "valid" do
+            Array(props[:valid]).each do |num|
+              it "for #{num}" do
+                cell = md.to_enum(:each_row, "\"#{num}\"\n").to_a.first.values.first
+                expect(cell).to be_valid
+              end
             end
-          end if props[:valid]
-          it "detects invalid number" do
-            props[:invalid].each do |num|
-              cell = md.to_enum(:each_row, "#{num}\n").to_a.first.values.first
-              expect(cell).not_to be_valid
+          end
+          describe "invalid" do
+            Array(props[:invalid]).each do |num|
+              it "for #{num}" do
+                cell = md.to_enum(:each_row, "\"#{num}\"\n").to_a.first.values.first
+                expect(cell).not_to be_valid
+              end
             end
-          end if props[:invalid]
+          end
         end
       end
     end
