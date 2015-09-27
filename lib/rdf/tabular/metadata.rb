@@ -2258,13 +2258,13 @@ module RDF::Tabular
           lit = RDF::Literal.new(value)
         else
           if datatype.length && lit.object.length != datatype.length
-            value_errors << "decoded #{value} does not have length #{datatype.length}"
+            value_errors << "decoded #{value} has length #{lit.object.length} not #{datatype.length}"
           end
           if datatype.minLength && lit.object.length < datatype.minLength
-            value_errors << "decoded #{value} does not have length >= #{datatype.length}"
+            value_errors << "decoded #{value} has length #{lit.object.length} not >= #{datatype.minLength}"
           end
-          if datatype.maxLength && lit.object.length < datatype.maxLength
-            value_errors << "decoded #{value} does not have length <= #{datatype.length}"
+          if datatype.maxLength && lit.object.length > datatype.maxLength
+            value_errors << "decoded #{value} has length #{lit.object.length} not <= #{datatype.maxLength}"
           end
         end
       when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,

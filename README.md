@@ -5,6 +5,7 @@
 [![Gem Version](https://badge.fury.io/rb/rdf-tabular.png)](http://badge.fury.io/rb/rdf-tabular)
 [![Build Status](https://secure.travis-ci.org/ruby-rdf/rdf-tabular.png?branch=master)](http://travis-ci.org/ruby-rdf/rdf-tabular)
 [![Coverage Status](https://coveralls.io/repos/ruby-rdf/rdf-tabular/badge.svg)](https://coveralls.io/r/ruby-rdf/rdf-tabular)
+[![Dependency Status](https://gemnasium.com/ruby-rdf/rdf-tabular.png)](https://gemnasium.com/ruby-rdf/rdf-tabular)
 
 ## Features
 

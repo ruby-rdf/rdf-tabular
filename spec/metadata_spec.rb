@@ -1217,7 +1217,43 @@ describe RDF::Tabular::Metadata do
         "valid anyAtomicType" => {base: "anyAtomicType", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.anyAtomicType)},
         "valid anyURI" => {base: "anyURI", value: "http://example.com/", result: RDF::Literal("http://example.com/", datatype: RDF::XSD.anyURI)},
         "valid base64Binary" => {base: "base64Binary", value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)},
+        "base64Binary with matching length:" => {
+          base: "base64Binary",
+          value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g",
+          length: 45,
+          result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)
+        },
+        "base64Binary with wrong maxLength:" => {
+          base: "base64Binary",
+          value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g",
+          maxLength: 1,
+          errors: ["decoded Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g has length 45 not <= 1"]
+        },
+        "base64Binary with wrong minLength" => {
+          base: "base64Binary",
+          value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g",
+          minLength: 50,
+          errors: ["decoded Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g has length 45 not >= 50"]
+        },
         "valid hexBinary" => {base: "hexBinary", value: "0FB7", result: RDF::Literal("0FB7", datatype: RDF::XSD.hexBinary)},
+        "hexBinary with matching length:" => {
+          base: "hexBinary",
+          value: "0FB7",
+          length: 2,
+          result: RDF::Literal("0FB7", datatype: RDF::XSD.hexBinary)
+        },
+        "hexBinary with wrong maxLength:" => {
+          base: "hexBinary",
+          value: "0FB7",
+          maxLength: 1,
+          errors: ["decoded 0FB7 has length 2 not <= 1"]
+        },
+        "hexBinary with wrong minLength" => {
+          base: "hexBinary",
+          value: "0FB7",
+          minLength: 4,
+          errors: ["decoded 0FB7 has length 2 not >= 4"]
+        },
         "valid QName" => {base: "QName", value: "foo:bar", result: RDF::Literal("foo:bar", datatype: RDF::XSD.QName)},
         "valid normalizedString" => {base: "normalizedString", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.normalizedString)},
         "valid token" => {base: "token", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.token)},
