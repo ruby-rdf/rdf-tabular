@@ -40,6 +40,8 @@ module RDF::Tabular
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
     # @option options [Boolean] :minimal includes only the information gleaned from the cells of the tabular data
     # @option options [Boolean] :noProv do not output optional provenance information
+    # @option options [Array] :errors
+    #   array for placing errors found when processing metadata. If not set, and validating, errors are output to `$stderr`
     # @option options [Array] :warnings
     #   array for placing warnings found when processing metadata. If not set, and validating, warnings are output to `$stderr`
     # @option optinons [Array<Hash>] :fks_referencing_table

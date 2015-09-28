@@ -179,6 +179,7 @@ module RDF::Tabular
     # @return [Metadata]
     def self.for_input(input, options = {})
       base = options[:base]
+      warnings = options.fetch(:warnings, [])
 
       # Use user metadata, if provided
       metadata = case options[:metadata]
@@ -192,14 +193,21 @@ module RDF::Tabular
       # Search for metadata until found
 
       # load link metadata, if available
-      all_locs = []
       if !metadata && input.respond_to?(:links) && 
         link = input.links.find_link(%w(rel describedby))
         link_loc = RDF::URI(base).join(link.href).to_s
         md = Metadata.open(link_loc, options.merge(filenames: link_loc, reason: "load linked metadata: #{link_loc}"))
-        all_locs << link_loc if md
-        # Metadata must describe file to be useful
-        metadata = md if md && md.describes_file?(base)
+        if md
+          # Metadata must describe file to be useful
+          if md.describes_file?(base)
+            metadata = md
+          else
+            warnings << "Found metadata at #{link_loc}, which does not describe #{base}, ignoring"
+            if options[:validate] && !options[:warnings]
+              $stderr.puts "Warnings: #{warnings.join("\n")}"
+            end
+          end
+        end
       end
 
       locs = []
@@ -217,21 +225,22 @@ module RDF::Tabular
           metadata ||= begin
             md = Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
             # Metadata must describe file to be useful
-            all_locs << loc if md
-            md if md && md.describes_file?(base)
+            if md
+              # Metadata must describe file to be useful
+              if md.describes_file?(base)
+                md
+              else
+                warnings << "Found metadata at #{loc}, which does not describe #{base}, ignoring"
+                if options[:validate] && !options[:warnings]
+                  $stderr.puts "Warnings: #{warnings.join("\n")}"
+                end
+                nil
+              end
+            end
           rescue IOError
             debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
             nil
           end
-        end
-      end
-
-      # If Metadata was found, but no metadata describes the file, issue a warning
-      if !all_locs.empty? && !metadata
-        warnings = options.fetch(:warnings, [])
-        warnings << "Found metadata at #{all_locs.join(",")}, which does not describe #{base}, ignoring"
-        if options[:validate] && !options[:warnings]
-          $stderr.puts "Warnings: #{warnings.join("\n")}"
         end
       end
 
@@ -279,7 +288,7 @@ module RDF::Tabular
           type ||= case
           when %w(tables).any? {|k| object_keys.include?(k)} then :TableGroup
           when %w(dialect tableSchema transformations).any? {|k| object_keys.include?(k)} then :Table
-          when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Transformation
+          when %w(targetFormat scriptFormat source).any? {|k| object_keys.include?(k)} then :Template
           when %w(columns primaryKey foreignKeys rowTitles).any? {|k| object_keys.include?(k)} then :Schema
           when %w(name virtual).any? {|k| object_keys.include?(k)} then :Column
           when %w(commentPrefix delimiter doubleQuote encoding header headerRowCount).any? {|k| object_keys.include?(k)} then :Dialect
@@ -289,7 +298,7 @@ module RDF::Tabular
           case type.to_s.to_sym
           when :TableGroup, :"" then RDF::Tabular::TableGroup
           when :Table then RDF::Tabular::Table
-          when :Transformation then RDF::Tabular::Transformation
+          when :Template then RDF::Tabular::Transformation
           when :Schema then RDF::Tabular::Schema
           when :Column then RDF::Tabular::Column
           when :Dialect then RDF::Tabular::Dialect
@@ -329,29 +338,41 @@ module RDF::Tabular
 
       # Get context from input
       # Optimize by using built-in version of context, and just extract @base, @lang
+      opt_base = @options[:base]
+      opt_base ||= input.base_uri if input.respond_to?(:base_uri)
+      opt_base ||= input.filename if input.respond_to?(:filename)
+
       @context = case input['@context']
       when Array
         warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
-        LOCAL_CONTEXT.dup.parse(input['@context'].detect {|e| e.is_a?(Hash)} || {})
+        c = LOCAL_CONTEXT.dup
+        c.base = RDF::URI(opt_base)
+        obj = input['@context'].detect {|e| e.is_a?(Hash)} || {}
+        raise Error, "@context has object with properties other than @base and @language" unless (obj.keys.map(&:to_s) - %w(@base @language)).empty?
+        c.parse(obj)
       when Hash
-        warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
-        LOCAL_CONTEXT.dup.parse(input['@context'])
-      when "http://www.w3.org/ns/csvw" then LOCAL_CONTEXT.dup
+        warn "Context missing required value 'http://www.w3.org/ns/csvw'"
+        c = LOCAL_CONTEXT.dup
+        c.base = RDF::URI(opt_base)
+        c.parse(input['@context'])
+      when "http://www.w3.org/ns/csvw"
+        LOCAL_CONTEXT.dup
+        c = LOCAL_CONTEXT.dup
+        c.base = RDF::URI(opt_base)
+        c
       else
         if self.is_a?(TableGroup) || self.is_a?(Table) && !@parent
           warn "Context missing required value 'http://www.w3.org/ns/csvw'"
           LOCAL_CONTEXT.dup
+          c = LOCAL_CONTEXT.dup
+          c.base = RDF::URI(opt_base)
+          c
         end
       end
 
       reason = @options.delete(:reason)
 
-      @options[:base] ||= @context.base if @context
-      @options[:base] ||= input.base_uri if input.respond_to?(:base_uri)
-      @options[:base] ||= input.filename if input.respond_to?(:filename)
-      @options[:base] = RDF::URI(@options[:base])
-
-      @context.base = @options[:base] if @context
+      @options[:base] = @context ? @context.base : RDF::URI(opt_base)
 
       if @context && @context.default_language && !BCP47::Language.identify(@context.default_language.to_s)
         warn "Context has invalid @language (#{@context.default_language.inspect}): expected valid BCP47 language tag"
@@ -541,7 +562,7 @@ module RDF::Tabular
     end
 
     # Type of this Metadata
-    # @return [:TableGroup, :Table, :Transformation, :Schema, :Column]
+    # @return [:TableGroup, :Table, :Template, :Schema, :Column]
     def type; self.class.name.split('::').last.to_sym; end
 
     # Base URL of metadata
@@ -644,6 +665,7 @@ module RDF::Tabular
             end
 
             if reference.is_a?(Hash)
+              errors << "#{type} has invalid property '#{key}': reference has extra entries #{reference.keys.inspect}" unless (reference.keys - %w(resource schemaReference columnReference)).empty?
               ref_cols = reference['columnReference']
               schema = if reference.has_key?('resource')
                 if reference.has_key?('schemaReference')
@@ -802,7 +824,10 @@ module RDF::Tabular
           # A column reference property that holds either a single reference to a column description object or an array of references.
           "#{type} has invalid property '#{key}': no column references found" unless Array(value).length > 0
           Array(value).each do |k|
-            errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless self.columns.any? {|c| c[:name] == k}
+            unless self.columns.any? {|c| c[:name] == k}
+              warn "#{type} has invalid property '#{key}': column reference not found #{k}"
+              object.delete(key)
+            end
           end
         when :@context
           # Skip these
@@ -819,10 +844,13 @@ module RDF::Tabular
         when :@type
           # Must not be a BNode
           if value.to_s.start_with?("_:")
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:'"
+            errors << "#{type} has invalid property '@type': #{value.inspect}, must not start with '_:'"
           end
-          unless value.to_sym == type
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, expected #{type}"
+          case type
+          when :Transformation
+            errors << "#{type} has invalid property '@type': #{value.inspect}, expected #{type}" unless value.to_sym == :Template
+          else
+            errors << "#{type} has invalid property '@type': #{value.inspect}, expected #{type}" unless value.to_sym == type
           end
         when ->(k) {key.to_s.include?(':')}
           begin
@@ -1005,12 +1033,27 @@ module RDF::Tabular
         non_virtual_columns = Array(tableSchema.columns).reject(&:virtual)
         object_columns = Array(other.tableSchema.columns)
 
-        # Special case, if there is no header, then there are no column definitions, allow this as being compatile
-        raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}" if
-          non_virtual_columns.length != object_columns.length && !object_columns.empty?
+        # Special case, if there is no header, then there are no column definitions, allow this as being compatible
+        if non_virtual_columns.length != object_columns.length && !object_columns.empty?
+          if @options[:validate]
+            raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
+          else
+            warn "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
+
+            # If present, a virtual column MUST appear after all other non-virtual column definitions
+            raise Error, "Virtual columns may not appear before non-virtual columns" unless Array(tableSchema.columns)[0..non_virtual_columns.length-1] == non_virtual_columns
+            virtual_columns = Array(tableSchema.columns).select(&:virtual)
+            while non_virtual_columns.length < object_columns.length
+              non_virtual_columns << nil
+            end
+
+            # Create necessary column entries
+            tableSchema.columns = non_virtual_columns + virtual_columns
+          end
+        end
         index = 0
         object_columns.all? do |cb|
-          ca = non_virtual_columns[index]
+          ca = non_virtual_columns[index] || Column.new({})
           ta = ca.titles || {}
           tb = cb.titles || {}
           if !ca.object.has_key?(:name) && !cb.object.has_key?(:name) && ta.empty? && tb.empty?
@@ -1141,8 +1184,7 @@ module RDF::Tabular
           elsif (value.keys.sort & %w(@language @type)) == %w(@language @type)
             raise Error, "Value object may not contain both @type and @language: #{value.to_json}"
           elsif value['@language'] && !BCP47::Language.identify(value['@language'].to_s)
-            warn "Value object with @language must use valid language: #{value.to_json}"
-            value.delete('@language')
+            raise Error, "Value object with @language must use valid language: #{value.to_json}"
           elsif value['@type'] && (value['@type'].start_with?('_:') || !context.expand_iri(value['@type'], vocab: true).absolute?)
             raise Error, "Value object with @type must defined type: #{value.to_json}"
           end
@@ -1232,10 +1274,11 @@ module RDF::Tabular
     end
   private
     # Options passed to CSV.new based on dialect
+    # @todo lineTerminators is ignored, as CSV parser uses single string or `:auto`
     def csv_options
       {
         col_sep: (is_a?(Dialect) ? self : dialect).delimiter,
-        row_sep: Array((is_a?(Dialect) ? self : dialect).lineTerminators).first,
+        #row_sep: Array((is_a?(Dialect) ? self : dialect).lineTerminators).first,
         quote_char: (is_a?(Dialect) ? self : dialect).quoteChar,
         encoding: (is_a?(Dialect) ? self : dialect).encoding
       }
@@ -1591,10 +1634,10 @@ module RDF::Tabular
 
     # Return or create a name for the column from titles, if it exists
     def name
-      self[:name] || if titles && (ts = titles[context.default_language || 'und'])
+      self[:name] || if titles && (ts = titles[context.default_language || 'und'] || titles[self.lang || 'und'])
         n = Array(ts).first
-        n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/)
-        n1 = URI.encode(n[1..-1], /[^\w\.]/)
+        n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/).encode("utf-8")
+        n1 = URI.encode(n[1..-1], /[^\w\.]/).encode("utf-8")
         "#{n0}#{n1}"
       end || "_col.#{number}"
     end
@@ -1637,6 +1680,10 @@ module RDF::Tabular
     }.freeze
     DEFAULTS = {}.freeze
     REQUIRED = %w(url targetFormat scriptFormat).map(&:to_sym).freeze
+
+    # Type of this Metadata
+    # @return [:Template]
+    def type; :Template; end
 
     # Getters and Setters
     PROPERTIES.each do |key, type|
@@ -1709,8 +1756,10 @@ module RDF::Tabular
 
       define_method("#{key}=".to_sym) do |value|
         invalid = case key
-        when :commentPrefix, :delimiter, :quoteChar, :lineTerminators
+        when :commentPrefix, :delimiter, :quoteChar
           "a string" unless value.is_a?(String)
+        when :lineTerminators
+          "a string or array of strings" unless Array(value).all? {|e| e.is_a?(String)}
         when :doubleQuote, :header, :skipInitialSpace, :skipBlankRows
           "boolean true or false" unless value.is_a?(TrueClass) || value.is_a?(FalseClass)
         when :encoding
@@ -1825,6 +1874,8 @@ module RDF::Tabular
   end
 
   class Datatype < Metadata
+    include UAX35
+
     PROPERTIES = {
       :@id       => :link,
       :@type     => :atomic,
@@ -1887,202 +1938,6 @@ module RDF::Tabular
           object[key] = value
         end
       end
-    end
-
-    ##
-    # Parse the date format (if provided), and match against the value (if provided)
-    # Otherwise, validate format and raise an error
-    #
-    # @param [String] format
-    # @param [String] value
-    # @return [String] XMLSchema version of value
-    # @raise [ArgumentError] if format is not valid, or nil, if value does not match
-    def parse_uax35_date(format, value)
-      tz, date_format, time_format = nil, nil, nil
-      return value unless format
-      value ||= ""
-
-      # Extract tz info
-      if md = format.match(/^(.*[dyms])+(\s*[xX]{1,5})$/)
-        format, tz = md[1], md[2]
-      end
-
-      date_format, time_format = format.split(' ')
-      date_format, time_format = nil, date_format if self.base.to_sym == :time
-
-      # Extract date, of specified
-      date_part = case date_format
-      when 'yyyy-MM-dd' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})/)
-      when 'yyyyMMdd'   then value.match(/^(?<yr>\d{4})(?<mo>\d{2})(?<da>\d{2})/)
-      when 'dd-MM-yyyy' then value.match(/^(?<da>\d{2})-(?<mo>\d{2})-(?<yr>\d{4})/)
-      when 'd-M-yyyy'   then value.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{4})/)
-      when 'MM-dd-yyyy' then value.match(/^(?<mo>\d{2})-(?<da>\d{2})-(?<yr>\d{4})/)
-      when 'M-d-yyyy'   then value.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{4})/)
-      when 'dd/MM/yyyy' then value.match(/^(?<da>\d{2})\/(?<mo>\d{2})\/(?<yr>\d{4})/)
-      when 'd/M/yyyy'   then value.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{4})/)
-      when 'MM/dd/yyyy' then value.match(/^(?<mo>\d{2})\/(?<da>\d{2})\/(?<yr>\d{4})/)
-      when 'M/d/yyyy'   then value.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{4})/)
-      when 'dd.MM.yyyy' then value.match(/^(?<da>\d{2})\.(?<mo>\d{2})\.(?<yr>\d{4})/)
-      when 'd.M.yyyy'   then value.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{4})/)
-      when 'MM.dd.yyyy' then value.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
-      when 'M.d.yyyy'   then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
-      when 'yyyy-MM-ddTHH:mm' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2})(?<se>(?<ms>))/)
-      when 'yyyy-MM-ddTHH:mm:ss' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})(?<ms>)/)
-      when /yyyy-MM-ddTHH:mm:ss\.S+/
-        md = value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})\.(?<ms>\d+)/)
-        num_ms = date_format.match(/S+/).to_s.length
-        md if md && md[:ms].length <= num_ms
-      else
-        raise ArgumentError, "unrecognized date/time format #{date_format}" if date_format
-        nil
-      end
-
-      # Forward past date part
-      if date_part
-        value = value[date_part.to_s.length..-1]
-        value = value.lstrip if date_part && value.start_with?(' ')
-      end
-
-      # Extract time, of specified
-      time_part = case time_format
-      when 'HH:mm:ss' then value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})(?<ms>)/)
-      when 'HHmmss'   then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})(?<ms>)/)
-      when 'HH:mm'    then value.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)(?<ms>)/)
-      when 'HHmm'     then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)(?<ms>)/)
-      when /HH:mm:ss\.S+/
-        md = value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})\.(?<ms>\d+)/)
-        num_ms = time_format.match(/S+/).to_s.length
-        md if md && md[:ms].length <= num_ms
-      else
-        raise ArgumentError, "unrecognized date/time format #{time_format}" if time_format
-        nil
-      end
-
-      # If there's a date_format but no date_part, match fails
-      return nil if date_format && date_part.nil?
-
-      # If there's a time_format but no time_part, match fails
-      return nil if time_format && time_part.nil?
-
-      # Forward past time part
-      value = value[time_part.to_s.length..-1] if time_part
-
-      # Use datetime match for time
-      time_part = date_part if date_part && date_part.names.include?("hr")
-
-      # If there's a timezone, it may optionally start with whitespace
-      value = value.lstrip if tz.to_s.start_with?(' ')
-      tz_part = value if tz
-
-      # Compose normalized value
-      vd = ("%04d-%02d-%02d" % [date_part[:yr].to_i, date_part[:mo].to_i, date_part[:da].to_i]) if date_part
-      vt = ("%02d:%02d:%02d" % [time_part[:hr].to_i, time_part[:mi].to_i, time_part[:se].to_i]) if time_part
-
-      # Add milliseconds, if matched
-      vt += ".#{time_part[:ms]}" if time_part && !time_part[:ms].empty?
-
-      value = [vd, vt].compact.join('T')
-      value += tz_part.to_s
-    end
-
-    ##
-    # Parse the date format (if provided), and match against the value (if provided)
-    # Otherwise, validate format and raise an error
-    #
-    # @param [String] pattern
-    # @param [String] value
-    # @param [String] groupChar
-    # @param [String] decimalChar
-    # @return [String] XMLSchema version of value or nil, if value does not match
-    # @raise [ArgumentError] if format is not valid
-    def parse_uax35_number(pattern, value, groupChar=",", decimalChar=".")
-      return value if pattern.to_s.empty?
-      value ||= ""
-
-      re = build_number_re(pattern, groupChar, decimalChar)
-
-      # Upcase value and remove internal spaces
-      value = value.upcase.gsub(/\s+/, '')
-
-      # Remove groupChar from value
-      value = value.gsub(groupChar, '')
-
-      # Replace decimalChar with "."
-      value = value.gsub(decimalChar, '.')
-
-      if value =~ re
-        # result re-assembles parts removed from value
-        value
-      else
-        # no match
-        nil
-      end
-    end
-
-    # Build a regular expression from the provided pattern to match value, after suitable modifications
-    #
-    # @param [String] pattern
-    # @param [String] groupChar
-    # @param [String] decimalChar
-    # @return [Regexp] Regular expression matching value
-    # @raise [ArgumentError] if format is not valid
-    def build_number_re(pattern, groupChar, decimalChar)
-      # pattern must be composed of only 0, #, decimalChar, groupChar, E, +, -, %, and ‰
-      legal_number_pattern = /\A
-        ([%‰])?
-        ([+-])?
-        # Mantissa
-        (\#|#{groupChar == '.' ? '\.' : groupChar})*
-        (0|#{groupChar == '.' ? '\.' : groupChar})*
-        # Fractional
-        (?:#{decimalChar == '.' ? '\.' : decimalChar}
-          (0|#{groupChar == '.' ? '\.' : groupChar})*
-          (\#|#{groupChar == '.' ? '\.' : groupChar})*
-          # Exponent
-          (E
-            [+-]?
-            (?:\#|#{groupChar == '.' ? '\.' : groupChar})*
-            (?:0|#{groupChar == '.' ? '\.' : groupChar})*
-          )?
-        )?
-        ([%‰])?
-      \Z/x
-
-      unless pattern =~ legal_number_pattern
-        raise ArgumentError, "unrecognized number pattern #{pattern}"
-      end
-
-      # Remove groupChar from pattern
-      pattern = pattern.gsub(groupChar, '')
-
-      # Replace decimalChar with "."
-      pattern = pattern.gsub(decimalChar, '.')
-
-      # Split on decimalChar and E
-      parts = pattern.split(/[\.E]/)
-
-      # Construct regular expression
-      mantissa_str = case parts[0]
-      when /\A([%‰])?([+-])?#+(0+)([%‰])?\Z/ then "#{$1}#{$2}\\d{#{$3.length},}#{$4}"
-      when /\A([%‰])?([+-])?(0+)([%‰])?\Z/   then "#{$1}#{$2}\\d{#{$3.length}}#{$4}"
-      when /\A([%‰])?([+-])?#+([%‰])?\Z/     then "#{$1}#{$2}\\d*#{$4}"
-      end
-
-      fractional_str = case parts[1]
-      when /\A(0+)(#+)([%‰])?\Z/ then "\\d{#{$1.length},#{$1.length+$2.length}}#{$3}"
-      when /\A(0+)([%‰])?\Z/     then "\\d{#{$1.length}}#{$2}"
-      when /\A(#+)([%‰])?\Z/     then "\\d{,#{$1.length}}#{$2}"
-      end
-      fractional_str = "\\.#{fractional_str}" if fractional_str
-
-      exponent_str = case parts[2]
-      when /\A([+-])?(#+)(0+)([%‰])?\Z/ then "#{$1}\\d{#{$3.length},#{$2.length+$3.length}}#{$4}"
-      when /\A([+-])?(0+)([%‰])?\Z/    then "#{$1}\\d{#{$2.length}}#{$3}"
-      when /\A([+-])?(#+)([%‰])?\Z/     then "#{$1}\\d{,#{$2.length}}#{$3}"
-      end
-      exponent_str = "E#{exponent_str}" if exponent_str
-
-      Regexp.new("^#{mantissa_str}#{fractional_str}#{exponent_str}$")
     end
   end
 
@@ -2320,25 +2175,23 @@ module RDF::Tabular
         pattern = format["pattern"]
 
         if !datatype.parse_uax35_number(pattern, value, groupChar || ",", decimalChar)
-          value_errors << "#{value} does not match pattern #{pattern}"
+          value_errors << "#{value} does not match numeric pattern #{pattern ? pattern.inspect : 'default'}"
         end
 
         # pattern facet failed
         value_errors << "#{value} has repeating #{groupChar.inspect}" if groupChar && value.include?(groupChar*2)
-        value = value.gsub(groupChar, '') if groupChar
+        value = value.gsub(groupChar || ',', '')
         value = value.sub(decimalChar, '.')
 
         # Extract percent or per-mille sign
         percent = permille = false
-        if groupChar
-          case value
-          when /%/
-            value = value.sub('%', '')
-            percent = true
-          when /‰/
-            value = value.sub('‰', '')
-            permille = true
-          end
+        case value
+        when /%/
+          value = value.sub('%', '')
+          percent = true
+        when /‰/
+          value = value.sub('‰', '')
+          permille = true
         end
 
         lit = RDF::Literal(value, datatype: expanded_dt)
@@ -2408,13 +2261,13 @@ module RDF::Tabular
           lit = RDF::Literal.new(value)
         else
           if datatype.length && lit.object.length != datatype.length
-            value_errors << "decoded #{value} does not have length #{datatype.length}"
+            value_errors << "decoded #{value} has length #{lit.object.length} not #{datatype.length}"
           end
           if datatype.minLength && lit.object.length < datatype.minLength
-            value_errors << "decoded #{value} does not have length >= #{datatype.length}"
+            value_errors << "decoded #{value} has length #{lit.object.length} not >= #{datatype.minLength}"
           end
-          if datatype.maxLength && lit.object.length < datatype.maxLength
-            value_errors << "decoded #{value} does not have length <= #{datatype.length}"
+          if datatype.maxLength && lit.object.length > datatype.maxLength
+            value_errors << "decoded #{value} has length #{lit.object.length} not <= #{datatype.maxLength}"
           end
         end
       when :anyType, :anySimpleType, :ENTITIES, :IDREFS, :NMTOKENS,

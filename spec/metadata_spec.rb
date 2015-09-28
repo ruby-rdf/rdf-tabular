@@ -1,4 +1,4 @@
-# coding: utf-8
+# encoding: UTF-8
 $:.unshift "."
 require 'spec_helper'
 
@@ -308,9 +308,10 @@ describe RDF::Tabular::Metadata do
 
       its(:type) {is_expected.to eql :Schema}
 
-      it "is invalid if referenced column does not exist" do
+      it "is valid if referenced column does not exist" do
         subject[:columns] = []
-        expect(subject).not_to be_valid
+        expect(subject).to be_valid
+        expect(subject.warnings).not_to be_empty
       end
 
       it "is valid with multiple names" do
@@ -322,13 +323,14 @@ describe RDF::Tabular::Metadata do
         expect(v).to be_valid
       end
 
-      it "is invalid with multiple names if any column missing" do
+      it "is valid with multiple names if any column missing" do
         v = described_class.new({
           "columns" => [column],
           "primaryKey" => [column["name"], column2["name"]]},
           base: RDF::URI("http://example.org/base",
           debug: @debug))
-        expect(v).not_to be_valid
+        expect(v).to be_valid
+        expect(v.warnings).not_to be_empty
       end
     end
 
@@ -369,10 +371,10 @@ describe RDF::Tabular::Metadata do
               "columnReference" => ["b1", "b2"]
             }
           },
-          "references single column with tableSchema" => {
+          "references single column with schemaReference" => {
             "columnReference" => "a1",
             "reference" => {
-              "tableSchema" => "b_s",
+              "schemaReference" => "b_s",
               "columnReference" => "b1"
             }
           }
@@ -454,7 +456,7 @@ describe RDF::Tabular::Metadata do
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties")
-    its(:type) {is_expected.to eql :Transformation}
+    its(:type) {is_expected.to eql :Template}
 
     {
       source: {
@@ -772,13 +774,13 @@ describe RDF::Tabular::Metadata do
       {
         ":type TableGroup" => [{}, {type: :TableGroup}, RDF::Tabular::TableGroup],
         ":type Table" => [{}, {type: :Table}, RDF::Tabular::Table],
-        ":type Transformation" => [{}, {type: :Transformation}, RDF::Tabular::Transformation],
+        ":type Template" => [{}, {type: :Template}, RDF::Tabular::Transformation],
         ":type Schema" => [{}, {type: :Schema}, RDF::Tabular::Schema],
         ":type Column" => [{}, {type: :Column}, RDF::Tabular::Column],
         ":type Dialect" => [{}, {type: :Dialect}, RDF::Tabular::Dialect],
         "@type TableGroup" => [{"@type" => "TableGroup"}, RDF::Tabular::TableGroup],
         "@type Table" => [{"@type" => "Table"}, RDF::Tabular::Table],
-        "@type Transformation" => [{"@type" => "Transformation"}, RDF::Tabular::Transformation],
+        "@type Template" => [{"@type" => "Template"}, RDF::Tabular::Transformation],
         "@type Schema" => [{"@type" => "Schema"}, RDF::Tabular::Schema],
         "@type Column" => [{"@type" => "Column"}, RDF::Tabular::Column],
         "@type Dialect" => [{"@type" => "Dialect"}, RDF::Tabular::Dialect],
@@ -1058,12 +1060,6 @@ describe RDF::Tabular::Metadata do
           format: {"pattern" => '000'},
           value: "123"
         },
-        "decimal with wrong pattern" => {
-          base: "decimal",
-          format: {"pattern" => '0000'},
-          value: "123",
-          errors: [/123 does not match pattern/]
-        },
         "decimal with explicit groupChar" => {
           base: "decimal",
           format: {"groupChar" => ";"},
@@ -1148,20 +1144,20 @@ describe RDF::Tabular::Metadata do
         "valid boolean Y|N N" => {base: "boolean", value: "N", format: "Y|N", result: "false"},
 
         # Dates
-        "validate date yyyy-MM-dd" => {base: "date", value: "2015-03-22", format: "yyyy-MM-dd", result: "2015-03-22"},
-        "validate date yyyyMMdd" => {base: "date", value: "20150322", format: "yyyyMMdd", result: "2015-03-22"},
-        "validate date dd-MM-yyyy" => {base: "date", value: "22-03-2015", format: "dd-MM-yyyy", result: "2015-03-22"},
-        "validate date d-M-yyyy" => {base: "date", value: "22-3-2015", format: "d-M-yyyy", result: "2015-03-22"},
-        "validate date MM-dd-yyyy" => {base: "date", value: "03-22-2015", format: "MM-dd-yyyy", result: "2015-03-22"},
-        "validate date M-d-yyyy" => {base: "date", value: "3-22-2015", format: "M-d-yyyy", result: "2015-03-22"},
-        "validate date dd/MM/yyyy" => {base: "date", value: "22/03/2015", format: "dd/MM/yyyy", result: "2015-03-22"},
-        "validate date d/M/yyyy" => {base: "date", value: "22/3/2015", format: "d/M/yyyy", result: "2015-03-22"},
-        "validate date MM/dd/yyyy" => {base: "date", value: "03/22/2015", format: "MM/dd/yyyy", result: "2015-03-22"},
-        "validate date M/d/yyyy" => {base: "date", value: "3/22/2015", format: "M/d/yyyy", result: "2015-03-22"},
-        "validate date dd.MM.yyyy" => {base: "date", value: "22.03.2015", format: "dd.MM.yyyy", result: "2015-03-22"},
-        "validate date d.M.yyyy" => {base: "date", value: "22.3.2015", format: "d.M.yyyy", result: "2015-03-22"},
-        "validate date MM.dd.yyyy" => {base: "date", value: "03.22.2015", format: "MM.dd.yyyy", result: "2015-03-22"},
-        "validate date M.d.yyyy" => {base: "date", value: "3.22.2015", format: "M.d.yyyy", result: "2015-03-22"},
+        "valid date yyyy-MM-dd" => {base: "date", value: "2015-03-22", format: "yyyy-MM-dd", result: "2015-03-22"},
+        "valid date yyyyMMdd" => {base: "date", value: "20150322", format: "yyyyMMdd", result: "2015-03-22"},
+        "valid date dd-MM-yyyy" => {base: "date", value: "22-03-2015", format: "dd-MM-yyyy", result: "2015-03-22"},
+        "valid date d-M-yyyy" => {base: "date", value: "22-3-2015", format: "d-M-yyyy", result: "2015-03-22"},
+        "valid date MM-dd-yyyy" => {base: "date", value: "03-22-2015", format: "MM-dd-yyyy", result: "2015-03-22"},
+        "valid date M-d-yyyy" => {base: "date", value: "3-22-2015", format: "M-d-yyyy", result: "2015-03-22"},
+        "valid date dd/MM/yyyy" => {base: "date", value: "22/03/2015", format: "dd/MM/yyyy", result: "2015-03-22"},
+        "valid date d/M/yyyy" => {base: "date", value: "22/3/2015", format: "d/M/yyyy", result: "2015-03-22"},
+        "valid date MM/dd/yyyy" => {base: "date", value: "03/22/2015", format: "MM/dd/yyyy", result: "2015-03-22"},
+        "valid date M/d/yyyy" => {base: "date", value: "3/22/2015", format: "M/d/yyyy", result: "2015-03-22"},
+        "valid date dd.MM.yyyy" => {base: "date", value: "22.03.2015", format: "dd.MM.yyyy", result: "2015-03-22"},
+        "valid date d.M.yyyy" => {base: "date", value: "22.3.2015", format: "d.M.yyyy", result: "2015-03-22"},
+        "valid date MM.dd.yyyy" => {base: "date", value: "03.22.2015", format: "MM.dd.yyyy", result: "2015-03-22"},
+        "valid date M.d.yyyy" => {base: "date", value: "3.22.2015", format: "M.d.yyyy", result: "2015-03-22"},
 
         # Times
         "valid time HH:mm:ss.S" => {base: "time", value: "15:02:37.1", format: "HH:mm:ss.S", result: "15:02:37.1"},
@@ -1188,11 +1184,16 @@ describe RDF::Tabular::Metadata do
 
         # Timezones
         "valid w/TZ yyyy-MM-ddX" => {base: "date", value: "2015-03-22Z", format: "yyyy-MM-ddX", result: "2015-03-22Z"},
-        "valid w/TZ dd.MM.yyyy XXXXX" => {base: "date", value: "22.03.2015 Z", format: "dd.MM.yyyy XXXXX", result: "2015-03-22Z"},
-        "valid w/TZ HH:mm:ssX" => {base: "time", value: "15:02:37-05:00", format: "HH:mm:ssX", result: "15:02:37-05:00"},
-        "valid w/TZ HHmm XX" => {base: "time", value: "1502 +08:00", format: "HHmm XX", result: "15:02:00+08:00"},
+        "valid w/TZ HH:mm:ssX" => {base: "time", value: "15:02:37-05", format: "HH:mm:ssX", result: "15:02:37-05:00"},
+        "valid w/TZ yyyy-MM-dd HH:mm:ss X" => {base: "dateTimeStamp", value: "2015-03-15 15:02:37 +0800", format: "yyyy-MM-dd HH:mm:ss X", result: "2015-03-15T15:02:37+08:00"},
+        "valid w/TZ HHmm XX" => {base: "time", value: "1502 +0800", format: "HHmm XX", result: "15:02:00+08:00"},
+        "valid w/TZ yyyy-MM-dd HH:mm:ss XX" => {base: "dateTimeStamp", value: "2015-03-15 15:02:37 -0800", format: "yyyy-MM-dd HH:mm:ss XX", result: "2015-03-15T15:02:37-08:00"},
+        "valid w/TZ HHmm XXX" => {base: "time", value: "1502 +08:00", format: "HHmm XXX", result: "15:02:00+08:00"},
         "valid w/TZ yyyy-MM-ddTHH:mm:ssXXX" => {base: "dateTime", value: "2015-03-15T15:02:37-05:00", format: "yyyy-MM-ddTHH:mm:ssXXX", result: "2015-03-15T15:02:37-05:00"},
-        "valid w/TZ yyyy-MM-dd HH:mm:ss X" => {base: "dateTimeStamp", value: "2015-03-15 15:02:37 +08:00", format: "yyyy-MM-dd HH:mm:ss X", result: "2015-03-15T15:02:37+08:00"},
+        "invalid w/TZ HH:mm:ssX" => {base: "time", value: "15:02:37-05:00", format: "HH:mm:ssX", errors: ["15:02:37-05:00 does not match format HH:mm:ssX"]},
+        "invalid w/TZ HH:mm:ssXX" => {base: "time", value: "15:02:37-05", format: "HH:mm:ssXX", errors: ["15:02:37-05 does not match format HH:mm:ssXX"]},
+
+        # Other date-like things
         "valid gDay" => {base: "gDay", value: "---31"},
         "valid gMonth" => {base: "gMonth", value: "--02"},
         "valid gMonthDay" => {base: "gMonthDay", value: "--02-21"},
@@ -1216,7 +1217,43 @@ describe RDF::Tabular::Metadata do
         "valid anyAtomicType" => {base: "anyAtomicType", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.anyAtomicType)},
         "valid anyURI" => {base: "anyURI", value: "http://example.com/", result: RDF::Literal("http://example.com/", datatype: RDF::XSD.anyURI)},
         "valid base64Binary" => {base: "base64Binary", value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)},
+        "base64Binary with matching length:" => {
+          base: "base64Binary",
+          value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g",
+          length: 45,
+          result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)
+        },
+        "base64Binary with wrong maxLength:" => {
+          base: "base64Binary",
+          value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g",
+          maxLength: 1,
+          errors: ["decoded Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g has length 45 not <= 1"]
+        },
+        "base64Binary with wrong minLength" => {
+          base: "base64Binary",
+          value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g",
+          minLength: 50,
+          errors: ["decoded Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g has length 45 not >= 50"]
+        },
         "valid hexBinary" => {base: "hexBinary", value: "0FB7", result: RDF::Literal("0FB7", datatype: RDF::XSD.hexBinary)},
+        "hexBinary with matching length:" => {
+          base: "hexBinary",
+          value: "0FB7",
+          length: 2,
+          result: RDF::Literal("0FB7", datatype: RDF::XSD.hexBinary)
+        },
+        "hexBinary with wrong maxLength:" => {
+          base: "hexBinary",
+          value: "0FB7",
+          maxLength: 1,
+          errors: ["decoded 0FB7 has length 2 not <= 1"]
+        },
+        "hexBinary with wrong minLength" => {
+          base: "hexBinary",
+          value: "0FB7",
+          minLength: 4,
+          errors: ["decoded 0FB7 has length 2 not >= 4"]
+        },
         "valid QName" => {base: "QName", value: "foo:bar", result: RDF::Literal("foo:bar", datatype: RDF::XSD.QName)},
         "valid normalizedString" => {base: "normalizedString", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.normalizedString)},
         "valid token" => {base: "token", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.token)},
@@ -1244,7 +1281,7 @@ describe RDF::Tabular::Metadata do
           }
           let(:md) {
             RDF::Tabular::Table.new({
-             url: "http://example.com/table.csv",
+              url: "http://example.com/table.csv",
               dialect: {header: false},
               tableSchema: {
                 columns: [{
@@ -1293,51 +1330,99 @@ describe RDF::Tabular::Metadata do
     end
   end
 
-  describe "#build_number_re" do
-    subject {RDF::Tabular::Datatype.new({})}
+  context "Number formats" do
     {
-      '#,##0.##'   => /^\d{1,}\.\d{,2}$/,
-      '#,##0.###'  => /^\d{1,}\.\d{,3}$/,
-      '###0.#####' => /^\d{1,}\.\d{,5}$/,
-      '###0.0000#' => /^\d{1,}\.\d{4,5}$/,
-      '00000.0000' => /^\d{5}\.\d{4}$/,
-      
-      '0'          => /^\d{1}$/,
-      '00'         => /^\d{2}$/,
-      '#'          => /^\d*$/,
-      '##'         => /^\d*$/,
-      
-      '.0'         => /^\.\d{1}$/,
-      '.00'        => /^\.\d{2}$/,
-      '.#'         => /^\.\d{,1}$/,
-      '.##'        => /^\.\d{,2}$/,
-      
-      '+0'         => /^+\d{1}$/,
-      '-0'         => /^-\d{1}$/,
-      '%0'         => /^%\d{1}$/,
-      '‰0'         => /^‰\d{1}$/,
-      '0%'         => /^\d{1}%$/,
-      '0‰'         => /^\d{1}‰$/,
-      '0.0%'       => /^\d{1}\.\d{1}%$/,
+      '0'          => {valid: %w(1 -1 +1), invalid: %w(12 1.2), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1})(?<suffix>)$/},
+      '00'         => {valid: %w(12), invalid: %w(1 123 1,2), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{2})(?<suffix>)$/},
+      '#'          => {valid: %w(1 12 123), invalid: %w(1.2), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{0,})(?<suffix>)$/},
+      '##'         => {re: /^(?<prefix>[+-]?)(?<numeric_part>\d{0,})(?<suffix>)$/},
+      '#0'         => {re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,})(?<suffix>)$/},
 
-      '#0.0#E#0'   => /^\d{1,}\.\d{1,2}E\d{1,2}$/,
-      '#0.0#E+#'   => /^\d{1,}\.\d{1,2}E+\d{,1}$/,
-      '#0.0#E-00'  => /^\d{1,}\.\d{1,2}E-\d{2}$/,
-      '#0.0#E#0%'  => /^\d{1,}\.\d{1,2}E\d{1,2}%$/,
-    }.each do |pattern,regexp|
-      it "generates #{regexp} for #{pattern}" do
-        expect(subject.build_number_re(pattern, ",", ".")).to eql regexp
-      end
-    end
+      '0.0'         => {valid: %w(1.1 -1.1), invalid: %w(12.1 1.12), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{1})(?<suffix>)$/},
+      '0.00'        => {valid: %w(1.12 +1.12), invalid: %w(12.12 1.1 1.123), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{2})(?<suffix>)$/},
+      '0.#'         => {valid: %w(1 1.1), invalid: %w(12.1 1.12), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}(?:\.\d{0,1})?)(?<suffix>)$/},
+      '0.##'        => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}(?:\.\d{0,2})?)(?<suffix>)$/},
 
-    %W{
-      +%0
-      0#
-      0E0
-      0-
-    }.each do |pattern|
-      it "recognizes bad pattern #{pattern}" do
-        expect{subject.build_number_re(pattern, ",", ".")}.to raise_error(ArgumentError)
+      '+0'         => {valid: %w(+1), invalid: %w(1 -1 +10), base: "decimal", re: /^(?<prefix>\+)(?<numeric_part>\d{1})(?<suffix>)$/},
+      '-0'         => {valid: %w(-1), invalid: %w(1 +1 -10), base: "decimal", re: /^(?<prefix>\-)(?<numeric_part>\d{1})(?<suffix>)$/},
+      '%000'       => {valid: %w(%123 %+123 %-123), invalid: %w(%12 %1234 123%), base: "decimal", re: /^(?<prefix>%[+-]?)(?<numeric_part>\d{3})(?<suffix>)$/},
+      '‰000'       => {valid: %w(‰123 ‰+123 ‰-123), invalid: %w(‰12 ‰1234 123‰), base: "decimal", re: /^(?<prefix>‰[+-]?)(?<numeric_part>\d{3})(?<suffix>)$/},
+      '000%'       => {valid: %w(123% +123% -123%), invalid: %w(12% 1234% %123), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{3})(?<suffix>%)$/},
+      '000‰'       => {valid: %w(123‰ +123‰ -123‰), invalid: %w(12‰ 1234‰ ‰123), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{3})(?<suffix>‰)$/},
+      '000.0%'     => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{3}\.\d{1})(?<suffix>%)$/},
+
+      '###0.#####' => {valid: %w(1 1.1 12345.12345), invalid: %w(1,234.1 1.123456), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}(?:\.\d{0,5})?)(?<suffix>)$/},
+      '###0.0000#' => {valid: %w(1.1234 1.12345 12345.12345), invalid: %w(1,234.1234 1.12), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{4,5})(?<suffix>)$/},
+      '00000.0000' => {valid: %w(12345.1234), invalid: %w(1.2 1,234.123,4), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{5}\.\d{4})(?<suffix>)$/},
+
+      '#0.0#E#0'   => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2})(?<suffix>)$/},
+      '#0.0#E+#0'   => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E\+\d{1,2})(?<suffix>)$/},
+      '#0.0#E#0%'  => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2}%)(?<suffix>)$/},
+      '#0.0#E#0%'  => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2})(?<suffix>%)$/},
+
+      # Grouping
+      '#,##,##0'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:(?:(?:\d{1,2},)?(?:\d{2},)*\d)?\d)?\d{1})(?<suffix>)$/},
+      '#,##,#00'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:(?:\d{1,2},)?(?:\d{2},)*\d)?\d{2})(?<suffix>)$/},
+      '#,##,000'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:\d{1,2},)?(?:\d{2},)*\d{3})(?<suffix>)$/},
+      '#,#0,000'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:(?:\d{1,2},)?(?:\d{2},)*\d)?\d{1},\d{3})(?<suffix>)$/},
+      '#,00,000'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:\d{1,2},)?(?:\d{2},)*\d{2},\d{3})(?<suffix>)$/},
+      '0,00,000'   => {base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1},\d{2},\d{3})(?<suffix>)$/},
+
+      '0.0##,###'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{1}(?:\d(?:\d(?:,\d(?:\d(?:\d)?)?)?)?)?)(?<suffix>)$/},
+      '0.00#,###'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{2}(?:\d(?:,\d(?:\d(?:\d)?)?)?)?)(?<suffix>)$/},
+      '0.000,###'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{3}(?:,\d(?:\d(?:\d)?)?)?)(?<suffix>)$/},
+      '0.000,0##'  => {base: "decimal", re:/^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{3},\d{1}(?:\d(?:\d)?)?)(?<suffix>)$/},
+      '0.000,00#'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{3},\d{2}(?:\d)?)(?<suffix>)$/},
+      '0.000,000'  => {base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1}\.\d{3},\d{3})(?<suffix>)$/},
+
+      # Jeni's
+      '##0'        => {valid: %w(1 12 123 1234), invalid: %w(1,234 123.4), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,})(?<suffix>)$/},
+      '#,#00'      => {valid: %w(12 123 1,234 1,234,567), invalid: %w(1 1234 12,34 12,34,567), base: "integer", re: /^(?<prefix>[+-]?)(?<numeric_part>(?:(?:\d{1,3},)?(?:\d{3},)*\d)?\d{2})(?<suffix>)$/},
+      '#0.#'       => {valid: %w(1 1.2 1234.5), invalid: %w(12.34 1,234.5), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}(?:\.\d{0,1})?)(?<suffix>)$/},
+      '#0.0#,#'    => {valid: %w(12.3 12.34 12.34,5), invalid: %w(1 12.345 12.34,56,7 12.34,567), base: "decimal", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1}(?:\d(?:,\d)?)?)(?<suffix>)$/},
+    }.each do |pattern, props|
+      context pattern do
+        subject {RDF::Tabular::Datatype.new({})}
+        describe "#build_number_re" do
+          it "generates #{props[:re]} for #{pattern}" do
+            expect(subject.build_number_re(pattern, ",", ".")).to eql props[:re]
+          end if props[:re].is_a?(Regexp)
+
+          it "recognizes bad pattern #{pattern}" do
+            expect{subject.build_number_re(pattern, ",", ".")}.to raise_error(ArgumentError)
+          end if props[:re] == ArgumentError
+        end
+
+        describe "Metadata" do
+          let(:md) {
+            RDF::Tabular::Table.new({
+              url: "http://example.com/table.csv",
+              dialect: {header: false},
+              tableSchema: {
+                columns: [{
+                  name: "name",
+                  datatype: {"base" => props[:base], "format" => {"pattern" => pattern}}
+                }]
+              }
+            }, debug: @debug)
+          }
+          describe "valid" do
+            Array(props[:valid]).each do |num|
+              it "for #{num}" do
+                cell = md.to_enum(:each_row, "\"#{num}\"\n").to_a.first.values.first
+                expect(cell).to be_valid
+              end
+            end
+          end
+          describe "invalid" do
+            Array(props[:invalid]).each do |num|
+              it "for #{num}" do
+                cell = md.to_enum(:each_row, "\"#{num}\"\n").to_a.first.values.first
+                expect(cell).not_to be_valid
+              end
+            end
+          end
+        end
       end
     end
   end
