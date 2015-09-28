@@ -23,6 +23,13 @@ def earl_preamble(options)
   foaf:name "Gregg Kellogg";
   foaf:title "Implementor";
   foaf:homepage <http://greggkellogg.net/> .
+
+<http://rubygems.org/gems/rdf-tabular>
+  doap:release <https://github.com/ruby-rdf/rdf-tabular/tree/#{RDF::Tabular::VERSION}> .
+
+<https://github.com/ruby-rdf/rdf-tabular/tree/#{RDF::Tabular::VERSION}> a doap:Version;
+  doap:name "rdf-tabular-#{RDF::Tabular::VERSION}";
+  doap:revision "#{RDF::Tabular::VERSION}" .
 )
 end
 
@@ -135,6 +142,8 @@ def run_tc(t, options)
 }
   end
 
+  options[:result_count][result] ||= 0
+  options[:result_count][result] += 1
   puts "#{"test result:" unless options[:quiet]} #{result}"
 end
 
@@ -182,13 +191,19 @@ earl_preamble(options) if options[:earl]
 
 WebMock.allow_net_connect!(net_http_connect_on_start: true)
 
+result_count = {}
+
 %w(rdf json validation nonnorm).each do |variant|
   manifest = Fixtures::SuiteTest::BASE + "manifest-#{variant}.jsonld"
   
   Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
     m.entries.each do |t|
       next unless ARGV.empty? || ARGV.any? {|n| t.id.match(/#{n}/)}
-      run_tc(t, options.merge(manifest: manifest))
+      run_tc(t, options.merge(manifest: manifest, result_count: result_count))
     end
   end
+end
+
+result_count.each do |result, count|
+  puts "#{result}: #{count}"
 end

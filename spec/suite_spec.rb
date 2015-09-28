@@ -66,22 +66,16 @@ describe RDF::Tabular::Reader do
                     end
                     expect(t.errors).to produce [], t
                   elsif t.json?
-                    expect {
-                      reader.to_json
-                    }.to raise_error(RDF::Tabular::Error)
-                  elsif t.evaluate?
-                    expect {
-                      graph << reader
-                    }.to raise_error(RDF::ReaderError)
+                    expect {reader.to_json}.to raise_error(RDF::Tabular::Error)
                   elsif t.validation?
                     expect {reader.validate!}.to raise_error(RDF::Tabular::Error)
+                  else
+                    expect {graph << reader}.to raise_error(RDF::ReaderError)
                   end
                 end
-              rescue IOError, RDF::Tabular::Error
-                # Special case
-                unless t.negative_test?
-                  raise
-                end
+              rescue IOError
+                # Special case when Reader.initialize raises the error
+                raise unless t.negative_test?
               end
             end
           end
