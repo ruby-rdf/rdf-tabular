@@ -1039,6 +1039,9 @@ module RDF::Tabular
             raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
           else
             warn "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
+
+            # If present, a virtual column MUST appear after all other non-virtual column definitions
+            raise Error, "Virtual columns may not appear before non-virtual columns" unless Array(tableSchema.columns)[0..non_virtual_columns.length-1] == non_virtual_columns
             virtual_columns = Array(tableSchema.columns).select(&:virtual)
             while non_virtual_columns.length < object_columns.length
               non_virtual_columns << nil
