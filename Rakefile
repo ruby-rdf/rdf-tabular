@@ -78,5 +78,5 @@ file "etc/earl.jsonld" => %w(etc/earl.ttl etc/doap.ttl) do
   %x{cd etc; earl-report --format json -o earl.jsonld earl.ttl}
 end
 file "etc/earl.html" => "etc/earl.jsonld" do
-  %x{cd etc; earl-report --format json -o earl.jsonld earl.ttl}
+  %x{cd etc; earl-report --json --format html -o earl.html earl.jsonld}
 end
