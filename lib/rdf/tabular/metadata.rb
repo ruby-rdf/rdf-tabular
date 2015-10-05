@@ -2063,28 +2063,19 @@ module RDF::Tabular
         @values << cell = Cell.new(metadata, column, self, value)
 
         datatype = column.datatype || Datatype.new({base: "string"}, parent: column)
-        value = value.gsub(/\r\t\a/, ' ') unless %w(string json xml html anyAtomicType any).include?(datatype.base)
-        value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType any normalizedString).include?(datatype.base)
+        value = value.gsub(/\r\n\t/, ' ') unless %w(string json xml html anyAtomicType).include?(datatype.base)
+        value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType normalizedString).include?(datatype.base)
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
         value = column.default || '' if value.empty?
 
         cell_values = column.separator ? value.split(column.separator) : [value]
 
         cell_values = cell_values.map do |v|
-          v = v.strip unless %w(string anyAtomicType any).include?(datatype.base)
+          v = v.strip unless %w(string anyAtomicType).include?(datatype.base)
           v = column.default || '' if v.empty?
           if Array(column.null).include?(v)
             nil
           else
-            # Trim value
-            if %w(string anyAtomicType any).include?(datatype.base)
-              v.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
-              v.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
-            else
-              # unless the datatype is string or anyAtomicType or any, strip leading and trailing whitespace from the string value
-              v.strip!
-            end
-
             expanded_dt = datatype.id || metadata.context.expand_iri(datatype.base, vocab: true)
             if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt, column.lang)).is_a?(RDF::Literal)
               lit_or_errors
