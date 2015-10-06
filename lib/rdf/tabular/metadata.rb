@@ -433,7 +433,7 @@ module RDF::Tabular
     end
 
     # Getters and Setters
-    INHERITED_PROPERTIES.keys.each do |key|
+    INHERITED_PROPERTIES.each do |key, type|
       define_method(key) do
         object.fetch(key) do
           parent ? parent.send(key) : default_value(key)
@@ -459,12 +459,7 @@ module RDF::Tabular
           # We handle this through a separate datatype= setter
         end
 
-        if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
 
@@ -1223,6 +1218,24 @@ module RDF::Tabular
       (@warnings ||= []) << string
     end
 
+    def set_property(key, type, value, invalid)
+      if invalid
+        warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+        case type
+        when :link, :uri_template
+          object[key] = ""
+        when :object
+          object[key] = {}
+        when :natural_language
+          object[key] = set_nl(value) || []
+        else
+          object.delete(key)
+        end
+      else
+        object[key] = value
+      end
+    end
+
     # When setting a natural language property, always put in language-map form
     # @param [Hash{String => String, Array<String>}, Array<String>, String] value
     # @return [Hash{String => Array<String>}]
@@ -1329,12 +1342,7 @@ module RDF::Tabular
           # We handle this through a separate setters
         end
 
-        if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
 
@@ -1421,8 +1429,7 @@ module RDF::Tabular
         end
 
         if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
+          set_property(key, type, value, invalid)
         elsif key == :url
           # URL of CSV relative to metadata
           object[:url] = value
@@ -1490,12 +1497,7 @@ module RDF::Tabular
           "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
         end
 
-        if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
 
@@ -1619,16 +1621,7 @@ module RDF::Tabular
           valid_natural_language_property?(value)
         end
 
-        if invalid && key == :titles
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = set_nl(value)
-          object.delete(key) if object[key].nil?
-        elsif invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, t, value, invalid)
       end
     end
 
@@ -1700,12 +1693,7 @@ module RDF::Tabular
           "json or rdf" unless %w(json rdf).include?(value) || value.nil?
         end
 
-        if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
   end
@@ -1749,7 +1737,7 @@ module RDF::Tabular
     REQUIRED = [].freeze
 
     # Getters and Setters
-    PROPERTIES.keys.each do |key|
+    PROPERTIES.each do |key, type|
       define_method(key) do
         object.fetch(key, DEFAULTS[key])
       end
@@ -1772,16 +1760,7 @@ module RDF::Tabular
           valid_natural_language_property?(value)
         end
 
-        if invalid && key == :titles
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = set_nl(value)
-          object.delete(key) if object[key].nil?
-        elsif invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
 
@@ -1931,12 +1910,7 @@ module RDF::Tabular
           end
         end
 
-        if invalid
-          warn "#{self.type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
   end
