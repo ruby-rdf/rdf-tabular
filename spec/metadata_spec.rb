@@ -928,9 +928,9 @@ describe RDF::Tabular::Metadata do
           }
         },
         "PNames" => {
-          aboutUrl: [RDF::SCHEMA.addressCountry, RDF::SCHEMA.latitude, RDF::SCHEMA.longitude, RDF::SCHEMA.name],
-          propertyUrl: [RDF::SCHEMA.addressCountry, RDF::SCHEMA.latitude, RDF::SCHEMA.longitude, RDF::SCHEMA.name],
-          valueUrl: [RDF::SCHEMA.addressCountry, RDF::SCHEMA.latitude, RDF::SCHEMA.longitude, RDF::SCHEMA.name],
+          aboutUrl: [RDF::Vocab::SCHEMA.addressCountry, RDF::Vocab::SCHEMA.latitude, RDF::Vocab::SCHEMA.longitude, RDF::Vocab::SCHEMA.name],
+          propertyUrl: [RDF::Vocab::SCHEMA.addressCountry, RDF::Vocab::SCHEMA.latitude, RDF::Vocab::SCHEMA.longitude, RDF::Vocab::SCHEMA.name],
+          valueUrl: [RDF::Vocab::SCHEMA.addressCountry, RDF::Vocab::SCHEMA.latitude, RDF::Vocab::SCHEMA.longitude, RDF::Vocab::SCHEMA.name],
           md: {
             "aboutUrl" => "http://schema.org/{_name}",
             "propertyUrl" => 'schema:{_name}',
