@@ -240,7 +240,7 @@ describe RDF::Tabular::Reader do
             end
           end
 
-          it "ADT mode", skip: true do
+          it "ADT mode", unless: true do
             json = ttl.sub("-standard.ttl", "-atd.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 

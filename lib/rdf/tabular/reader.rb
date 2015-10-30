@@ -1,4 +1,5 @@
 require 'rdf'
+require 'rdf/vocab'
 
 module RDF::Tabular
   ##
@@ -204,30 +205,30 @@ module RDF::Tabular
               # Provenance
               if prov?
                 activity = RDF::Node.new
-                add_statement(0, table_group, RDF::PROV.wasGeneratedBy, activity)
-                add_statement(0, activity, RDF.type, RDF::PROV.Activity)
-                add_statement(0, activity, RDF::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
-                add_statement(0, activity, RDF::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
-                add_statement(0, activity, RDF::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
+                add_statement(0, table_group, RDF::Vocab::PROV.wasGeneratedBy, activity)
+                add_statement(0, activity, RDF.type, RDF::Vocab::PROV.Activity)
+                add_statement(0, activity, RDF::Vocab::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
+                add_statement(0, activity, RDF::Vocab::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
+                add_statement(0, activity, RDF::Vocab::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
 
                 unless (urls = input.tables.map(&:url)).empty?
                   usage = RDF::Node.new
-                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                  add_statement(0, activity, RDF::Vocab::PROV.qualifiedUsage, usage)
+                  add_statement(0, usage, RDF.type, RDF::Vocab::PROV.Usage)
                   urls.each do |url|
-                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(url))
+                    add_statement(0, usage, RDF::Vocab::PROV.entity, RDF::URI(url))
                   end
-                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.csvEncodedTabularData)
+                  add_statement(0, usage, RDF::Vocab::PROV.hadRole, CSVW.csvEncodedTabularData)
                 end
 
                 unless Array(input.filenames).empty?
                   usage = RDF::Node.new
-                  add_statement(0, activity, RDF::PROV.qualifiedUsage, usage)
-                  add_statement(0, usage, RDF.type, RDF::PROV.Usage)
+                  add_statement(0, activity, RDF::Vocab::PROV.qualifiedUsage, usage)
+                  add_statement(0, usage, RDF.type, RDF::Vocab::PROV.Usage)
                   Array(input.filenames).each do |fn|
-                    add_statement(0, usage, RDF::PROV.entity, RDF::URI(fn))
+                    add_statement(0, usage, RDF::Vocab::PROV.entity, RDF::URI(fn))
                   end
-                  add_statement(0, usage, RDF::PROV.hadRole, CSVW.tabularMetadata)
+                  add_statement(0, usage, RDF::Vocab::PROV.hadRole, CSVW.tabularMetadata)
                 end
               end
             ensure

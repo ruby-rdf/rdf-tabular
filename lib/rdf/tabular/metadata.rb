@@ -137,7 +137,7 @@ module RDF::Tabular
     #
     # @param [String] path
     # @param [Hash{Symbol => Object}] options
-    #   see `RDF::Util::File.open_file` in RDF.rb and {#new}
+    #   see `RDF::Util::File.open_file` in RDF.rb and {new}
     # @yield [Metadata]
     # @raise [IOError] if file not found
     def self.open(path, options = {})
@@ -153,7 +153,7 @@ module RDF::Tabular
     end
 
     # Return the well-known configuration for a file, and remember using a weak-reference cache to avoid uncessary retreivles.
-    # @param [String] base, the URL used for finding the file
+    # @param [String] base the URL used for finding the file
     # @return [Array<String>, false]
     def self.site_wide_config(base)
       require 'rdf/util/cache' unless defined?(::RDF::Util::Cache)
@@ -433,7 +433,7 @@ module RDF::Tabular
     end
 
     # Getters and Setters
-    INHERITED_PROPERTIES.keys.each do |key|
+    INHERITED_PROPERTIES.each do |key, type|
       define_method(key) do
         object.fetch(key) do
           parent ? parent.send(key) : default_value(key)
@@ -459,12 +459,7 @@ module RDF::Tabular
           # We handle this through a separate datatype= setter
         end
 
-        if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
 
@@ -1223,6 +1218,24 @@ module RDF::Tabular
       (@warnings ||= []) << string
     end
 
+    def set_property(key, type, value, invalid)
+      if invalid
+        warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+        case type
+        when :link, :uri_template
+          object[key] = ""
+        when :object
+          object[key] = {}
+        when :natural_language
+          object[key] = set_nl(value) || []
+        else
+          object.delete(key)
+        end
+      else
+        object[key] = value
+      end
+    end
+
     # When setting a natural language property, always put in language-map form
     # @param [Hash{String => String, Array<String>}, Array<String>, String] value
     # @return [Hash{String => Array<String>}]
@@ -1329,12 +1342,7 @@ module RDF::Tabular
           # We handle this through a separate setters
         end
 
-        if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
 
@@ -1421,8 +1429,7 @@ module RDF::Tabular
         end
 
         if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
+          set_property(key, type, value, invalid)
         elsif key == :url
           # URL of CSV relative to metadata
           object[:url] = value
@@ -1490,12 +1497,7 @@ module RDF::Tabular
           "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
         end
 
-        if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
 
@@ -1619,16 +1621,7 @@ module RDF::Tabular
           valid_natural_language_property?(value)
         end
 
-        if invalid && key == :titles
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = set_nl(value)
-          object.delete(key) if object[key].nil?
-        elsif invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, t, value, invalid)
       end
     end
 
@@ -1700,12 +1693,7 @@ module RDF::Tabular
           "json or rdf" unless %w(json rdf).include?(value) || value.nil?
         end
 
-        if invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
   end
@@ -1749,7 +1737,7 @@ module RDF::Tabular
     REQUIRED = [].freeze
 
     # Getters and Setters
-    PROPERTIES.keys.each do |key|
+    PROPERTIES.each do |key, type|
       define_method(key) do
         object.fetch(key, DEFAULTS[key])
       end
@@ -1772,16 +1760,7 @@ module RDF::Tabular
           valid_natural_language_property?(value)
         end
 
-        if invalid && key == :titles
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object[key] = set_nl(value)
-          object.delete(key) if object[key].nil?
-        elsif invalid
-          warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
 
@@ -1931,12 +1910,7 @@ module RDF::Tabular
           end
         end
 
-        if invalid
-          warn "#{self.type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
-          object.delete(key)
-        else
-          object[key] = value
-        end
+        set_property(key, type, value, invalid)
       end
     end
   end
@@ -2063,28 +2037,19 @@ module RDF::Tabular
         @values << cell = Cell.new(metadata, column, self, value)
 
         datatype = column.datatype || Datatype.new({base: "string"}, parent: column)
-        value = value.gsub(/\r\t\a/, ' ') unless %w(string json xml html anyAtomicType any).include?(datatype.base)
-        value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType any normalizedString).include?(datatype.base)
+        value = value.gsub(/\r\n\t/, ' ') unless %w(string json xml html anyAtomicType).include?(datatype.base)
+        value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType normalizedString).include?(datatype.base)
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
         value = column.default || '' if value.empty?
 
         cell_values = column.separator ? value.split(column.separator) : [value]
 
         cell_values = cell_values.map do |v|
-          v = v.strip unless %w(string anyAtomicType any).include?(datatype.base)
+          v = v.strip unless %w(string anyAtomicType).include?(datatype.base)
           v = column.default || '' if v.empty?
           if Array(column.null).include?(v)
             nil
           else
-            # Trim value
-            if %w(string anyAtomicType any).include?(datatype.base)
-              v.lstrip! if %w(true start).include?(metadata.dialect.trim.to_s)
-              v.rstrip! if %w(true end).include?(metadata.dialect.trim.to_s)
-            else
-              # unless the datatype is string or anyAtomicType or any, strip leading and trailing whitespace from the string value
-              v.strip!
-            end
-
             expanded_dt = datatype.id || metadata.context.expand_iri(datatype.base, vocab: true)
             if (lit_or_errors = value_matching_datatype(v.dup, datatype, expanded_dt, column.lang)).is_a?(RDF::Literal)
               lit_or_errors

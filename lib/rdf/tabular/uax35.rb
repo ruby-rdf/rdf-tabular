@@ -211,6 +211,7 @@ module RDF::Tabular
 
       min_integer_digits = integer_part.gsub(groupChar, '').gsub('#', '').length
       all_integer_digits = integer_part.gsub(groupChar, '').length
+      all_integer_digits += 1 if all_integer_digits == min_integer_digits
       min_fractional_digits = fractional_part.gsub(groupChar, '').gsub('#', '').length
       max_fractional_digits = fractional_part.gsub(groupChar, '').length
       exponent_sign = exponent_part[0] if exponent_part =~ /^[+-]/
@@ -225,8 +226,9 @@ module RDF::Tabular
       fractional_grouping_size = fractional_parts[0].to_s.length
 
       # Construct regular expression for integer part
+      #require 'byebug'; byebug
       integer_str = if primary_grouping_size == 0
-        all_integer_digits > min_integer_digits ? "\\d{#{min_integer_digits},}" : "\\d{#{min_integer_digits}}"
+        "\\d{#{min_integer_digits},}"
       else
         # These number of groupings must be there
         integer_parts = []
@@ -235,8 +237,8 @@ module RDF::Tabular
           sz = [primary_grouping_size, min_integer_digits].min
           integer_rem = primary_grouping_size - sz
           integer_parts << "\\d{#{sz}}"
-          min_integer_digits -= primary_grouping_size
-          all_integer_digits -= primary_grouping_size
+          min_integer_digits -= sz
+          all_integer_digits -= sz
           primary_grouping_size = secondary_grouping_size
         end
         required_digits = integer_parts.reverse.join(ge)
