@@ -137,7 +137,7 @@ module RDF::Tabular
     #
     # @param [String] path
     # @param [Hash{Symbol => Object}] options
-    #   see `RDF::Util::File.open_file` in RDF.rb and {#new}
+    #   see `RDF::Util::File.open_file` in RDF.rb and {new}
     # @yield [Metadata]
     # @raise [IOError] if file not found
     def self.open(path, options = {})
@@ -153,7 +153,7 @@ module RDF::Tabular
     end
 
     # Return the well-known configuration for a file, and remember using a weak-reference cache to avoid uncessary retreivles.
-    # @param [String] base, the URL used for finding the file
+    # @param [String] base the URL used for finding the file
     # @return [Array<String>, false]
     def self.site_wide_config(base)
       require 'rdf/util/cache' unless defined?(::RDF::Util::Cache)
