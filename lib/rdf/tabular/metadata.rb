@@ -1054,7 +1054,7 @@ module RDF::Tabular
           if !ca.object.has_key?(:name) && !cb.object.has_key?(:name) && ta.empty? && tb.empty?
             true
           elsif ca.object.has_key?(:name) && cb.object.has_key?(:name)
-            raise Error, "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}" unless ca.name == cb.name
+            raise Error, "Columns don't match on name: #{ca.name}, #{cb.name}" unless ca.name == cb.name
           elsif @options[:validate] || !ta.empty? && !tb.empty?
             # If validating, column compatibility requires strict match between titles
             titles_match = case
@@ -1078,10 +1078,10 @@ module RDF::Tabular
               true
             elsif !@options[:validate]
               # If not validating, columns don't match, but processing continues
-              warn "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}"
+              warn "Columns don't match on titles: #{ca.titles.inspect} vs #{cb.titles.inspect}"
               true
             else
-              raise Error, "Columns don't match: ca: #{ca.inspect}, cb: #{cb.inspect}"
+              raise Error, "Columns don't match on titles: #{ca.titles.inspect} vs #{cb.titles.inspect}"
             end
           end
           index += 1

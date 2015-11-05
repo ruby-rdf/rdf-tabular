@@ -1,0 +1,34 @@
+{
+  "@context": "http://www.w3.org/ns/csvw", 
+  "@type": "Table", 
+  "url": "http://edsu.github.io/csvw-template/example.csv",
+  "dc:creator": "Dan Bricklin", 
+  "dc:title": "My Spreadsheet", 
+  "dc:modified": "2014-05-09T15:44:58Z", 
+  "dc:publisher": "My Books", 
+  "tableSchema": {
+    "aboutUrl": "http://librarything.com/isbn/{isbn}",
+    "primaryKey": "isbn",
+    "columns": [
+      {
+        "name": "isbn",
+        "titles": "ISBN-10",
+        "datatype": "string",
+        "unique": true,
+        "propertyUrl": "http://purl.org/dc/terms/identifier"
+      },
+      {
+        "name": "title", 
+        "titles": "Book Title",
+        "datatype": "string", 
+        "propertyUrl": "http://purl.org/dc/terms/title"
+      },
+      {
+        "name": "author",
+        "titles": "Book Author",
+        "datatype": "string",
+        "propertyUrl": "http://purl.org/dc/terms/creator"
+      }
+    ]
+  }
+}
