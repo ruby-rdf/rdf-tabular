@@ -885,10 +885,37 @@ module RDF::Tabular
     # @param [:read] input
     # @yield [Row]
     def each_row(input)
-      csv = ::CSV.new(input, csv_options)
-      # Skip skipRows and headerRowCount
-      number, skipped = 0, (dialect.skipRows.to_i + dialect.headerRowCount)
-      (1..skipped).each {csv.shift}
+      csv, number, skipped = nil, 0, 0
+      if input.respond_to?(:content_type) && input.content_type == 'text/html'
+        # Input is HTML; use fragment identfier to find table.
+        fragment = RDF::URI(input.base_uri).fragment rescue nil
+        tab = begin
+          # Extract with nokogiri
+          require 'nokogiri' unless defined?(:Nokogiri)
+          doc = Nokogiri::HTML.parse(input)
+          doc = doc.search("##{fragment}").first if fragment
+          doc.at_xpath("//table") if doc && fragment
+        rescue LoadError
+          # Extract with REXML
+          # FIXME
+        end
+
+        raise Error, "Expected to find HTML table identified by fragment identifer" unless tab
+
+        # Use rows with <td> to create column data
+        csv = []
+        number = 0
+        tab.xpath('.//tr').map do |row|
+          number += 1 if row.xpath('th')
+          data = row.xpath('td').map(&:content)
+          csv << data unless data.empty?
+        end
+      else
+        csv = ::CSV.new(input, csv_options)
+        # Skip skipRows and headerRowCount
+        skipped = (dialect.skipRows.to_i + dialect.headerRowCount)
+        (1..skipped).each {csv.shift}
+      end
       csv.each do |data|
         # Check for embedded comments
         if dialect.commentPrefix && data.first.to_s.start_with?(dialect.commentPrefix)
@@ -1814,35 +1841,72 @@ module RDF::Tabular
       lang ||= 'und'
 
       # Set encoding on input
-      csv = ::CSV.new(input, csv_options)
-      (1..skipRows.to_i).each do
-        value = csv.shift.join(delimiter)  # Skip initial lines, these form comment annotations
-        # Trim value
-        value.lstrip! if %w(true start).include?(trim.to_s)
-        value.rstrip! if %w(true end).include?(trim.to_s)
+      if input.respond_to?(:content_type) && input.content_type == 'text/html'
+        # Input is HTML; use fragment identfier to find table.
+        fragment = RDF::URI(input.base_uri).fragment rescue nil
+        tab = begin
+          # Extract with nokogiri
+          require 'nokogiri' unless defined?(:Nokogiri)
+          doc = Nokogiri::HTML.parse(input)
+          doc = doc.search("##{fragment}").first if fragment
+          doc.at_xpath("//table") if doc && fragment
+        rescue LoadError
+          # Extract with REXML
+          # FIXME
+        end
 
-        value = value[1..-1].strip if commentPrefix && value.start_with?(commentPrefix)
-        (metadata["rdfs:comment"] ||= []) << value unless value.empty?
-      end
-      debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
+        raise Error, "Expected to find HTML table identified by fragment identifer" unless tab
 
-      (1..headerRowCount).each do
-        row_data = Array(csv.shift)
-        Array(row_data).each_with_index do |value, index|
-          # Skip columns
-          skipCols = skipColumns.to_i
-          next if index < skipCols
+        # Use rows with <th> to create column titles
+        tab.xpath('.//tr').each do |row|
+          row.xpath('th').map(&:content).each_with_index do |value, index|
+            # Skip columns
+            skipCols = skipColumns.to_i
+            next if index < skipCols
 
+            # Trim value
+            value.lstrip! if %w(true start).include?(trim.to_s)
+            value.rstrip! if %w(true end).include?(trim.to_s)
+
+            # Initialize titles
+            columns = table["tableSchema"]["columns"] ||= []
+            column = columns[index - skipCols] ||= {
+              "titles" => {lang => []},
+            }
+            column["titles"][lang] << value
+          end
+        end
+      else
+        csv = ::CSV.new(input, csv_options)
+        (1..skipRows.to_i).each do
+          value = csv.shift.join(delimiter)  # Skip initial lines, these form comment annotations
           # Trim value
           value.lstrip! if %w(true start).include?(trim.to_s)
           value.rstrip! if %w(true end).include?(trim.to_s)
 
-          # Initialize titles
-          columns = table["tableSchema"]["columns"] ||= []
-          column = columns[index - skipCols] ||= {
-            "titles" => {lang => []},
-          }
-          column["titles"][lang] << value
+          value = value[1..-1].strip if commentPrefix && value.start_with?(commentPrefix)
+          (metadata["rdfs:comment"] ||= []) << value unless value.empty?
+        end
+        debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
+
+        (1..headerRowCount).each do
+          row_data = Array(csv.shift)
+          Array(row_data).each_with_index do |value, index|
+            # Skip columns
+            skipCols = skipColumns.to_i
+            next if index < skipCols
+
+            # Trim value
+            value.lstrip! if %w(true start).include?(trim.to_s)
+            value.rstrip! if %w(true end).include?(trim.to_s)
+
+            # Initialize titles
+            columns = table["tableSchema"]["columns"] ||= []
+            column = columns[index - skipCols] ||= {
+              "titles" => {lang => []},
+            }
+            column["titles"][lang] << value
+          end
         end
       end
       debug("embedded_metadata") {"table: #{table.inspect}"}

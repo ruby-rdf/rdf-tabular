@@ -29,14 +29,15 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency     'rdf-xsd',         '~> 1.1'
   gem.add_runtime_dependency     'json-ld',         '~> 1.1'
   gem.add_runtime_dependency     'addressable',     '~> 2.3'
-  gem.add_development_dependency 'yard' ,           '~> 0.8'
+  gem.add_development_dependency 'nokogiri',        '~> 1.6'
+  gem.add_development_dependency 'rspec',           '~> 3.0', '= 3.2.0'
+  gem.add_development_dependency 'rspec-its',       '~> 1.0'
   gem.add_development_dependency 'rdf-spec',        '~> 1.1'
   gem.add_development_dependency 'rdf-turtle',      '~> 1.1'
   gem.add_development_dependency 'rdf-isomorphic',  '~> 1.1'
   gem.add_development_dependency 'sparql',          '~> 1.1'
-  gem.add_development_dependency 'rspec',           '~> 3.0', '= 3.2.0'
-  gem.add_development_dependency 'rspec-its',       '~> 1.0'
   gem.add_development_dependency 'webmock',         '~> 1.17'
+  gem.add_development_dependency 'yard' ,           '~> 0.8'
 
   gem.post_install_message  = nil
 end
