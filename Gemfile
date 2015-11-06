@@ -14,6 +14,7 @@ group :development do
   gem 'rdf-rdfa', git: "git://github.com/ruby-rdf/rdf-rdfa.git", branch: "develop"
   gem 'rdf-trig', git: "git://github.com/ruby-rdf/rdf-trig.git", branch: "develop"
   gem 'rdf-turtle', git: "git://github.com/ruby-rdf/rdf-turtle.git", branch: "develop"
+  gem 'rdf-vocab', git: "git://github.com/ruby-rdf/rdf-vocab.git", branch: "develop"
   gem 'sparql', git: "git://github.com/ruby-rdf/sparql.git", branch: "develop"
 end
 
