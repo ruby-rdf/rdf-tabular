@@ -3,6 +3,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'rdf/spec/reader'
 
 describe RDF::Tabular::Reader do
+  let(:logger) {RDF::Spec.logger}
   let!(:doap) {File.expand_path("../../etc/doap.csv", __FILE__)}
   let!(:doap_count) {9}
 
@@ -27,8 +28,6 @@ describe RDF::Tabular::Reader do
           {status: 401}
         end
       })
-
-    @debug = []
   end
   
   # @see lib/rdf/spec/reader.rb in rdf-spec
@@ -140,9 +139,9 @@ describe RDF::Tabular::Reader do
       String: File.read(File.expand_path("../data/country-codes-and-names.csv", __FILE__)),
     }.each do |name, input|
       it name do
-        RDF::Tabular::Reader.new(input, noProv: true, debug: @debug) do |reader|
+        RDF::Tabular::Reader.new(input, noProv: true, logger: logger) do |reader|
           expect(JSON.parse(reader.to_json)).to produce(expected,
-            debug: @debug,
+            logger: logger,
             result: expected,
             noProv: true,
             metadata: reader.metadata
@@ -171,11 +170,11 @@ describe RDF::Tabular::Reader do
 
           it "standard mode" do
             expected = File.expand_path("../data/#{ttl}", __FILE__)
-            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, logger: logger) do |reader|
               graph = RDF::Graph.new << reader
               graph2 = RDF::Graph.load(expected, base_uri: about)
               expect(graph).to be_equivalent_graph(graph2,
-                                                   debug: @debug,
+                                                   logger: logger,
                                                    id: about,
                                                    action: about,
                                                    result: expected,
@@ -186,11 +185,11 @@ describe RDF::Tabular::Reader do
           it "minimal mode" do
             ttl = ttl.sub("standard", "minimal")
             expected = File.expand_path("../data/#{ttl}", __FILE__)
-            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, logger: logger) do |reader|
               graph = RDF::Graph.new << reader
               graph2 = RDF::Graph.load(expected, base_uri: about)
               expect(graph).to be_equivalent_graph(graph2,
-                                                   debug: @debug,
+                                                   logger: logger,
                                                    id: about,
                                                    action: about,
                                                    result: expected,
@@ -210,10 +209,10 @@ describe RDF::Tabular::Reader do
             json = ttl.sub("-standard.ttl", "-standard.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 
-            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, logger: logger) do |reader|
               expect(JSON.parse(reader.to_json)).to produce(
                 JSON.parse(File.read(expected)),
-                debug: @debug,
+                logger: logger,
                 id: about,
                 action: about,
                 result: expected,
@@ -227,10 +226,10 @@ describe RDF::Tabular::Reader do
             json = ttl.sub("-standard.ttl", "-minimal.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 
-            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, logger: logger) do |reader|
               expect(JSON.parse(reader.to_json)).to produce(
                 JSON.parse(File.read(expected)),
-                debug: @debug,
+                logger: logger,
                 id: about,
                 action: about,
                 result: expected,
@@ -244,10 +243,10 @@ describe RDF::Tabular::Reader do
             json = ttl.sub("-standard.ttl", "-atd.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 
-            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, logger: logger) do |reader|
               expect(JSON.parse(reader.to_json(atd: true))).to produce(
                 JSON.parse(File.read(expected)),
-                debug: @debug,
+                logger: logger,
                 id: about,
                 action: about,
                 result: expected,
@@ -273,7 +272,7 @@ describe RDF::Tabular::Reader do
     end
 
     it "errors on duplicate primary keys" do
-      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, errors: []) do |reader|
+      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, errors: [], logger: false) do |reader|
         expect {reader.validate!}.to raise_error(RDF::Tabular::Error)
 
         pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
@@ -352,9 +351,9 @@ describe RDF::Tabular::Reader do
       it file do
         about = RDF::URI("http://example.org").join(file)
         input = File.expand_path("../data/#{file}", __FILE__)
-        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, debug: @debug)
+        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, logger: logger)
 
-        expect(graph).to pass_query(query, debug: @debug, id: about, action: about)
+        expect(graph).to pass_query(query, logger: logger, id: about, action: about)
       end
     end
   end

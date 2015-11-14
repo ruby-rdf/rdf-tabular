@@ -8,7 +8,6 @@ rescue LoadError
 end
 require 'rdf/tabular'
 require 'getoptlong'
-require 'byebug'
 
 def run(input, options)
   reader_class = RDF::Reader.for(options[:input_format].to_sym)

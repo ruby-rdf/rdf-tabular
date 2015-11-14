@@ -19,7 +19,10 @@ describe RDF::Tabular::Reader do
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               pending "rdf#test158 should be isomorphic" if t.id.include?("rdf#test158")
-              t.debug = []
+              t.logger = RDF::Spec.logger
+              t.logger.formatter = lambda {|severity, datetime, progname, msg| "#{severity}: #{msg}\n"}
+              t.logger.info t.inspect
+              t.logger.info "source:\n#{t.input}"
               t.warnings = []
               t.errors = []
               begin
@@ -27,7 +30,7 @@ describe RDF::Tabular::Reader do
                   t.reader_options.merge(
                     base_uri: t.base,
                     validate: t.validation?,
-                    debug:    t.debug,
+                    logger:   t.logger,
                     warnings: t.warnings,
                     errors: t.errors,
                   )

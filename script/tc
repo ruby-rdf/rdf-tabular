@@ -2,7 +2,6 @@
 require 'rubygems'
 $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", 'lib')))
 require "bundler/setup"
-require 'byebug'
 require 'rdf/tabular'
 require 'rdf/isomorphic'
 require File.expand_path(File.join(File.dirname(__FILE__), "..", 'spec', 'spec_helper'))

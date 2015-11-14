@@ -3,6 +3,7 @@ $:.unshift "."
 require 'spec_helper'
 
 describe RDF::Tabular::Metadata do
+  let(:logger) {RDF::Spec.logger}
   before(:each) do
     WebMock.stub_request(:any, %r(.*example.org.*)).
       to_return(lambda {|request|
@@ -24,7 +25,6 @@ describe RDF::Tabular::Metadata do
           }
         end
       })
-    @debug = []
   end
 
   shared_examples "inherited properties" do |allowed = true|
@@ -196,7 +196,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Column do
-    subject {described_class.new({"name" => "foo"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"name" => "foo"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), logger: logger)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -271,7 +271,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Schema do
-    subject {described_class.new({}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), logger: logger)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -279,23 +279,23 @@ describe RDF::Tabular::Metadata do
 
     describe "columns" do
       let(:column) {{"name" => "foo"}}
-      subject {described_class.new({"columns" => []}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+      subject {described_class.new({"columns" => []}, base: RDF::URI("http://example.org/base"), logger: logger)}
       its(:errors) {is_expected.to be_empty}
 
       its(:type) {is_expected.to eql :Schema}
 
       it "allows a valid column" do
-        v = described_class.new({"columns" => [column]}, base: RDF::URI("http://example.org/base"), debug: @debug)
+        v = described_class.new({"columns" => [column]}, base: RDF::URI("http://example.org/base"), logger: logger)
         expect(v.errors).to be_empty
       end
 
       it "is invalid with an invalid column" do
-        v = described_class.new({"columns" => [{"name" => "_invalid"}]}, base: RDF::URI("http://example.org/base"), debug: @debug)
+        v = described_class.new({"columns" => [{"name" => "_invalid"}]}, base: RDF::URI("http://example.org/base"), logger: logger)
         expect(v.warnings).not_to be_empty
       end
 
       it "is invalid with an non-unique columns" do
-        v = described_class.new({"columns" => [column, column]}, base: RDF::URI("http://example.org/base"), debug: @debug)
+        v = described_class.new({"columns" => [column, column]}, base: RDF::URI("http://example.org/base"), logger: logger)
         expect(v.errors).not_to be_empty
       end
     end
@@ -303,7 +303,7 @@ describe RDF::Tabular::Metadata do
     describe "primaryKey" do
       let(:column) {{"name" => "foo"}}
       let(:column2) {{"name" => "bar"}}
-      subject {described_class.new({"columns" => [column], "primaryKey" => column["name"]}, base: RDF::URI("http://example.org/base"), debug: @debug)}
+      subject {described_class.new({"columns" => [column], "primaryKey" => column["name"]}, base: RDF::URI("http://example.org/base"), logger: logger)}
       specify {is_expected.to be_valid}
 
       its(:type) {is_expected.to eql :Schema}
@@ -319,7 +319,7 @@ describe RDF::Tabular::Metadata do
           "columns" => [column, column2],
           "primaryKey" => [column["name"], column2["name"]]},
           base: RDF::URI("http://example.org/base"),
-          debug: @debug)
+          logger: logger)
         expect(v).to be_valid
       end
 
@@ -328,7 +328,7 @@ describe RDF::Tabular::Metadata do
           "columns" => [column],
           "primaryKey" => [column["name"], column2["name"]]},
           base: RDF::URI("http://example.org/base",
-          debug: @debug))
+          logger: logger))
         expect(v).to be_valid
         expect(v.warnings).not_to be_empty
       end
@@ -352,7 +352,7 @@ describe RDF::Tabular::Metadata do
               foreignKeys: []
             }
           }]},
-          base: RDF::URI("http://example.org/base"), debug: @debug
+          base: RDF::URI("http://example.org/base"), logger: logger
         )
       }
       context "valid" do
@@ -451,7 +451,7 @@ describe RDF::Tabular::Metadata do
         "scriptFormat" => scriptFormat},
       context: "http://www.w3.org/ns/csvw",
       base: RDF::URI("http://example.org/base"),
-      debug: @debug)
+      logger: logger)
     }
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
@@ -493,7 +493,7 @@ describe RDF::Tabular::Metadata do
   end
 
   describe RDF::Tabular::Dialect do
-    subject {described_class.new({}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), logger: logger)}
     specify {is_expected.to be_valid}
     it_behaves_like("inherited properties", false)
     it_behaves_like("common properties", false)
@@ -572,20 +572,20 @@ describe RDF::Tabular::Metadata do
       }.each do |name, props|
         it name do
           dialect = if props[:dialect]
-            described_class.new(props[:dialect], debug: @debug)
+            described_class.new(props[:dialect], logger: logger)
           else
             subject
           end
 
           result = dialect.embedded_metadata(props[:input], nil, base: RDF::URI("http://example.org/base"))
-          expect(::JSON.parse(result.to_json(JSON_STATE))).to produce(::JSON.parse(props[:result]), @debug)
+          expect(::JSON.parse(result.to_json(JSON_STATE))).to produce(::JSON.parse(props[:result]), logger)
         end
       end
     end
   end
 
   describe RDF::Tabular::Table do
-    subject {described_class.new({"url" => "http://example.org/table.csv"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"url" => "http://example.org/table.csv"}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), logger: logger)}
     specify {is_expected.to be_valid}      
     it_behaves_like("inherited properties")
     it_behaves_like("common properties")
@@ -647,7 +647,7 @@ describe RDF::Tabular::Metadata do
 
   describe RDF::Tabular::TableGroup do
     let(:table) {{"url" => "http://example.org/table.csv"}}
-    subject {described_class.new({"tables" => [table]}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new({"tables" => [table]}, context: "http://www.w3.org/ns/csvw", base: RDF::URI("http://example.org/base"), logger: logger)}
     specify {is_expected.to be_valid}
     
     it_behaves_like("inherited properties")
@@ -727,18 +727,18 @@ describe RDF::Tabular::Metadata do
     it "loads referenced schema" do
       table[:tableSchema] = "http://example.org/schema"
       expect(described_class).to receive(:open).with(table[:tableSchema], kind_of(Hash)).and_return(RDF::Tabular::Schema.new({"@type" => "Schema"}))
-      described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)
+      described_class.new(table, base: RDF::URI("http://example.org/base"), logger: logger)
     end
     it "loads referenced dialect" do
       table[:dialect] = "http://example.org/dialect"
       expect(described_class).to receive(:open).with(table[:dialect], kind_of(Hash)).and_return(RDF::Tabular::Dialect.new({}))
-      described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)
+      described_class.new(table, base: RDF::URI("http://example.org/base"), logger: logger)
     end
   end
 
   context "inherited properties" do
     let(:table) {{"url" => "http://example.org/table.csv", "tableSchema" => {"@type" => "Schema"}, "@type" => "Table"}}
-    subject {described_class.new(table, base: RDF::URI("http://example.org/base"), debug: @debug)}
+    subject {described_class.new(table, base: RDF::URI("http://example.org/base"), logger: logger)}
 
     it "inherits properties from parent" do
       subject.lang = "en"
@@ -757,8 +757,8 @@ describe RDF::Tabular::Metadata do
       Dir.glob(File.expand_path("../data/*.json", __FILE__)).each do |filename|
         next if filename =~ /-(atd|standard|minimal|roles).json/
         context filename do
-          subject {RDF::Tabular::Metadata.open(filename, debug: @debug)}
-          its(:errors) {is_expected.to produce([], @debug)}
+          subject {RDF::Tabular::Metadata.open(filename, logger: logger)}
+          its(:errors) {is_expected.to produce([], logger)}
           its(:filenames) {is_expected.to include("file:#{filename}")}
         end
       end
@@ -841,7 +841,7 @@ describe RDF::Tabular::Metadata do
             "propertyUrl": "https://example.org/countries.csv#name"
           }]
         }
-      })), base: RDF::URI("http://example.org/base"), debug: @debug)
+      })), base: RDF::URI("http://example.org/base"), logger: logger)
     }
     let(:input) {RDF::Util::File.open_file("https://example.org/countries.csv")}
 
@@ -889,9 +889,9 @@ describe RDF::Tabular::Metadata do
 
     it "has expected values" do
       rows = subject.to_enum(:each_row, input).to_a
-      expect(rows[0].values.map(&:to_s)).to produce(%w(AD 42.546245 1.601554 Andorra), @debug)
-      expect(rows[1].values.map(&:to_s)).to produce((%w(AE 23.424076 53.847818) << "United Arab Emirates"), @debug)
-      expect(rows[2].values.map(&:to_s)).to produce(%w(AF 33.93911 67.709953 Afghanistan), @debug)
+      expect(rows[0].values.map(&:to_s)).to produce(%w(AD 42.546245 1.601554 Andorra), logger)
+      expect(rows[1].values.map(&:to_s)).to produce((%w(AE 23.424076 53.847818) << "United Arab Emirates"), logger)
+      expect(rows[2].values.map(&:to_s)).to produce(%w(AF 33.93911 67.709953 Afghanistan), logger)
     end
 
     context "URL expansion" do
@@ -996,7 +996,7 @@ describe RDF::Tabular::Metadata do
               }
             }))
             raw["dialect"] = props[:dialect]
-            described_class.new(raw, base: RDF::URI("http://example.org/base"), debug: @debug)
+            described_class.new(raw, base: RDF::URI("http://example.org/base"), logger: logger)
           }
           let(:rows) {subject.to_enum(:each_row, input).to_a}
           let(:rowOffset) {props[:dialect].fetch(:skipRows, 0) + props[:dialect].fetch(:headerRowCount, 1)}
@@ -1289,7 +1289,7 @@ describe RDF::Tabular::Metadata do
                   datatype: props.dup.delete_if {|k, v| [:value, :valid, :result].include?(k)}
                 }]
               }
-            }, debug: @debug)
+            }, logger: logger)
           }
           subject {md.to_enum(:each_row, "#{value}\n").to_a.first.values.first}
 
@@ -1354,7 +1354,6 @@ describe RDF::Tabular::Metadata do
 
       '#0.0#E#0'   => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2})(?<suffix>)$/},
       '#0.0#E+#0'   => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E\+\d{1,2})(?<suffix>)$/},
-      '#0.0#E#0%'  => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2}%)(?<suffix>)$/},
       '#0.0#E#0%'  => {base: "double", re: /^(?<prefix>[+-]?)(?<numeric_part>\d{1,}\.\d{1,2}E[+-]?\d{1,2})(?<suffix>%)$/},
 
       # Grouping
@@ -1401,7 +1400,7 @@ describe RDF::Tabular::Metadata do
                   datatype: {"base" => props[:base], "format" => {"pattern" => pattern}}
                 }]
               }
-            }, debug: @debug)
+            }, logger: logger)
           }
           describe "valid" do
             Array(props[:valid]).each do |num|

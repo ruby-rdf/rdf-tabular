@@ -4,3 +4,4 @@
 /.rbx/
 /coverage/
 Gemfile.lock
+/.byebug_history

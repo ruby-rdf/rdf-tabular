@@ -19,7 +19,7 @@ require 'yaml'  # used by BCP47, which should have required it.
 # @author [Gregg Kellogg](http://greggkellogg.net/)
 module RDF::Tabular
   class Metadata
-    include Utils
+    include RDF::Util::Logger
 
     # Hash representation
     # @return [Hash<Symbol,Object>]
@@ -203,9 +203,7 @@ module RDF::Tabular
             metadata = md
           else
             warnings << "Found metadata at #{link_loc}, which does not describe #{base}, ignoring"
-            if options[:validate] && !options[:warnings]
-              $stderr.puts "Warnings: #{warnings.join("\n")}"
-            end
+            warn("Found metadata at #{link_loc}, which does not describe #{base}, ignoring", options)
           end
         end
       end
@@ -231,9 +229,7 @@ module RDF::Tabular
                 md
               else
                 warnings << "Found metadata at #{loc}, which does not describe #{base}, ignoring"
-                if options[:validate] && !options[:warnings]
-                  $stderr.puts "Warnings: #{warnings.join("\n")}"
-                end
+                warn("Found metadata at #{loc}, which does not describe #{base}, ignoring", options)
                 nil
               end
             end
@@ -331,7 +327,6 @@ module RDF::Tabular
     # @return [Metadata]
     def initialize(input, options = {})
       @options = options.dup
-      @options[:depth] ||= 0
 
       # Parent of this Metadata, if any
       @parent = @options[:parent]
@@ -385,7 +380,7 @@ module RDF::Tabular
 
       @object = {}
 
-      depth do
+      log_depth do
         # Input was parsed in .new
         # Metadata is object with symbolic keys
         input.each do |key, value|
@@ -426,9 +421,9 @@ module RDF::Tabular
       end
 
       if reason
-        debug("md#initialize") {reason}
-        debug("md#initialize") {"filenames: #{filenames}"}
-        debug("md#initialize") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
+        log_debug("md#initialize") {reason}
+        log_debug("md#initialize") {"filenames: #{filenames}"}
+        log_debug("md#initialize") {"#{inspect}, parent: #{!@parent.nil?}, context: #{!@context.nil?}"} unless is_a?(Dialect)
       end
     end
 
@@ -1241,7 +1236,7 @@ module RDF::Tabular
 
     # Add a warning on this object
     def warn(string)
-      debug("warn: #{string}")
+      log_warn(string)
       (@warnings ||= []) << string
     end
 
@@ -1325,14 +1320,13 @@ module RDF::Tabular
     end
 
     class DebugContext
-      include Utils
-      def initialize(*args, &block)
-        @options = {}
-        debug(*args, &block)
-      end
+      include RDF::Util::Logger
     end
     def self.debug(*args, &block)
-      DebugContext.new(*args, &block)
+      DebugContext.new.log_debug(*args, &block)
+    end
+    def self.warn(*args)
+      DebugContext.new.log_warn(*args)
     end
   end
 
@@ -1887,7 +1881,7 @@ module RDF::Tabular
           value = value[1..-1].strip if commentPrefix && value.start_with?(commentPrefix)
           (metadata["rdfs:comment"] ||= []) << value unless value.empty?
         end
-        debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
+        log_debug("embedded_metadata") {"notes: #{table["notes"].inspect}"}
 
         (1..headerRowCount).each do
           row_data = Array(csv.shift)
@@ -1909,7 +1903,7 @@ module RDF::Tabular
           end
         end
       end
-      debug("embedded_metadata") {"table: #{table.inspect}"}
+      log_debug("embedded_metadata") {"table: #{table.inspect}"}
       input.rewind if input.respond_to?(:rewind)
 
       Table.new(table, options.merge(reason: "load embedded metadata: #{table['@id']}"))
