@@ -13,6 +13,7 @@ RDF::Tabular parses CSV or other Tabular Data into [RDF][] and JSON using the [W
 
 * Parses [number patterns](http://www.unicode.org/reports/tr35/tr35-39/tr35-numbers.html#Number_Patterns) from [UAX35][]
 * Parses [date formats](http://www.unicode.org/reports/tr35/tr35-39/tr35-dates.html#Contents) from [UAX35][]
+* Returns detailed errors and warnings using optional `Logger`.
 
 ## Installation
 Install with `gem install rdf-tabular`

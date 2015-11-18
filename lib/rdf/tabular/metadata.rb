@@ -25,10 +25,6 @@ module RDF::Tabular
     # @return [Hash<Symbol,Object>]
     attr_accessor :object
 
-    # Warnings detected on initialization or when setting properties
-    # @return [Array<String>]
-    attr_accessor :warnings
-
     # Inheritect properties, valid for all types
     INHERITED_PROPERTIES = {
       aboutUrl:           :uri_template,
@@ -179,7 +175,6 @@ module RDF::Tabular
     # @return [Metadata]
     def self.for_input(input, options = {})
       base = options[:base]
-      warnings = options.fetch(:warnings, [])
 
       # Use user metadata, if provided
       metadata = case options[:metadata]
@@ -202,8 +197,7 @@ module RDF::Tabular
           if md.describes_file?(base)
             metadata = md
           else
-            warnings << "Found metadata at #{link_loc}, which does not describe #{base}, ignoring"
-            warn("Found metadata at #{link_loc}, which does not describe #{base}, ignoring", options)
+            log_warn("Found metadata at #{link_loc}, which does not describe #{base}, ignoring", options)
           end
         end
       end
@@ -212,12 +206,12 @@ module RDF::Tabular
       # If we still don't have metadata, load the site-wide configuration file and use templates found there as locations
       if !metadata && base
         templates = site_wide_config(base)
-        debug("for_input", options) {"templates: #{templates.map(&:to_s).inspect}"}
+        log_debug("for_input", options) {"templates: #{templates.map(&:to_s).inspect}"}
         locs = templates.map do |template|
           t = Addressable::Template.new(template)
           RDF::URI(base).join(t.expand(url: base).to_s)
         end
-        debug("for_input", options) {"locs: #{locs.map(&:to_s).inspect}"}
+        log_debug("for_input", options) {"locs: #{locs.map(&:to_s).inspect}"}
 
         locs.each do |loc|
           metadata ||= begin
@@ -228,13 +222,12 @@ module RDF::Tabular
               if md.describes_file?(base)
                 md
               else
-                warnings << "Found metadata at #{loc}, which does not describe #{base}, ignoring"
-                warn("Found metadata at #{loc}, which does not describe #{base}, ignoring", options)
+                log_warn("Found metadata at #{loc}, which does not describe #{base}, ignoring", options)
                 nil
               end
             end
           rescue IOError
-            debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
+            log_debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
             nil
           end
         end
@@ -339,14 +332,14 @@ module RDF::Tabular
 
       @context = case input['@context']
       when Array
-        warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
+        log_warn "Context missing required value 'http://www.w3.org/ns/csvw'" unless input['@context'].include?('http://www.w3.org/ns/csvw')
         c = LOCAL_CONTEXT.dup
         c.base = RDF::URI(opt_base)
         obj = input['@context'].detect {|e| e.is_a?(Hash)} || {}
         raise Error, "@context has object with properties other than @base and @language" unless (obj.keys.map(&:to_s) - %w(@base @language)).empty?
         c.parse(obj)
       when Hash
-        warn "Context missing required value 'http://www.w3.org/ns/csvw'"
+        log_warn "Context missing required value 'http://www.w3.org/ns/csvw'"
         c = LOCAL_CONTEXT.dup
         c.base = RDF::URI(opt_base)
         c.parse(input['@context'])
@@ -357,7 +350,7 @@ module RDF::Tabular
         c
       else
         if self.is_a?(TableGroup) || self.is_a?(Table) && !@parent
-          warn "Context missing required value 'http://www.w3.org/ns/csvw'"
+          log_warn "Context missing required value 'http://www.w3.org/ns/csvw'"
           LOCAL_CONTEXT.dup
           c = LOCAL_CONTEXT.dup
           c.base = RDF::URI(opt_base)
@@ -370,7 +363,7 @@ module RDF::Tabular
       @options[:base] = @context ? @context.base : RDF::URI(opt_base)
 
       if @context && @context.default_language && !BCP47::Language.identify(@context.default_language.to_s)
-        warn "Context has invalid @language (#{@context.default_language.inspect}): expected valid BCP47 language tag"
+        log_warn "Context has invalid @language (#{@context.default_language.inspect}): expected valid BCP47 language tag"
         @context.default_language = nil
       end
 
@@ -396,7 +389,7 @@ module RDF::Tabular
             object[:@id] = if value.is_a?(String)
               value
             else
-              warn "#{type} has invalid property '@id' (#{value.inspect}): expected a string"
+              log_warn "#{type} has invalid property '@id' (#{value.inspect}): expected a string"
               ""  # Default value
             end
             @id = @options[:base].join(object[:@id])
@@ -482,7 +475,7 @@ module RDF::Tabular
       when Schema
         value
       else
-        warn "#{type} has invalid property 'tableSchema' (#{value.inspect}): expected a URL or object"
+        log_warn "#{type} has invalid property 'tableSchema' (#{value.inspect}): expected a URL or object"
         Schema.new({}, @options.merge(parent: self, context: nil))
       end
     end
@@ -529,7 +522,7 @@ module RDF::Tabular
       when Dialect
         value
       else
-        warn "#{type} has invalid property 'dialect' (#{value.inspect}): expected a URL or object"
+        log_warn "#{type} has invalid property 'dialect' (#{value.inspect}): expected a URL or object"
         nil
       end
     end
@@ -539,15 +532,15 @@ module RDF::Tabular
     # @raise [Error] if datatype is not valid
     def datatype=(value)
       val = case value
-      when Hash then Datatype.new(value, parent: self)
-      else           Datatype.new({base: value}, parent: self)
+      when Hash then Datatype.new(value, @options.merge(parent: self))
+      else           Datatype.new({base: value}, @options.merge(parent: self))
       end
 
       if val.valid? || value.is_a?(Hash)
         # Set it if it was specified as an object, which may cause validation errors later
         object[:datatype] = val
       else
-        warn "#{type} has invalid property 'datatype': expected a built-in or an object"
+        log_warn "#{type} has invalid property 'datatype': expected a built-in or an object"
       end
     end
 
@@ -562,40 +555,20 @@ module RDF::Tabular
     ##
     # Do we have valid metadata?
     def valid?
-      validate!
-      true
-    rescue
-      false
+      validate # Possibly re-validate
+      !log_statistics[:error]
     end
 
-    ##
-    # Validation errors
-    # @return [Array<String>]
-    def errors
-      validate! && []
-    rescue Error => e
-      e.message.split("\n")
-    end
-
-    ##
-    # Validation warnings, available only after validating or finding warnings
-    # @return [Array<String>]
-    def warnings
-      ((@warnings || []) + object.
-        values.
-        flatten.
-        select {|v| v.is_a?(Metadata)}.
-        map(&:warnings).
-        flatten).compact.uniq
+    def validate!
+      raise Error, "Metadata error" unless valid?
     end
 
     ##
     # Validate metadata, raising an error containing all errors detected during validation
     # @raise [Error] Raise error if metadata has any unexpected properties
     # @return [self]
-    def validate!
+    def validate
       expected_props, required_props = @properties.keys, @required
-      errors = []
 
       unless is_a?(Dialect) || is_a?(Transformation)
         expected_props = expected_props + INHERITED_PROPERTIES.keys
@@ -604,10 +577,10 @@ module RDF::Tabular
       # It has only expected properties (exclude metadata)
       check_keys = object.keys - [:"@id", :"@context"]
       check_keys = check_keys.reject {|k| k.to_s.include?(':')} unless is_a?(Dialect)
-      warn "#{type} has unexpected keys: #{(check_keys - expected_props).map(&:to_s)}" unless check_keys.all? {|k| expected_props.include?(k)}
+      log_warn "#{type} has unexpected keys: #{(check_keys - expected_props).map(&:to_s)}" unless check_keys.all? {|k| expected_props.include?(k)}
 
       # It has required properties
-      errors << "#{type} missing required keys: #{(required_props - check_keys).map(&:to_s)}"  unless (required_props & check_keys) == required_props
+      log_error "#{type} missing required keys: #{(required_props - check_keys).map(&:to_s)}"  unless (required_props & check_keys) == required_props
 
       self.normalize!
 
@@ -616,55 +589,49 @@ module RDF::Tabular
         value = object[key]
         case key
         when :base
-          errors << "#{type} has invalid base: #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value)
+          log_error "#{type} has invalid base: #{value.inspect}" unless DATATYPES.keys.map(&:to_s).include?(value)
         when :columns
-          value.each do |v|
-            begin
-              v.validate!
-            rescue Error => e
-              errors << e.message
-            end
+          value.each do |col|
+            col.validate
+            log_statistics.merge!(col.log_statistics)
           end
           column_names = value.map(&:name)
-          errors << "#{type} has invalid property '#{key}': must have unique names: #{column_names.inspect}" unless column_names.uniq == column_names
+          log_error "#{type} has invalid property '#{key}': must have unique names: #{column_names.inspect}" unless column_names.uniq == column_names
         when :datatype, :dialect, :tables, :tableSchema, :transformations
           Array(value).each do |t|
             # Make sure value is of appropriate class
             if t.is_a?({datatype: Datatype, dialect: Dialect, tables: Table, tableSchema: Schema, transformations: Transformation}[key])
-              begin
-                t.validate!
-              rescue Error => e
-                errors << e.message
-              end
+              t.validate
+              log_statistics.merge!(t.log_statistics)
             else
-              errors << "#{type} has invalid property '#{key}': unexpected value #{value.class.name}"
+              log_error "#{type} has invalid property '#{key}': unexpected value #{value.class.name}"
             end
           end
-          errors << "#{type} has invalid property 'tables': must not be empty" if key == :tables && Array(value).empty?
+          log_error "#{type} has invalid property 'tables': must not be empty" if key == :tables && Array(value).empty?
         when :foreignKeys
           # An array of foreign key definitions that define how the values from specified columns within this table link to rows within this table or other tables. A foreign key definition is a JSON object with the properties:
           value.each do |fk|
             columnReference, reference = fk['columnReference'], fk['reference']
-            errors << "#{type} has invalid property '#{key}': missing columnReference and reference" unless columnReference && reference
-            errors << "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
+            log_error "#{type} has invalid property '#{key}': missing columnReference and reference" unless columnReference && reference
+            log_error "#{type} has invalid property '#{key}': has extra entries #{fk.keys.inspect}" unless fk.keys.length == 2
 
             # Verify that columns exist in this schema
-            errors << "#{type} has invalid property '#{key}': no columnReference found" unless Array(columnReference).length > 0
+            log_error "#{type} has invalid property '#{key}': no columnReference found" unless Array(columnReference).length > 0
             Array(columnReference).each do |k|
-              errors << "#{type} has invalid property '#{key}': columnReference not found #{k}" unless self.columns.any? {|c| c[:name] == k}
+              log_error "#{type} has invalid property '#{key}': columnReference not found #{k}" unless self.columns.any? {|c| c[:name] == k}
             end
 
             if reference.is_a?(Hash)
-              errors << "#{type} has invalid property '#{key}': reference has extra entries #{reference.keys.inspect}" unless (reference.keys - %w(resource schemaReference columnReference)).empty?
+              log_error "#{type} has invalid property '#{key}': reference has extra entries #{reference.keys.inspect}" unless (reference.keys - %w(resource schemaReference columnReference)).empty?
               ref_cols = reference['columnReference']
               schema = if reference.has_key?('resource')
                 if reference.has_key?('schemaReference')
-                  errors << "#{type} has invalid property '#{key}': reference has a schemaReference: #{reference.inspect}" 
+                  log_error "#{type} has invalid property '#{key}': reference has a schemaReference: #{reference.inspect}" 
                 end
                 # resource is the URL of a Table in the TableGroup
                 ref = context.base.join(reference['resource']).to_s
-                table = root.is_a?(TableGroup) && root.tables.detect {|t| t.url == ref}
-                errors << "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
+                table = root.is_a?(TableGroup) && Array(root.tables).detect {|t| t.url == ref}
+                log_error "#{type} has invalid property '#{key}': table referenced by #{ref} not found" unless table
                 table.tableSchema if table
               elsif reference.has_key?('schemaReference')
                 # resource is the @id of a Schema in the TableGroup
@@ -672,25 +639,25 @@ module RDF::Tabular
                 tables = root.is_a?(TableGroup) ? root.tables.select {|t| t.tableSchema[:@id] == ref} : []
                 case tables.length
                 when 0
-                  errors << "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
+                  log_error "#{type} has invalid property '#{key}': schema referenced by #{ref} not found"
                   nil
                 when 1
                   tables.first.tableSchema
                 else
-                  errors << "#{type} has invalid property '#{key}': multiple schemas found from #{ref}"
+                  log_error "#{type} has invalid property '#{key}': multiple schemas found from #{ref}"
                   nil
                 end
               end
 
               if schema
                 # ref_cols must exist in schema
-                errors << "#{type} has invalid property '#{key}': no columnReference found" unless Array(ref_cols).length > 0
+                log_error "#{type} has invalid property '#{key}': no columnReference found" unless Array(ref_cols).length > 0
                 Array(ref_cols).each do |k|
-                  errors << "#{type} has invalid property '#{key}': column reference not found #{k}" unless schema.columns.any? {|c| c[:name] == k}
+                  log_error "#{type} has invalid property '#{key}': column reference not found #{k}" unless schema.columns.any? {|c| c[:name] == k}
                 end
               end
             else
-              errors << "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
+              log_error "#{type} has invalid property '#{key}': reference must be an object #{reference.inspect}"
             end
           end
         when :format
@@ -702,7 +669,7 @@ module RDF::Tabular
               nonNegativeInteger positiveInteger nonPositiveInteger negativeInteger
               unsignedLong unsignedInt unsignedShort unsignedByte
             ).include?(self.base)
-              warn "#{type} has invalid property '#{key}': Object form only allowed on string or binary datatypes"
+              log_warn "#{type} has invalid property '#{key}': Object form only allowed on string or binary datatypes"
               object.delete(:format) # act as if not set
             end
 
@@ -710,14 +677,14 @@ module RDF::Tabular
             begin
               parse_uax35_number(value["pattern"], nil, value.fetch('groupChar', ','), value.fetch('decimalChar', '.'))
             rescue ArgumentError => e
-              warn "#{type} has invalid property '#{key}' pattern: #{e.message}"
-              object[:format].delete("pattern") # act as if not set
+              log_warn "#{type} has invalid property '#{key}' pattern: #{e.message}"
+              object[:format].delete("pattern") if object[:format] # act as if not set
             end
           else
             case self.base
             when 'boolean'
               unless value.split("|").length == 2
-                warn "#{type} has invalid property '#{key}': annotation provides the true and false values expected, separated by '|'"
+                log_warn "#{type} has invalid property '#{key}': annotation provides the true and false values expected, separated by '|'"
                 object.delete(:format) # act as if not set
               end
             when :decimal, :integer, :long, :int, :short, :byte,
@@ -728,7 +695,7 @@ module RDF::Tabular
               begin
                 parse_uax35_number(value, nil)
               rescue ArgumentError => e
-                warn "#{type} has invalid property '#{key}': #{e.message}"
+                log_warn "#{type} has invalid property '#{key}': #{e.message}"
                 object.delete(:format) # act as if not set
               end
             when 'date', 'dateTime', 'datetime', 'dateTimeStamp', 'time'
@@ -736,7 +703,7 @@ module RDF::Tabular
               begin
                 parse_uax35_date(value, nil)
               rescue ArgumentError => e
-                warn "#{type} has invalid property '#{key}': #{e.message}"
+                log_warn "#{type} has invalid property '#{key}': #{e.message}"
                 object.delete(:format) # act as if not set
               end
             else
@@ -744,7 +711,7 @@ module RDF::Tabular
               begin
                 Regexp.compile(value)
               rescue
-                warn "#{type} has invalid property '#{key}': #{$!.message}"
+                log_warn "#{type} has invalid property '#{key}': #{$!.message}"
                 object.delete(:format) # act as if not set
               end
             end
@@ -755,20 +722,20 @@ module RDF::Tabular
           if object[:length]
             case key
             when :minLength
-              errors << "#{type} has invalid property minLength': both length and minLength requires length be greater than or equal to minLength" if object[:length] < value
+              log_error "#{type} has invalid property minLength': both length and minLength requires length be greater than or equal to minLength" if object[:length] < value
             when :maxLength
-              errors << "#{type} has invalid property maxLength': both length and maxLength requires length be less than or equal to maxLength" if object[:length] > value
+              log_error "#{type} has invalid property maxLength': both length and maxLength requires length be less than or equal to maxLength" if object[:length] > value
             end
           end
 
           # Applications must raise an error if minLength and maxLength are both specified and minLength is greater than maxLength.
           if key == :maxLength && object[:minLength]
-            errors << "#{type} has invalid property #{key}': both minLength and maxLength requires minLength be less than or equal to maxLength" if object[:minLength] > value
+            log_error "#{type} has invalid property #{key}': both minLength and maxLength requires minLength be less than or equal to maxLength" if object[:minLength] > value
           end
 
           # Applications must raise an error if length, maxLength, or minLength are specified and the base datatype is not string or one of its subtypes, or a binary type.
           unless %w(string normalizedString token language Name NMTOKEN hexBinary base64Binary binary).include?(self.base)
-            errors << "#{type} has invalid property '#{key}': only allowed on string or binary datatypes"
+            log_error "#{type} has invalid property '#{key}': only allowed on string or binary datatypes"
           end
         when :minimum, :maximum, :minInclusive, :maxInclusive, :minExclusive, :maxExclusive
           case self.base
@@ -776,46 +743,46 @@ module RDF::Tabular
                'nonNegativeInteger', 'positiveInteger', 'unsignedLong', 'unsignedInt', 'unsignedShort', 'unsignedByte',
                'nonPositiveInteger', 'negativeInteger', 'date', 'dateTime', 'datetime', 'dateTimeStamp', 'time',
                'duration', 'dayTimeDuration', 'yearMonthDuration'
-            errors << "#{type} has invalid property '#{key}': #{value.to_ntriples} is not a valid #{self.base}" unless value.valid?
+            log_error "#{type} has invalid property '#{key}': #{value.to_ntriples} is not a valid #{self.base}" unless value.valid?
 
             case key
             when :minInclusive
               # Applications MUST raise an error if both minInclusive and minExclusive are specified
-              errors << "#{type} cannot specify both minInclusive and minExclusive" if self.minExclusive
+              log_error "#{type} cannot specify both minInclusive and minExclusive" if self.minExclusive
 
               # Applications MUST raise an error if both minInclusive and maxInclusive are specified and maxInclusive is less than minInclusive
-              errors << "#{type} maxInclusive < minInclusive" if self.maxInclusive && self.maxInclusive < value
+              log_error "#{type} maxInclusive < minInclusive" if self.maxInclusive && self.maxInclusive < value
 
               # Applications MUST raise an error if both minInclusive and maxExclusive are specified and maxExclusive is less than or equal to minInclusive
-              errors << "#{type} maxExclusive <= minInclusive" if self.maxExclusive && self.maxExclusive <= value
+              log_error "#{type} maxExclusive <= minInclusive" if self.maxExclusive && self.maxExclusive <= value
             when :maxInclusive
               # Applications MUST raise an error if both maxInclusive and maxExclusive are specified
-              errors << "#{type} cannot specify both maInclusive and maxExclusive" if self.maxExclusive
+              log_error "#{type} cannot specify both maInclusive and maxExclusive" if self.maxExclusive
             when :minExclusive
               # Applications MUST raise an error if both minExclusive and maxExclusive are specified and maxExclusive is less than minExclusive
-              errors << "#{type} minExclusive < maxExclusive" if self.maxExclusive && self.maxExclusive < value
+              log_error "#{type} minExclusive < maxExclusive" if self.maxExclusive && self.maxExclusive < value
 
               # Applications MUST raise an error if both minExclusive and maxInclusive are specified and maxInclusive is less than or equal to minExclusive
-              errors << "#{type} maxInclusive < minExclusive" if self.maxInclusive && self.maxInclusive <= value
+              log_error "#{type} maxInclusive < minExclusive" if self.maxInclusive && self.maxInclusive <= value
             end
           else
-            errors << "#{type} has invalid property '#{key}': only allowed on numeric, date/time or duration datatypes"
+            log_error "#{type} has invalid property '#{key}': only allowed on numeric, date/time or duration datatypes"
           end
         when :notes
           unless value.is_a?(Hash) || value.is_a?(Array)
-            errors << "#{type} has invalid property '#{key}': #{value}, Object or Array"
+            log_error "#{type} has invalid property '#{key}': #{value}, Object or Array"
           end
           begin
             normalize_jsonld(key, value)
           rescue Error => e
-            errors << "#{type} has invalid content '#{key}': #{e.message}"
+            log_error "#{type} has invalid content '#{key}': #{e.message}"
           end
         when :primaryKey, :rowTitles
           # A column reference property that holds either a single reference to a column description object or an array of references.
           "#{type} has invalid property '#{key}': no column references found" unless Array(value).length > 0
           Array(value).each do |k|
             unless self.columns.any? {|c| c[:name] == k}
-              warn "#{type} has invalid property '#{key}': column reference not found #{k}"
+              log_warn "#{type} has invalid property '#{key}': column reference not found #{k}"
               object.delete(key)
             end
           end
@@ -824,34 +791,33 @@ module RDF::Tabular
         when :@id
           # Must not be a BNode
           if value.to_s.start_with?("_:")
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:'"
+            log_error "#{type} has invalid property '#{key}': #{value.inspect}, must not start with '_:'"
           end
 
           # Datatype @id MUST NOT be the URL of a built-in type
           if self.is_a?(Datatype) && DATATYPES.values.include?(value)
-            errors << "#{type} has invalid property '#{key}': #{value.inspect}, must not be the URL of a built-in datatype"
+            log_error "#{type} has invalid property '#{key}': #{value.inspect}, must not be the URL of a built-in datatype"
           end
         when :@type
           # Must not be a BNode
           if value.to_s.start_with?("_:")
-            errors << "#{type} has invalid property '@type': #{value.inspect}, must not start with '_:'"
+            log_error "#{type} has invalid property '@type': #{value.inspect}, must not start with '_:'"
           end
           case type
           when :Transformation
-            errors << "#{type} has invalid property '@type': #{value.inspect}, expected #{type}" unless value.to_sym == :Template
+            log_error "#{type} has invalid property '@type': #{value.inspect}, expected #{type}" unless value.to_sym == :Template
           else
-            errors << "#{type} has invalid property '@type': #{value.inspect}, expected #{type}" unless value.to_sym == type
+            log_error "#{type} has invalid property '@type': #{value.inspect}, expected #{type}" unless value.to_sym == type
           end
         when ->(k) {key.to_s.include?(':')}
           begin
             normalize_jsonld(key, value)
           rescue Error => e
-            errors << "#{type} has invalid content '#{key}': #{e.message}"
+            log_error "#{type} has invalid content '#{key}': #{e.message}"
           end
         end
       end
 
-      raise Error, errors.join("\n") unless errors.empty?
       self
     end
 
@@ -1033,7 +999,7 @@ module RDF::Tabular
           if @options[:validate]
             raise Error, "TableGroups must have Table with matching url #{tables.map(&:url).inspect} vs #{other.url.inspect}"
           else
-            warn "TableGroups must have Table with matching url #{tables.map(&:url).inspect} vs #{other.url.inspect}"
+            log_warn "TableGroups must have Table with matching url #{tables.map(&:url).inspect} vs #{other.url.inspect}"
           end
         end
       else
@@ -1042,7 +1008,7 @@ module RDF::Tabular
           if @options[:validate]
             raise Error, "Tables must have the same url: #{url.inspect} vs #{other.url.inspect}}"
           else
-            warn "Tables must have the same url: #{url.inspect} vs #{other.url.inspect}}"
+            log_warn "Tables must have the same url: #{url.inspect} vs #{other.url.inspect}}"
           end
         end
 
@@ -1055,7 +1021,7 @@ module RDF::Tabular
           if @options[:validate]
             raise Error, "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
           else
-            warn "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
+            log_warn "Columns must have the same number of non-virtual columns: #{non_virtual_columns.map(&:name).inspect} vs #{object_columns.map(&:name).inspect}"
 
             # If present, a virtual column MUST appear after all other non-virtual column definitions
             raise Error, "Virtual columns may not appear before non-virtual columns" unless Array(tableSchema.columns)[0..non_virtual_columns.length-1] == non_virtual_columns
@@ -1070,7 +1036,7 @@ module RDF::Tabular
         end
         index = 0
         object_columns.all? do |cb|
-          ca = non_virtual_columns[index] || Column.new({})
+          ca = non_virtual_columns[index] || Column.new({}, @options)
           ta = ca.titles || {}
           tb = cb.titles || {}
           if !ca.object.has_key?(:name) && !cb.object.has_key?(:name) && ta.empty? && tb.empty?
@@ -1100,7 +1066,7 @@ module RDF::Tabular
               true
             elsif !@options[:validate]
               # If not validating, columns don't match, but processing continues
-              warn "Columns don't match on titles: #{ca.titles.inspect} vs #{cb.titles.inspect}"
+              log_warn "Columns don't match on titles: #{ca.titles.inspect} vs #{cb.titles.inspect}"
               true
             else
               raise Error, "Columns don't match on titles: #{ca.titles.inspect} vs #{cb.titles.inspect}"
@@ -1197,13 +1163,13 @@ module RDF::Tabular
       when Hash
         if value['@value']
           if !(value.keys.sort - %w(@value @type @language)).empty?
-            raise Error, "Value object may not contain keys other than @value, @type, or @language: #{value.to_json}"
+            log_error "Value object may not contain keys other than @value, @type, or @language: #{value.to_json}"
           elsif (value.keys.sort & %w(@language @type)) == %w(@language @type)
-            raise Error, "Value object may not contain both @type and @language: #{value.to_json}"
+            log_error "Value object may not contain both @type and @language: #{value.to_json}"
           elsif value['@language'] && !BCP47::Language.identify(value['@language'].to_s)
-            raise Error, "Value object with @language must use valid language: #{value.to_json}"
+            log_error "Value object with @language must use valid language: #{value.to_json}"
           elsif value['@type'] && (value['@type'].start_with?('_:') || !context.expand_iri(value['@type'], vocab: true).absolute?)
-            raise Error, "Value object with @type must defined type: #{value.to_json}"
+            log_error "Value object with @type must defined type: #{value.to_json}"
           end
           value
         else
@@ -1212,16 +1178,16 @@ module RDF::Tabular
             case k
             when "@id"
               nv[k] = context.expand_iri(v, documentRelative: true).to_s
-              raise Error, "Invalid use of explicit BNode on @id" if nv[k].start_with?('_:')
+              log_error "Invalid use of explicit BNode on @id" if nv[k].start_with?('_:')
             when "@type"
               Array(v).each do |vv|
                 # Validate that all type values transform to absolute IRIs
                 resource = context.expand_iri(vv, vocab: true)
-                raise Error, "Invalid type #{vv} in JSON-LD context" unless resource.is_a?(RDF::URI) && resource.absolute?
+                log_error "Invalid type #{vv} in JSON-LD context" unless resource.is_a?(RDF::URI) && resource.absolute?
               end
               nv[k] = v
             when /^(@|_:)/
-              raise Error, "Invalid use of #{k} in JSON-LD content"
+              log_error "Invalid use of #{k} in JSON-LD content"
             else
               nv[k] = normalize_jsonld(k, v)
             end
@@ -1234,15 +1200,9 @@ module RDF::Tabular
     end
   protected
 
-    # Add a warning on this object
-    def warn(string)
-      log_warn(string)
-      (@warnings ||= []) << string
-    end
-
     def set_property(key, type, value, invalid)
       if invalid
-        warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
+        log_warn "#{type} has invalid property '#{key}' (#{value.inspect}): expected #{invalid}"
         case type
         when :link, :uri_template
           object[key] = ""
@@ -1286,12 +1246,12 @@ module RDF::Tabular
           end
         end
       else
-        warn "#{type} has invalid property '#{key}': expected array of #{klass}"
+        log_warn "#{type} has invalid property '#{key}': expected array of #{klass}"
         []
       end
 
       unless object[key].all? {|v| v.is_a?(klass)}
-        warn "#{type} has invalid property '#{key}': expected array of #{klass}"
+        log_warn "#{type} has invalid property '#{key}': expected array of #{klass}"
         # Remove elements that aren't of the right types
         object[key] = object[key].select! {|v| v.is_a?(klass)}
       end
@@ -1322,10 +1282,10 @@ module RDF::Tabular
     class DebugContext
       include RDF::Util::Logger
     end
-    def self.debug(*args, &block)
+    def self.log_debug(*args, &block)
       DebugContext.new.log_debug(*args, &block)
     end
-    def self.warn(*args)
+    def self.log_warn(*args)
       DebugContext.new.log_warn(*args)
     end
   end
@@ -1474,7 +1434,7 @@ module RDF::Tabular
       content['@context'] = object.delete(:@context) if object[:@context]
       ctx = @context
       remove_instance_variable(:@context) if instance_variables.include?(:@context)
-      tg = TableGroup.new(content, context: ctx, filenames: @filenames, base: base)
+      tg = TableGroup.new(content, @options.merge(context: ctx, filenames: @filenames, base: base))
       @parent = tg  # Link from parent
       tg
     end
@@ -1485,8 +1445,7 @@ module RDF::Tabular
         "@id" => (id.to_s if id),
         "@type" => "AnnotatedTable",
         "url" => self.url.to_s,
-        "columns" => Array(tableSchema ? tableSchema.columns : []).map(&:to_atd),
-        "rows" => []
+        "tableSchema" => (tableSchema.to_atd if tableSchema),
       }) do |memo, (k, v)|
         memo[k.to_s] ||= v
         memo
@@ -1540,12 +1499,12 @@ module RDF::Tabular
           end
         end
       else
-        warn "#{type} has invalid property 'columns': expected array of Column"
+        log_warn "#{type} has invalid property 'columns': expected array of Column"
         []
       end
 
       unless object[:columns].all? {|v| v.is_a?(Column)}
-        warn "#{type} has invalid property 'columns': expected array of Column"
+        log_warn "#{type} has invalid property 'columns': expected array of Column"
         # Remove elements that aren't of the right types
         object[:columns] = object[:columns].select! {|v| v.is_a?(Column)}
       end
@@ -1555,12 +1514,12 @@ module RDF::Tabular
       object[:foreignKeys] = case value
       when Array then value
       else
-        warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
+        log_warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
         []
       end
 
       unless object[:foreignKeys].all? {|v| v.is_a?(Hash)}
-        warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
+        log_warn "#{type} has invalid property 'foreignKeys': expected array of ForeignKey"
         # Remove elements that aren't of the right types
         object[:foreignKeys] = object[:foreignKeys].select! {|v| v.is_a?(Hash)}
       end
@@ -1582,6 +1541,18 @@ module RDF::Tabular
           table.tableSchema.id == ref
         end
       end
+    end
+
+    # Return Annotated Table representation
+    def to_atd
+      object.inject({
+        "@id" => (id.to_s if id),
+        "@type" => "Schema",
+        "columns" => Array(columns).map(&:to_atd),
+      }) do |memo, (k, v)|
+        memo[k.to_s] ||= v
+        memo
+      end.delete_if {|k,v| v.nil? || v.is_a?(Metadata)}
     end
   end
 
@@ -1671,7 +1642,6 @@ module RDF::Tabular
         "table" => (table.id.to_s if table.id),
         "number" => self.number,
         "sourceNumber" => self.sourceNumber,
-        "cells" => [],
         "virtual" => self.virtual,
         "name" => self.name,
         "titles" => self.titles
@@ -2088,13 +2058,13 @@ module RDF::Tabular
 
         # create column if necessary
         columns[index - skipColumns] ||=
-          Column.new({}, table: metadata, parent: metadata.tableSchema, number: index + 1 - skipColumns)
+          Column.new({}, options.merge(table: metadata, parent: metadata.tableSchema, number: index + 1 - skipColumns))
 
         column = columns[index - skipColumns]
 
         @values << cell = Cell.new(metadata, column, self, value)
 
-        datatype = column.datatype || Datatype.new({base: "string"}, parent: column)
+        datatype = column.datatype || Datatype.new({base: "string"}, options.merge(parent: column))
         value = value.gsub(/\r\n\t/, ' ') unless %w(string json xml html anyAtomicType).include?(datatype.base)
         value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType normalizedString).include?(datatype.base)
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property

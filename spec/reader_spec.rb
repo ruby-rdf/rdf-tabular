@@ -133,6 +133,7 @@ describe RDF::Tabular::Reader do
         ]
       }))
     }
+
     {
       StringIO: StringIO.new(File.read(File.expand_path("../data/country-codes-and-names.csv", __FILE__))),
       ArrayOfArrayOfString: CSV.new(File.open(File.expand_path("../data/country-codes-and-names.csv", __FILE__))).to_a,
@@ -272,7 +273,7 @@ describe RDF::Tabular::Reader do
     end
 
     it "errors on duplicate primary keys" do
-      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, errors: [], logger: false) do |reader|
+      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, errors: [], logger: logger) do |reader|
         expect {reader.validate!}.to raise_error(RDF::Tabular::Error)
 
         pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
@@ -280,7 +281,7 @@ describe RDF::Tabular::Reader do
         # Each entry is an array of cells
         expect(pks.map {|r| r.map(&:value).join(",")}).to eql %w(1 1)
 
-        expect(reader.options[:errors]).to eq ["Table http://example.org/test232.csv has duplicate primary key 1"]
+        expect(logger.to_s).to include "Table http://example.org/test232.csv has duplicate primary key 1"
       end
     end
   end

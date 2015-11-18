@@ -23,16 +23,12 @@ describe RDF::Tabular::Reader do
               t.logger.formatter = lambda {|severity, datetime, progname, msg| "#{severity}: #{msg}\n"}
               t.logger.info t.inspect
               t.logger.info "source:\n#{t.input}"
-              t.warnings = []
-              t.errors = []
               begin
                 RDF::Tabular::Reader.open(t.action,
                   t.reader_options.merge(
                     base_uri: t.base,
                     validate: t.validation?,
                     logger:   t.logger,
-                    warnings: t.warnings,
-                    errors: t.errors,
                   )
                 ) do |reader|
                   expect(reader).to be_a RDF::Reader
@@ -63,11 +59,11 @@ describe RDF::Tabular::Reader do
                     end
 
                     if t.warning?
-                      expect(t.warnings.length).to be >= 1
+                      expect(t.logger.to_s).to include("WARN")
                     else
-                      expect(t.warnings).to produce [], t
+                      expect(t.logger.to_s).not_to include("WARN")
                     end
-                    expect(t.errors).to produce [], t
+                    expect(t.logger.to_s).not_to include("ERROR")
                   elsif t.json?
                     expect {reader.to_json}.to raise_error(RDF::Tabular::Error)
                   elsif t.validation?
