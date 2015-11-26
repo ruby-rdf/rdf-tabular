@@ -849,19 +849,18 @@ module RDF::Tabular
       csv, number, skipped = nil, 0, 0
       if input.respond_to?(:content_type) && input.content_type == 'text/html'
         # Input is HTML; use fragment identfier to find table.
-        fragment = RDF::URI(input.base_uri).fragment rescue nil
+        fragment = RDF::URI(self.url).fragment rescue nil
         tab = begin
           # Extract with nokogiri
           require 'nokogiri' unless defined?(:Nokogiri)
           doc = Nokogiri::HTML.parse(input)
-          doc = doc.search("##{fragment}").first if fragment
-          doc.at_xpath("//table") if doc && fragment
+          doc.search("##{fragment}").first if fragment
         rescue LoadError
           # Extract with REXML
           # FIXME
         end
 
-        raise Error, "Expected to find HTML table identified by fragment identifer" unless tab
+        raise Error, "Expected to find HTML table identified by fragment identifer ##{fragment}" unless tab
 
         # Use rows with <td> to create column data
         csv = []
@@ -1807,19 +1806,18 @@ module RDF::Tabular
       # Set encoding on input
       if input.respond_to?(:content_type) && input.content_type == 'text/html'
         # Input is HTML; use fragment identfier to find table.
-        fragment = RDF::URI(input.base_uri).fragment rescue nil
+        fragment = RDF::URI(table["url"]).fragment rescue nil
         tab = begin
           # Extract with nokogiri
           require 'nokogiri' unless defined?(:Nokogiri)
           doc = Nokogiri::HTML.parse(input)
-          doc = doc.search("##{fragment}").first if fragment
-          doc.at_xpath("//table") if doc && fragment
+          doc.search("##{fragment}").first if fragment
         rescue LoadError
           # Extract with REXML
           # FIXME
         end
 
-        raise Error, "Expected to find HTML table identified by fragment identifer" unless tab
+        raise Error, "Expected to find HTML table identified by fragment identifer ##{fragment}" unless tab
 
         # Use rows with <th> to create column titles
         tab.xpath('.//tr').each do |row|

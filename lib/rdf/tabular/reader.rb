@@ -68,6 +68,15 @@ module RDF::Tabular
             @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
             @metadata.normalize!
             @input = @metadata
+          elsif (@options[:base].end_with?(".html") || %w(text/html application/xhtml+html).include?(content_type)) &&
+                !RDF::URI(@options[:base].to_s).fragment
+            require 'nokogiri' unless defined?(:Nokogiri)
+            doc = Nokogiri::HTML.parse(input)
+            doc.xpath("//script[@type='application/csvm+json']/text()").each do |script|
+              def script.content_type; "application/csvm+json"; end
+              log_debug("Reader#initialize") {"Process HTML script block"}
+              self.class.new(script, @options, &block)
+            end
           elsif @options[:no_found_metadata]
             # Extract embedded metadata and merge
             dialect_metadata = @options[:metadata] || Table.new({}, context: "http://www.w3.org/ns/csvw")
