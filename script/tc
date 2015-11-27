@@ -2,6 +2,7 @@
 require 'rubygems'
 $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", 'lib')))
 require "bundler/setup"
+require 'logger'
 require 'rdf/tabular'
 require 'rdf/isomorphic'
 require File.expand_path(File.join(File.dirname(__FILE__), "..", 'spec', 'spec_helper'))
@@ -44,8 +45,9 @@ def run_tc(t, options)
   graph = RDF::Repository.new
   json_result = nil
   result = nil
-  t.warnings = []
-  t.errors = []
+  t.logger = Logger.new(STDERR)
+  t.logger.level = options[:level]
+  t.logger.formatter = lambda {|severity, datetime, progname, msg| "#{severity}: #{msg}\n"}
 
   begin
     puts "open #{t.action}" if options[:verbose]
@@ -55,8 +57,7 @@ def run_tc(t, options)
                              t.reader_options.merge(
                                base_uri:  t.base,
                                validate:  t.validation?,
-                               warnings:  t.warnings,
-                               errors:    t.errors)
+                               logger:    t.logger)
     ) do |reader|
       t.metadata = reader.metadata
 
@@ -74,14 +75,14 @@ def run_tc(t, options)
             result
           elsif t.evaluate?
             graph << reader
-            output_graph = RDF::Repository.load(t.result, format:  :turtle, base_uri:  t.base)
+            output_graph = RDF::Repository.load(t.result, format: :turtle, base_uri:  t.base)
             graph.isomorphic_with?(output_graph) ? "passed" : "failed"
           elsif t.validation?
             reader.validate!
             "passed"
           end
           result = "passed" if t.id.include?("rdf#test158") && result == "failed"
-          result = "failed" if result == "passed" && t.warning? && t.warnings.empty?
+          result = "failed" if result == "passed" && t.warning? && !t.logger.log_statistics[:warn]
         end
       else
         begin
@@ -119,8 +120,6 @@ def run_tc(t, options)
     end
   end
 
-
-  options[:output].puts("\nWarnings:\n" + t.warnings.join("\n")) unless options[:quiet]
   if t.json?
     options[:output].puts("\nOutput:\n" + json_result) unless options[:quiet]
   else
@@ -148,6 +147,7 @@ end
 
 options = {
   output:  STDOUT,
+  level: Logger::WARN,
 }
 
 opts = GetoptLong.new(
@@ -177,10 +177,14 @@ end
 opts.each do |opt, arg|
   case opt
   when '--help'             then help(options)
-  when '--dbg'              then ::RDF::Tabular::debug = true
-  when '--earl'             then options[:quiet] = options[:earl] = true
+  when '--dbg'              then options[:level] = Logger::DEBUG
+  when '--earl'
+    options[:quiet] = options[:earl] = true
+    options[:level] = Logger::FATAL
   when '--output'           then options[:output] = File.open(arg, "w")
-  when '--quiet'            then options[:quiet] = true
+  when '--quiet'
+    options[:quiet] = options[:quiet].to_i + 1
+    options[:level] = Logger::FATAL
   when '--validate'         then options[:validate] = true
   when '--verbose'          then options[:verbose] = true
   end

@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require 'rubygems'
 require "bundler/setup"
+require 'logger'
 $:.unshift(File.expand_path("../../lib", __FILE__))
 begin
   require 'linkeddata'
@@ -29,6 +30,10 @@ rescue
   raise
 end
 
+logger = Logger.new(STDERR)
+logger.level = Logger::WARN
+logger.formatter = lambda {|severity, datetime, progname, msg| "#{severity}: #{msg}\n"}
+
 parser_options = {
   :base     => nil,
   :progress => false,
@@ -36,6 +41,7 @@ parser_options = {
   :validate => false,
   :strict   => false,
   :minimal  => false,
+  logger: logger,
 }
 
 options = {
@@ -59,12 +65,14 @@ opts = GetoptLong.new(
 )
 opts.each do |opt, arg|
   case opt
-  when '--dbg'          then parser_options[:debug] = ::RDF::Tabular::debug = true
+  when '--dbg'          then logger.level = Logger::DEBUG
   when '--execute'      then input = arg
   when '--format'       then options[:output_format] = arg.to_sym
   when '--minimal'      then parser_options[:minimal] = true
   when '--output'       then options[:output] = File.open(arg, "w")
-  when '--quiet'        then options[:quiet] = true
+  when '--quiet'
+    options[:quiet] = options[:quiet].to_i + 1
+    logger.level = Logger::FATAL
   when '--uri'          then parser_options[:base] = arg
   when '--validate'     then parser_options[:validate] = true
   when '--verbose'      then $verbose = true
