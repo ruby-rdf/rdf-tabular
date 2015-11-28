@@ -29,6 +29,7 @@ describe RDF::Tabular::Reader do
         end
       })
   end
+  after(:each) {|example| puts logger.to_s if example.exception}
   
   # @see lib/rdf/spec/reader.rb in rdf-spec
   # two failures specific to the way @input is handled in rdf-tabular make this a problem
@@ -51,33 +52,33 @@ describe RDF::Tabular::Reader do
 
   context "HTTP Headers" do
     before(:each) {
-      allow_any_instance_of(RDF::Tabular::Dialect).to receive(:embedded_metadata).and_return(RDF::Tabular::Table.new({}))
+      allow_any_instance_of(RDF::Tabular::Dialect).to receive(:embedded_metadata).and_return(RDF::Tabular::Table.new({}, logger: false))
       allow_any_instance_of(RDF::Tabular::Metadata).to receive(:each_row).and_yield(RDF::Statement.new)
     }
     it "sets delimiter to TAB in dialect given text/tsv" do
       input = double("input", content_type: "text/tsv", headers: {content_type: "text/tsv"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Dialect).to receive(:separator=).with("\t")
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
     it "sets header to false in dialect given header=absent" do
       input = double("input", content_type: "text/csv", headers: {content_type: "text/csv;header=absent"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Dialect).to receive(:header=).with(false)
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
     it "sets encoding to ISO-8859-4 in dialect given charset=ISO-8859-4" do
       input = double("input", content_type: "text/csv", headers: {content_type: "text/csv;charset=ISO-8859-4"}, charset: "ISO-8859-4")
       expect_any_instance_of(RDF::Tabular::Dialect).to receive(:encoding=).with("ISO-8859-4")
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
     it "sets lang to de in metadata given Content-Language=de", pending: "affecting some RSpec matcher" do
       input = double("input", content_type: "text/csv", headers: {content_language: "de"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Metadata).to receive(:lang=).with("de")
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
     it "does not set lang with two languages in metadata given Content-Language=de, en" do
       input = double("input", content_type: "text/csv", headers: {content_language: "de, en"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Metadata).not_to receive(:lang=)
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
   end
 
@@ -161,6 +162,8 @@ describe RDF::Tabular::Reader do
       "country-codes-and-names.csv" => "country-codes-and-names-standard.ttl",
       "countries.json" => "countries-standard.ttl",
       "countries.csv" => "countries.csv-standard.ttl",
+      "countries.html" => "countries_html-standard.ttl",
+      "countries_embed.html" => "countries_embed-standard.ttl",
       "roles.json" => "roles-standard.ttl",
     }
     context "#each_statement" do
@@ -273,7 +276,7 @@ describe RDF::Tabular::Reader do
     end
 
     it "errors on duplicate primary keys" do
-      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, errors: [], logger: logger) do |reader|
+      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, logger: logger) do |reader|
         expect {reader.validate!}.to raise_error(RDF::Tabular::Error)
 
         pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)

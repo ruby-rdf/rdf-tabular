@@ -59,11 +59,11 @@ describe RDF::Tabular::Reader do
                     end
 
                     if t.warning?
-                      expect(t.logger.to_s).to include("WARN")
+                      expect(t.logger.log_statistics).to have_key(:warn)
                     else
-                      expect(t.logger.to_s).not_to include("WARN")
+                      expect(t.logger.log_statistics).not_to have_key(:warn)
                     end
-                    expect(t.logger.to_s).not_to include("ERROR")
+                    expect(t.logger.log_statistics).not_to have_key(:error)
                   elsif t.json?
                     expect {reader.to_json}.to raise_error(RDF::Tabular::Error)
                   elsif t.validation?

@@ -847,7 +847,8 @@ module RDF::Tabular
     # @yield [Row]
     def each_row(input)
       csv, number, skipped = nil, 0, 0
-      if input.respond_to?(:content_type) && input.content_type == 'text/html'
+      path = input.base_uri.path rescue ""
+      if path.end_with?('.html') || input.respond_to?(:content_type) && input.content_type == 'text/html'
         # Input is HTML; use fragment identfier to find table.
         fragment = RDF::URI(self.url).fragment rescue nil
         tab = begin
@@ -1804,7 +1805,8 @@ module RDF::Tabular
       lang ||= 'und'
 
       # Set encoding on input
-      if input.respond_to?(:content_type) && input.content_type == 'text/html'
+      path = input.base_uri.path rescue ""
+      if path.end_with?('.html') || input.respond_to?(:content_type) && input.content_type == 'text/html'
         # Input is HTML; use fragment identfier to find table.
         fragment = RDF::URI(table["url"]).fragment rescue nil
         tab = begin
@@ -2118,7 +2120,11 @@ module RDF::Tabular
 
     # Identifier for this row, as an RFC7111 fragment 
     # @return [RDF::URI]
-    def id; table.url + "#row=#{self.sourceNumber}"; end
+    def id;
+      u = table.url.dup
+      u.fragment = "row=#{self.sourceNumber}"
+      u
+    end
 
     # Return Annotated Row representation
     def to_atd

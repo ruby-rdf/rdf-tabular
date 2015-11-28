@@ -68,14 +68,19 @@ module RDF::Tabular
             @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
             @metadata.normalize!
             @input = @metadata
-          elsif (@options[:base].end_with?(".html") || %w(text/html application/xhtml+html).include?(content_type)) &&
+          elsif (@options[:base].to_s.end_with?(".html") || %w(text/html application/xhtml+html).include?(content_type)) &&
                 !RDF::URI(@options[:base].to_s).fragment
             require 'nokogiri' unless defined?(:Nokogiri)
             doc = Nokogiri::HTML.parse(input)
             doc.xpath("//script[@type='application/csvm+json']/text()").each do |script|
               def script.content_type; "application/csvm+json"; end
               log_debug("Reader#initialize") {"Process HTML script block"}
-              self.class.new(script, @options, &block)
+              @input = script
+              @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
+              # If @metadata is for a Table, turn it into a TableGroup
+              @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
+              @metadata.normalize!
+              @input = @metadata
             end
           elsif @options[:no_found_metadata]
             # Extract embedded metadata and merge
@@ -277,7 +282,12 @@ module RDF::Tabular
             end
             next if cell.column.suppressOutput # Skip ignored cells
             cell_subject = cell.aboutUrl || default_cell_subject
-            propertyUrl = cell.propertyUrl || RDF::URI("#{metadata.url}##{cell.column.name}")
+            propertyUrl = cell.propertyUrl || begin
+              # It's possible that the metadata URL already has a fragment, in which case we need to override it.
+              u = metadata.url.dup
+              u.fragment = cell.column.name
+              u
+            end
             add_statement(row.sourceNumber, row_resource, CSVW.describes, cell_subject) unless minimal?
 
             if cell.column.valueUrl
