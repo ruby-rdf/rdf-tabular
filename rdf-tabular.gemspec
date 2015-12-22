@@ -21,7 +21,7 @@ Gem::Specification.new do |gem|
   gem.test_files            = Dir.glob('spec/**')
   gem.has_rdoc              = false
 
-  gem.required_ruby_version = '>= 1.9.3'
+  gem.required_ruby_version = '>= 2.0'
   gem.requirements          = []
   gem.add_runtime_dependency     'bcp47',           '~> 0.3', '>= 0.3.3'
   gem.add_runtime_dependency     'rdf',             '~> 1.1', '>= 1.1.7'
@@ -35,7 +35,6 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'rdf-isomorphic',  '~> 1.1'
   gem.add_development_dependency 'rdf-spec',        '~> 1.1'
   gem.add_development_dependency 'rdf-turtle',      '~> 1.1'
-  gem.add_development_dependency 'rdf-vocab',       '~> 0.8'
   gem.add_development_dependency 'sparql',          '~> 1.1'
   gem.add_development_dependency 'webmock',         '~> 1.17'
   gem.add_development_dependency 'yard' ,           '~> 0.8'
