@@ -922,17 +922,17 @@ module RDF::Tabular
           if value['@value']
             dt = RDF::URI(context.expand_iri(value['@type'], vocab: true)) if value['@type']
             lit = RDF::Literal(value['@value'], language: value['@language'], datatype: dt)
-            block.call(RDF::Statement.new(subject, property, lit))
+            block.call(RDF::Statement(subject, property, lit))
           else
             # value MUST be a node object, establish a new subject from `@id`
             s2 = value.has_key?('@id') ? context.expand_iri(value['@id']) : RDF::Node.new
 
             # Generate a triple
-            block.call(RDF::Statement.new(subject, property, s2))
+            block.call(RDF::Statement(subject, property, s2))
 
             # Generate types
             Array(value['@type']).each do |t|
-              block.call(RDF::Statement.new(s2, RDF.type, context.expand_iri(t, vocab: true)))
+              block.call(RDF::Statement(s2, RDF.type, context.expand_iri(t, vocab: true)))
             end
 
             # Generate triples for all other properties
@@ -944,7 +944,7 @@ module RDF::Tabular
         else
           # Value is a primitive JSON value
           lit = RDF::Literal(value)
-          block.call(RDF::Statement.new(subject, property, RDF::Literal(value)))
+          block.call(RDF::Statement(subject, property, RDF::Literal(value)))
         end
       else
         case value

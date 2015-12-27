@@ -249,8 +249,9 @@ module RDF::Tabular
             row.subject = table_resource
             add_statement(last_row_num + 1, row) unless metadata.suppressOutput
             next
+          else
+            last_row_num = row.sourceNumber
           end
-          last_row_num = row.sourceNumber
 
           # Collect primary and foreign keys if validating
           if validate?
@@ -618,7 +619,7 @@ module RDF::Tabular
     #   @param [URI, BNode, Literal] object the object of the statement
     #   @raise [ReaderError] Checks parameter types and raises if they are incorrect if parsing mode is _validate_.
     def add_statement(node, *args)
-      statement = args[0].is_a?(RDF::Statement) ? args[0] : RDF::Statement.new(*args)
+      statement = args[0].is_a?(RDF::Statement) ? args[0] : RDF::Statement(*args)
       raise RDF::ReaderError, "#{statement.inspect} is invalid" if validate? && statement.invalid?
       log_debug(node) {"statement: #{RDF::NTriples.serialize(statement)}".chomp}
       @callback.call(statement)
