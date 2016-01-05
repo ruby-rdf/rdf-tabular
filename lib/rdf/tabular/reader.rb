@@ -21,6 +21,29 @@ module RDF::Tabular
     attr_reader :input
 
     ##
+    # Writer options
+    # @see http://www.rubydoc.info/github/ruby-rdf/rdf/RDF/Writer#options-class_method
+    def self.options
+      super + [
+        RDF::CLI::Option.new(
+          symbol: :metadata,
+          datatype: RDF::URI,
+          on: ["--metadata URI"],
+          description: "user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location.") {|arg| RDF::URI(arg)},
+        RDF::CLI::Option.new(
+          symbol: :minimal,
+          datatype: TrueClass,
+          on: ["--minimal"],
+          description: "Includes only the information gleaned from the cells of the tabular data.") {true},
+        RDF::CLI::Option.new(
+          symbol: :noProv,
+          datatype: TrueClass,
+          on: ["--no-prov"],
+          description: "do not output optional provenance information.") {true},
+      ]
+    end
+
+    ##
     # Initializes the RDF::Tabular Reader instance.
     #
     # @param  [Util::File::RemoteDoc, IO, StringIO, Array<Array<String>>, String]       input
