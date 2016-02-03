@@ -1,6 +1,5 @@
 require 'rdf/isomorphic'
 require 'rspec/matchers'
-require 'rdf/rdfa'
 
 Info = Struct.new(:id, :debug, :action, :result, :metadata)
 
