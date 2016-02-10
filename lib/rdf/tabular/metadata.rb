@@ -1692,7 +1692,7 @@ module RDF::Tabular
   class Dialect < Metadata
     # Defaults for dialects
     DEFAULTS = {
-      commentPrefix:      "#".freeze,
+      commentPrefix:      false,
       delimiter:          ",".freeze,
       doubleQuote:        true,
       encoding:           "utf-8".freeze,
