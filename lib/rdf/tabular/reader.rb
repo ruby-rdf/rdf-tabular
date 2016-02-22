@@ -8,7 +8,7 @@ module RDF::Tabular
   # @author [Gregg Kellogg](http://greggkellogg.net/)
   class Reader < RDF::Reader
     format Format
-    include Utils
+    include RDF::Util::Logger
 
     # Metadata associated with the CSV
     #
@@ -21,14 +21,27 @@ module RDF::Tabular
     attr_reader :input
 
     ##
-    # Warnings found during processing
-    # @return [Array<String>]
-    attr_reader :warnings
-
-    ##
-    # Accumulated errors found during processing
-    # @return [Array<String>]
-    attr_reader :errors
+    # Writer options
+    # @see http://www.rubydoc.info/github/ruby-rdf/rdf/RDF/Writer#options-class_method
+    def self.options
+      super + [
+        RDF::CLI::Option.new(
+          symbol: :metadata,
+          datatype: RDF::URI,
+          on: ["--metadata URI"],
+          description: "user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location.") {|arg| RDF::URI(arg)},
+        RDF::CLI::Option.new(
+          symbol: :minimal,
+          datatype: TrueClass,
+          on: ["--minimal"],
+          description: "Includes only the information gleaned from the cells of the tabular data.") {true},
+        RDF::CLI::Option.new(
+          symbol: :noProv,
+          datatype: TrueClass,
+          on: ["--no-prov"],
+          description: "do not output optional provenance information.") {true},
+      ]
+    end
 
     ##
     # Initializes the RDF::Tabular Reader instance.
@@ -41,10 +54,6 @@ module RDF::Tabular
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
     # @option options [Boolean] :minimal includes only the information gleaned from the cells of the tabular data
     # @option options [Boolean] :noProv do not output optional provenance information
-    # @option options [Array] :errors
-    #   array for placing errors found when processing metadata. If not set, and validating, errors are output to `$stderr`
-    # @option options [Array] :warnings
-    #   array for placing warnings found when processing metadata. If not set, and validating, warnings are output to `$stderr`
     # @option optinons [Array<Hash>] :fks_referencing_table
     #   When called with Table metadata, a list of the foreign keys referencing this table
     # @yield  [reader] `self`
@@ -62,11 +71,7 @@ module RDF::Tabular
           @options[:base] = "file:/#{File.expand_path(@options[:base])}"
         end
 
-        @options[:depth] ||= 0
-        @errors = @options.fetch(:errors, [])
-        @warnings = @options.fetch(:warnings, [])
-
-        debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
+        log_debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
 
         # Minimal implies noProv
         @options[:noProv] ||= @options[:minimal]
@@ -77,7 +82,7 @@ module RDF::Tabular
         else input
         end
 
-        depth do
+        log_depth do
           # If input is JSON, then the input is the metadata
           content_type = @input.respond_to?(:content_type) ? @input.content_type : ""
           if @options[:base] =~ /\.json(?:ld)?$/ || content_type =~ %r(application/(csvm\+|ld\+)?json)
@@ -86,6 +91,20 @@ module RDF::Tabular
             @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
             @metadata.normalize!
             @input = @metadata
+          elsif (@options[:base].to_s.end_with?(".html") || %w(text/html application/xhtml+html).include?(content_type)) &&
+                !RDF::URI(@options[:base].to_s).fragment
+            require 'nokogiri' unless defined?(:Nokogiri)
+            doc = Nokogiri::HTML.parse(input)
+            doc.xpath("//script[@type='application/csvm+json']/text()").each do |script|
+              def script.content_type; "application/csvm+json"; end
+              log_debug("Reader#initialize") {"Process HTML script block"}
+              @input = script
+              @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
+              # If @metadata is for a Table, turn it into a TableGroup
+              @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
+              @metadata.normalize!
+              @input = @metadata
+            end
           elsif @options[:no_found_metadata]
             # Extract embedded metadata and merge
             dialect_metadata = @options[:metadata] || Table.new({}, context: "http://www.w3.org/ns/csvw")
@@ -117,7 +136,7 @@ module RDF::Tabular
             @input = @metadata = Metadata.for_input(@input, @options).normalize!
           end
 
-          debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
+          log_debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
 
           if block_given?
             case block.arity
@@ -140,9 +159,9 @@ module RDF::Tabular
 
         # Construct metadata from that passed from file open, along with information from the file.
         if input.is_a?(Metadata)
-          debug("each_statement: metadata") {input.inspect}
+          log_debug("each_statement: metadata") {input.inspect}
 
-          depth do
+          log_depth do
             begin
               # Validate metadata
               input.validate!
@@ -169,8 +188,6 @@ module RDF::Tabular
                     base: input.tables.first.url,
                     no_found_metadata: true,
                     table_resource: table_resource,
-                    warnings: @warnings,
-                    errors: @errors,
                 )) do |r|
                   r.each_statement(&block)
                 end
@@ -191,8 +208,6 @@ module RDF::Tabular
                       no_found_metadata: true,
                       table_resource: table_resource,
                       fks_referencing_table: fks,
-                      warnings: @warnings,
-                      errors: @errors,
                   )) do |r|
                     r.each_statement(&block)
                   end
@@ -231,15 +246,11 @@ module RDF::Tabular
                   add_statement(0, usage, RDF::Vocab::PROV.hadRole, CSVW.tabularMetadata)
                 end
               end
-            ensure
-              warnings = @warnings.concat(input.warnings)
-              if validate? && !warnings.empty? && !@options[:warnings]
-                $stderr.puts "Warnings: #{warnings.join("\n")}"
-              end
-              if validate? && !errors.empty? && !@options[:errors]
-                $stderr.puts "Errors: #{errors.join("\n")}"
-              end
             end
+          end
+
+          if validate? && log_statistics[:error]
+            raise RDF::ReaderError, "Errors found during processing"
           end
           return
         end
@@ -261,8 +272,9 @@ module RDF::Tabular
             row.subject = table_resource
             add_statement(last_row_num + 1, row) unless metadata.suppressOutput
             next
+          else
+            last_row_num = row.sourceNumber
           end
-          last_row_num = row.sourceNumber
 
           # Collect primary and foreign keys if validating
           if validate?
@@ -286,11 +298,20 @@ module RDF::Tabular
           end
           row.values.each_with_index do |cell, index|
             # Collect cell errors
-            (validate? ? errors : warnings) << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
-                      cell.errors.join("\n") unless Array(cell.errors).empty?
+            unless Array(cell.errors).empty?
+              self.send((validate? ? :log_error : :log_warn),
+                       "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber})") do
+                cell.errors.join("\n")
+              end
+            end
             next if cell.column.suppressOutput # Skip ignored cells
             cell_subject = cell.aboutUrl || default_cell_subject
-            propertyUrl = cell.propertyUrl || RDF::URI("#{metadata.url}##{cell.column.name}")
+            propertyUrl = cell.propertyUrl || begin
+              # It's possible that the metadata URL already has a fragment, in which case we need to override it.
+              u = metadata.url.dup
+              u.fragment = cell.column.name
+              u
+            end
             add_statement(row.sourceNumber, row_resource, CSVW.describes, cell_subject) unless minimal?
 
             if cell.column.valueUrl
@@ -339,16 +360,13 @@ module RDF::Tabular
     end
 
     ##
-    # Validate and raise an exception if any errors are found while processing either metadata or tables
-    # @return [self]
-    # @raise [Error]
+    # Do we have valid metadata?
+    # @raise [RDF::ReaderError]
     def validate!
-      each_statement {} # Read all rows
-      raise Error, errors.join("\n") unless errors.empty?
-      self
+      @options[:validate] = true
+      each_statement {}
     rescue RDF::ReaderError => e
       raise Error, e.message
-      self
     end
 
     ##
@@ -395,16 +413,22 @@ module RDF::Tabular
       end
       options = {} unless options.is_a?(Hash)
 
-      hash_fn = options[:atd] ? :to_atd : :to_hash
+      hash_fn = :to_hash
       options = options.merge(noProv: @options[:noProv])
 
-      if io
+      res = if io
         ::JSON::dump_default_options = json_state
         ::JSON.dump(self.send(hash_fn, options), io)
       else
         hash = self.send(hash_fn, options)
         ::JSON.generate(hash, json_state)
       end
+
+      if validate? && log_statistics[:error]
+        raise RDF::Tabular::Error, "Errors found during processing"
+      end
+
+      res
     rescue IOError => e
       raise RDF::Tabular::Error, e.message
     end
@@ -419,8 +443,8 @@ module RDF::Tabular
     def to_hash(options = {})
       # Construct metadata from that passed from file open, along with information from the file.
       if input.is_a?(Metadata)
-        debug("each_statement: metadata") {input.inspect}
-        depth do
+        log_debug("each_statement: metadata") {input.inspect}
+        log_depth do
           # Get Metadata to invoke and open referenced files
           begin
             # Validate metadata
@@ -445,8 +469,6 @@ module RDF::Tabular
                   base:               input.tables.first.url,
                   minimal:            minimal?,
                   no_found_metadata:  true,
-                  warnings:           @warnings,
-                  errors:             @errors,
               )) do |r|
                 case t = r.to_hash(options)
                 when Array then tables += t unless input.tables.first.suppressOutput
@@ -461,8 +483,6 @@ module RDF::Tabular
                   base:               table.url,
                   minimal:            minimal?,
                   no_found_metadata:  true,
-                  warnings:           @warnings,
-                  errors:             @errors,
                 )) do |r|
                   case t = r.to_hash(options)
                   when Array then tables += t unless table.suppressOutput
@@ -477,14 +497,6 @@ module RDF::Tabular
 
             # Result is table_group or array
             minimal? ? tables : table_group
-          ensure
-            warnings = @warnings.concat(input.warnings)
-            if validate? && !warnings.empty? && !@options[:warnings]
-              $stderr.puts "Warnings: #{warnings.join("\n")}"
-            end
-            if validate? && !errors.empty? && !@options[:errors]
-              $stderr.puts "Errors: #{errors.join("\n")}"
-            end
           end
         end
       else
@@ -524,8 +536,12 @@ module RDF::Tabular
             column = metadata.tableSchema.columns[index]
 
             # Collect cell errors
-            (validate? ? errors : warnings) << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): " +
-                      cell.errors.join("\n") unless Array(cell.errors).empty?
+            unless Array(cell.errors).empty?
+              self.send(validate? ? :log_error : :log_warn,
+                "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}, col #{cell.column.sourceNumber}): ") do
+                cell.errors.join("\n")
+              end
+            end
 
             # Ignore suppressed columns
             next if column.suppressOutput
@@ -607,71 +623,6 @@ module RDF::Tabular
       end
     end
 
-    # Return a hash representation of the annotated tabular data model for JSON serialization
-    # @param [Hash{Symbol => Object}] options
-    # @return [Hash]
-    def to_atd(options = {})
-      # Construct metadata from that passed from file open, along with information from the file.
-      if input.is_a?(Metadata)
-        debug("each_statement: metadata") {input.inspect}
-        depth do
-          # Get Metadata to invoke and open referenced files
-          case input.type
-          when :TableGroup
-            table_group = input.to_atd
-            if input.tables.empty? && options[:original_input]
-              Reader.new(options[:original_input], options.merge(
-                  base:              options[:base],
-                  no_found_metadata: true
-              )) do |r|
-                table_group["tables"] << r.to_atd(options)
-              end
-            else
-              input.each_table do |table|
-                Reader.open(table.url, options.merge(
-                  metadata:           table,
-                  base:               table.url,
-                  no_found_metadata:  true
-                )) do |r|
-                  table_group["tables"] << r.to_atd(options)
-                end
-              end
-            end
-
-            # Result is table_group
-            table_group
-          when :Table
-            table = nil
-            Reader.open(input.url, options.merge(
-              metadata:           input,
-              base:               input.url,
-              no_found_metadata:  true
-            )) do |r|
-              table = r.to_atd(options)
-            end
-
-            table
-          else
-            raise "Opened inappropriate metadata type: #{input.type}"
-          end
-        end
-      else
-        rows = []
-        table = metadata.to_atd
-        rows, columns = table["rows"], table["columns"]
-
-        # Input is file containing CSV data.
-        # Output ROW-Level statements
-        metadata.each_row(input) do |row|
-          rows << row.to_atd
-          row.values.each_with_index do |cell, colndx|
-            columns[colndx]["cells"] << cell.to_atd
-          end
-        end
-        table
-      end
-    end
-
     def minimal?; @options[:minimal]; end
     def prov?; !(@options[:noProv]); end
 
@@ -691,9 +642,9 @@ module RDF::Tabular
     #   @param [URI, BNode, Literal] object the object of the statement
     #   @raise [ReaderError] Checks parameter types and raises if they are incorrect if parsing mode is _validate_.
     def add_statement(node, *args)
-      statement = args[0].is_a?(RDF::Statement) ? args[0] : RDF::Statement.new(*args)
+      statement = args[0].is_a?(RDF::Statement) ? args[0] : RDF::Statement(*args)
       raise RDF::ReaderError, "#{statement.inspect} is invalid" if validate? && statement.invalid?
-      debug(node) {"statement: #{RDF::NTriples.serialize(statement)}".chomp}
+      log_debug(node) {"statement: #{RDF::NTriples.serialize(statement)}".chomp}
       @callback.call(statement)
     end
 
@@ -702,7 +653,7 @@ module RDF::Tabular
       pk_strings = {}
       primary_keys.reject(&:empty?).each do |row_pks|
         pk_names = row_pks.map {|cell| cell.value}.join(",")
-        errors << "Table #{metadata.url} has duplicate primary key #{pk_names}" if pk_strings.has_key?(pk_names)
+        log_error "Table #{metadata.url} has duplicate primary key #{pk_names}" if pk_strings.has_key?(pk_names)
         pk_strings[pk_names] ||= 0
         pk_strings[pk_names] += 1
       end
@@ -735,7 +686,7 @@ module RDF::Tabular
         fk[:reference_to] ||= {}
         cell_values = cells.map {|cell| cell.stringValue unless cell.stringValue.to_s.empty?}.compact
         next if cell_values.empty?  # Don't record if empty
-        errors << "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}): found duplicate foreign key target: #{cell_values.map(&:to_s).inspect}" if fk[:reference_to][cell_values]
+        log_error "Table #{metadata.url} row #{row.number}(src #{row.sourceNumber}): found duplicate foreign key target: #{cell_values.map(&:to_s).inspect}" if fk[:reference_to][cell_values]
         fk[:reference_to][cell_values] ||= row
       end
     end
@@ -748,7 +699,7 @@ module RDF::Tabular
           # Verify that reference_from entry exists in reference_to
           fk.fetch(:reference_from, {}).each do |cell_values, row|
             unless fk.fetch(:reference_to, {}).has_key?(cell_values)
-              errors << "Table #{table.url} row #{row.number}(src #{row.sourceNumber}): " +
+              log_error "Table #{table.url} row #{row.number}(src #{row.sourceNumber}): " +
                         "Foreign Key violation, expected to find #{cell_values.map(&:to_s).inspect}"
             end
           end

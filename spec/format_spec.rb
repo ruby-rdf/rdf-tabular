@@ -30,4 +30,38 @@ describe RDF::Tabular::Format do
   describe "#to_sym" do
     specify {expect(described_class.to_sym).to eq :tabular}
   end
+
+  describe ".cli_commands" do
+    before(:each) do
+      WebMock.stub_request(:any, %r(.*example.org.*)).
+        to_return(lambda {|request|
+          file = request.uri.to_s.split('/').last
+          content_type = case file
+          when /\.json/ then 'application/json'
+          when /\.csv/  then 'text/csv'
+          else 'text/plain'
+          end
+
+          path = File.expand_path("../data/#{file}", __FILE__)
+          if File.exist?(path)
+            {
+              body: File.read(path),
+              status: 200,
+              headers: {'Content-Type' => content_type}
+            }
+          else
+            {status: 401}
+          end
+        })
+    end
+    after(:each) {|example| puts logger.to_s if example.exception}
+
+    require 'rdf/cli'
+    let(:input) {File.expand_path("../data/countries.json", __FILE__)}
+    describe "#tabular-json" do
+      it "serializes to JSON" do
+        expect {RDF::CLI.exec_command("tabular-json", [input], format: :tabular)}.to write.to(:output)
+      end
+    end
+  end
 end

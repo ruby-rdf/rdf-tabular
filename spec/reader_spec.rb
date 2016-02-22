@@ -3,6 +3,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'rdf/spec/reader'
 
 describe RDF::Tabular::Reader do
+  let(:logger) {RDF::Spec.logger}
   let!(:doap) {File.expand_path("../../etc/doap.csv", __FILE__)}
   let!(:doap_count) {9}
 
@@ -27,9 +28,8 @@ describe RDF::Tabular::Reader do
           {status: 401}
         end
       })
-
-    @debug = []
   end
+  after(:each) {|example| puts logger.to_s if example.exception}
   
   # @see lib/rdf/spec/reader.rb in rdf-spec
   # two failures specific to the way @input is handled in rdf-tabular make this a problem
@@ -52,33 +52,33 @@ describe RDF::Tabular::Reader do
 
   context "HTTP Headers" do
     before(:each) {
-      allow_any_instance_of(RDF::Tabular::Dialect).to receive(:embedded_metadata).and_return(RDF::Tabular::Table.new({}))
+      allow_any_instance_of(RDF::Tabular::Dialect).to receive(:embedded_metadata).and_return(RDF::Tabular::Table.new({}, logger: false))
       allow_any_instance_of(RDF::Tabular::Metadata).to receive(:each_row).and_yield(RDF::Statement.new)
     }
     it "sets delimiter to TAB in dialect given text/tsv" do
       input = double("input", content_type: "text/tsv", headers: {content_type: "text/tsv"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Dialect).to receive(:separator=).with("\t")
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
     it "sets header to false in dialect given header=absent" do
       input = double("input", content_type: "text/csv", headers: {content_type: "text/csv;header=absent"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Dialect).to receive(:header=).with(false)
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
     it "sets encoding to ISO-8859-4 in dialect given charset=ISO-8859-4" do
       input = double("input", content_type: "text/csv", headers: {content_type: "text/csv;charset=ISO-8859-4"}, charset: "ISO-8859-4")
       expect_any_instance_of(RDF::Tabular::Dialect).to receive(:encoding=).with("ISO-8859-4")
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
     it "sets lang to de in metadata given Content-Language=de", pending: "affecting some RSpec matcher" do
       input = double("input", content_type: "text/csv", headers: {content_language: "de"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Metadata).to receive(:lang=).with("de")
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
     it "does not set lang with two languages in metadata given Content-Language=de, en" do
       input = double("input", content_type: "text/csv", headers: {content_language: "de, en"}, charset: nil)
       expect_any_instance_of(RDF::Tabular::Metadata).not_to receive(:lang=)
-      RDF::Tabular::Reader.new(input) {|r| r.each_statement {}}
+      RDF::Tabular::Reader.new(input, logger: false) {|r| r.each_statement {}}
     end
   end
 
@@ -134,15 +134,16 @@ describe RDF::Tabular::Reader do
         ]
       }))
     }
+
     {
       StringIO: StringIO.new(File.read(File.expand_path("../data/country-codes-and-names.csv", __FILE__))),
       ArrayOfArrayOfString: CSV.new(File.open(File.expand_path("../data/country-codes-and-names.csv", __FILE__))).to_a,
       String: File.read(File.expand_path("../data/country-codes-and-names.csv", __FILE__)),
     }.each do |name, input|
       it name do
-        RDF::Tabular::Reader.new(input, noProv: true, debug: @debug) do |reader|
+        RDF::Tabular::Reader.new(input, noProv: true, logger: logger) do |reader|
           expect(JSON.parse(reader.to_json)).to produce(expected,
-            debug: @debug,
+            logger: logger,
             result: expected,
             noProv: true,
             metadata: reader.metadata
@@ -161,6 +162,8 @@ describe RDF::Tabular::Reader do
       "country-codes-and-names.csv" => "country-codes-and-names-standard.ttl",
       "countries.json" => "countries-standard.ttl",
       "countries.csv" => "countries.csv-standard.ttl",
+      "countries.html" => "countries_html-standard.ttl",
+      "countries_embed.html" => "countries_embed-standard.ttl",
       "roles.json" => "roles-standard.ttl",
     }
     context "#each_statement" do
@@ -171,11 +174,11 @@ describe RDF::Tabular::Reader do
 
           it "standard mode" do
             expected = File.expand_path("../data/#{ttl}", __FILE__)
-            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, logger: logger) do |reader|
               graph = RDF::Graph.new << reader
               graph2 = RDF::Graph.load(expected, base_uri: about)
               expect(graph).to be_equivalent_graph(graph2,
-                                                   debug: @debug,
+                                                   logger: logger,
                                                    id: about,
                                                    action: about,
                                                    result: expected,
@@ -186,11 +189,11 @@ describe RDF::Tabular::Reader do
           it "minimal mode" do
             ttl = ttl.sub("standard", "minimal")
             expected = File.expand_path("../data/#{ttl}", __FILE__)
-            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, logger: logger) do |reader|
               graph = RDF::Graph.new << reader
               graph2 = RDF::Graph.load(expected, base_uri: about)
               expect(graph).to be_equivalent_graph(graph2,
-                                                   debug: @debug,
+                                                   logger: logger,
                                                    id: about,
                                                    action: about,
                                                    result: expected,
@@ -210,10 +213,10 @@ describe RDF::Tabular::Reader do
             json = ttl.sub("-standard.ttl", "-standard.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 
-            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, logger: logger) do |reader|
               expect(JSON.parse(reader.to_json)).to produce(
                 JSON.parse(File.read(expected)),
-                debug: @debug,
+                logger: logger,
                 id: about,
                 action: about,
                 result: expected,
@@ -227,10 +230,10 @@ describe RDF::Tabular::Reader do
             json = ttl.sub("-standard.ttl", "-minimal.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 
-            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, minimal: true, logger: logger) do |reader|
               expect(JSON.parse(reader.to_json)).to produce(
                 JSON.parse(File.read(expected)),
-                debug: @debug,
+                logger: logger,
                 id: about,
                 action: about,
                 result: expected,
@@ -244,10 +247,10 @@ describe RDF::Tabular::Reader do
             json = ttl.sub("-standard.ttl", "-atd.json")
             expected = File.expand_path("../data/#{json}", __FILE__)
 
-            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, debug: @debug) do |reader|
+            RDF::Reader.open(input, format: :tabular, base_uri: about, noProv: true, logger: logger) do |reader|
               expect(JSON.parse(reader.to_json(atd: true))).to produce(
                 JSON.parse(File.read(expected)),
-                debug: @debug,
+                logger: logger,
                 id: about,
                 action: about,
                 result: expected,
@@ -273,7 +276,7 @@ describe RDF::Tabular::Reader do
     end
 
     it "errors on duplicate primary keys" do
-      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, errors: []) do |reader|
+      RDF::Reader.open("http://example.org/test232-metadata.json", format: :tabular, validate: true, logger: logger) do |reader|
         expect {reader.validate!}.to raise_error(RDF::Tabular::Error)
 
         pks = reader.metadata.tables.first.object[:rows].map(&:primaryKey)
@@ -281,7 +284,7 @@ describe RDF::Tabular::Reader do
         # Each entry is an array of cells
         expect(pks.map {|r| r.map(&:value).join(",")}).to eql %w(1 1)
 
-        expect(reader.options[:errors]).to eq ["Table http://example.org/test232.csv has duplicate primary key 1"]
+        expect(logger.to_s).to include "Table http://example.org/test232.csv has duplicate primary key 1"
       end
     end
   end
@@ -352,9 +355,9 @@ describe RDF::Tabular::Reader do
       it file do
         about = RDF::URI("http://example.org").join(file)
         input = File.expand_path("../data/#{file}", __FILE__)
-        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, debug: @debug)
+        graph = RDF::Graph.load(input, format: :tabular, base_uri: about, logger: logger)
 
-        expect(graph).to pass_query(query, debug: @debug, id: about, action: about)
+        expect(graph).to pass_query(query, logger: logger, id: about, action: about)
       end
     end
   end

@@ -5,19 +5,20 @@ require "bundler/setup"
 require 'rspec'
 require 'rspec/its'
 require 'rdf/isomorphic'
+require 'rdf/spec'
+require 'rdf/spec/matchers'
 require 'rdf/turtle'
 require 'rdf/vocab'
-require 'rdf/spec/matchers'
 require 'json'
 require 'webmock/rspec'
 require 'matchers'
 require 'suite_helper'
 require 'simplecov'
 require 'coveralls'
-SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter[
+SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new([
   SimpleCov::Formatter::HTMLFormatter,
   Coveralls::SimpleCov::Formatter
-]
+])
 SimpleCov.start do
   add_filter "/spec/"
 end

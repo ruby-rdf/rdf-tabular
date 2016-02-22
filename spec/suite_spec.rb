@@ -19,17 +19,16 @@ describe RDF::Tabular::Reader do
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
               pending "rdf#test158 should be isomorphic" if t.id.include?("rdf#test158")
-              t.debug = []
-              t.warnings = []
-              t.errors = []
+              t.logger = RDF::Spec.logger
+              t.logger.formatter = lambda {|severity, datetime, progname, msg| "#{severity}: #{msg}\n"}
+              t.logger.info t.inspect
+              t.logger.info "source:\n#{t.input}"
               begin
                 RDF::Tabular::Reader.open(t.action,
                   t.reader_options.merge(
                     base_uri: t.base,
                     validate: t.validation?,
-                    debug:    t.debug,
-                    warnings: t.warnings,
-                    errors: t.errors,
+                    logger:   t.logger,
                   )
                 ) do |reader|
                   expect(reader).to be_a RDF::Reader
@@ -60,11 +59,11 @@ describe RDF::Tabular::Reader do
                     end
 
                     if t.warning?
-                      expect(t.warnings.length).to be >= 1
+                      expect(t.logger.log_statistics).to have_key(:warn)
                     else
-                      expect(t.warnings).to produce [], t
+                      expect(t.logger.log_statistics).not_to have_key(:warn)
                     end
-                    expect(t.errors).to produce [], t
+                    expect(t.logger.log_statistics).not_to have_key(:error)
                   elsif t.json?
                     expect {reader.to_json}.to raise_error(RDF::Tabular::Error)
                   elsif t.validation?

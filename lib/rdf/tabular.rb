@@ -11,7 +11,6 @@ module RDF
   # @author [Gregg Kellogg](http://greggkellogg.net/)
   module Tabular
     require 'rdf/tabular/format'
-    require 'rdf/tabular/utils'
     autoload :Column,         'rdf/tabular/metadata'
     autoload :CSVW,           'rdf/tabular/csvw'
     autoload :Dialect,        'rdf/tabular/metadata'

@@ -134,7 +134,6 @@ module RDF::Tabular
       # Upcase value and remove internal spaces
       value = value.upcase
 
-      #require 'byebug'; byebug unless value.empty?
       if value =~ re
 
         # Upcase value and remove internal spaces
@@ -226,7 +225,6 @@ module RDF::Tabular
       fractional_grouping_size = fractional_parts[0].to_s.length
 
       # Construct regular expression for integer part
-      #require 'byebug'; byebug
       integer_str = if primary_grouping_size == 0
         "\\d{#{min_integer_digits},}"
       else

@@ -46,5 +46,21 @@ module RDF::Tabular
     def self.detect(sample)
       !!sample.match(/^(?:(?:\w )+,(?:\w ))$/)
     end
+
+    ##
+    # Hash of CLI commands appropriate for this format
+    # @return [Hash{Symbol => Lambda(Array, Hash)}]
+    def self.cli_commands
+      {
+        :"tabular-json" => ->(argv, opts) do
+          raise ArgumentError, "Outputting Tabular JSON only allowed when input format is tabular." unless opts[:format] == :tabular
+          out = opts[:output] || $stdout
+          out.set_encoding(Encoding::UTF_8) if RUBY_PLATFORM == "java"
+          RDF::CLI.parse(argv, opts) do |reader|
+            out.puts reader.to_json
+          end
+        end
+      }
+    end
   end
 end
