@@ -7,7 +7,7 @@ Gem::Specification.new do |gem|
 
   gem.name                  = "rdf-tabular"
   gem.homepage              = "http://github.com/ruby-rdf/rdf-tabular"
-  gem.license               = 'Public Domain' if gem.respond_to?(:license=)
+  gem.license               = 'Unlicense'
   gem.summary               = "Tabular Data RDF Reader and JSON serializer."
   gem.description           = "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."
 
@@ -30,12 +30,12 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency     'json-ld',         '>= 2.0.0.beta', '< 3'
   gem.add_runtime_dependency     'addressable',     '~> 2.3'
   gem.add_development_dependency 'nokogiri',        '~> 1.6'
-  gem.add_development_dependency 'rspec',           '~> 3.0', '= 3.2.0'
-  gem.add_development_dependency 'rspec-its',       '~> 1.0'
+  gem.add_development_dependency 'rspec',           '~> 3.4'
+  gem.add_development_dependency 'rspec-its',       '~> 1.2'
   gem.add_development_dependency 'rdf-isomorphic',  '>= 2.0.0.beta', '< 3'
   gem.add_development_dependency 'rdf-spec',        '>= 2.0.0.beta', '< 3'
   gem.add_development_dependency 'rdf-turtle',      '>= 2.0.0.beta', '< 3'
-  gem.add_development_dependency 'sparql',          '>= 1.99', '< 3'
+  gem.add_development_dependency 'sparql',          '>= 2.0.0.beta', '< 3'
   gem.add_development_dependency 'webmock',         '~> 1.17'
   gem.add_development_dependency 'yard' ,           '~> 0.8'
 
