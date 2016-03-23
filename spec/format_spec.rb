@@ -60,7 +60,7 @@ describe RDF::Tabular::Format do
     let(:input) {File.expand_path("../data/countries.json", __FILE__)}
     describe "#tabular-json" do
       it "serializes to JSON" do
-        expect {RDF::CLI.exec_command("tabular-json", [input], format: :tabular)}.to write.to(:output)
+        expect {RDF::CLI.exec(["tabular-json", input], format: :tabular)}.to write.to(:output)
       end
     end
   end

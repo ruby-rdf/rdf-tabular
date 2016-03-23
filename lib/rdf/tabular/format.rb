@@ -52,14 +52,19 @@ module RDF::Tabular
     # @return [Hash{Symbol => Lambda(Array, Hash)}]
     def self.cli_commands
       {
-        :"tabular-json" => ->(argv, opts) do
-          raise ArgumentError, "Outputting Tabular JSON only allowed when input format is tabular." unless opts[:format] == :tabular
-          out = opts[:output] || $stdout
-          out.set_encoding(Encoding::UTF_8) if RUBY_PLATFORM == "java"
-          RDF::CLI.parse(argv, opts) do |reader|
-            out.puts reader.to_json
+        :"tabular-json" => {
+          description: "Generate tabular json output, rather than RDF for Tabular data",
+          help: "tabulary-json --input-format tabular files ...",
+          prase: false,
+          lambda: ->(argv, opts) do
+            raise ArgumentError, "Outputting Tabular JSON only allowed when input format is tabular." unless opts[:format] == :tabular
+            out = opts[:output] || $stdout
+            out.set_encoding(Encoding::UTF_8) if RUBY_PLATFORM == "java"
+            RDF::CLI.parse(argv, opts) do |reader|
+              out.puts reader.to_json
+            end
           end
-        end
+        }
       }
     end
   end
