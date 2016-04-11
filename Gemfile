@@ -14,7 +14,7 @@ group :development do
   gem 'rdf-vocab',          github: "ruby-rdf/rdf-vocab",           branch: "develop"
   gem 'sparql',             github: "ruby-rdf/sparql",              branch: "develop"
   gem 'sparql-client',      github: "ruby-rdf/sparql-client",       branch: "develop"
-  gem 'sxp',                github: "gkellogg/sxp-ruby"
+  gem 'sxp',                github: "gkellogg/sxp-ruby",            branch: "develop"
 end
 
 group :debug do
