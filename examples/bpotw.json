@@ -1,0 +1,53 @@
+{
+  "@context": ["http://www.w3.org/ns/csvw", {"@language": "en"}],
+  "url": "bpotw.csv",
+  "dc:title": "CSV distribution of bus-stops-2015-05-05 dataset",
+  "dcat:keyword": ["bus", "stop", "mobility"],
+  "dc:publisher": {
+    "schema:name": "Transport Agency of MyCity",
+    "schema:url": {"@id": "http://example.org"}
+  },
+  "dc:license": {"@id": "http://opendefinition.org/licenses/cc-by/"},
+  "dc:modified": {"@value": "2015-05-05", "@type": "xsd:date"},
+  "tableSchema": {
+    "columns": [{
+      "name": "stop_id",
+      "titles": ["Identifier"],
+      "dc:description": "An identifier for the bus stop.",
+      "datatype": "string",
+      "required": true
+    }, {
+      "name": "stop_name",
+      "titles": ["Name"],
+      "dc:description": "The name of the bus stop.",
+      "datatype": "string"
+    },  {
+      "name": "stop_desc",
+      "titles": ["Description"],
+      "dc:description": "A description for the bus stop.",
+      "datatype": "string"
+   }, {
+      "name": "stop_lat",
+      "titles": ["Latitude"],
+      "dc:description": "The latitude of the bus stop.",
+      "datatype": "number"
+    }, {
+      "name": "stop_long",
+      "titles": ["Longitude"],
+      "dc:description": "The longitude of the bus stop.",
+      "datatype": "number"
+    }, {
+      "name": "zone_id",
+      "titles": ["ZONE"],
+      "dc:description": "An identifier for the zone where the bus stop is located.",
+      "datatype": "string"
+    },
+    {
+      "name": "stop_url",
+      "titles": ["URL"],
+      "dc:description": "URL that identifies the bus stop.",
+      "datatype": "string"
+    }],
+    "primaryKey": "stop_id"
+  }
+}

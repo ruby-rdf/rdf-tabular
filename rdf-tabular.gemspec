@@ -21,7 +21,7 @@ Gem::Specification.new do |gem|
   gem.test_files            = Dir.glob('spec/**')
   gem.has_rdoc              = false
 
-  gem.required_ruby_version = '>= 2.0'
+  gem.required_ruby_version = '>= 2.2.2'
   gem.requirements          = []
   gem.add_runtime_dependency     'bcp47',           '~> 0.3', '>= 0.3.3'
   gem.add_runtime_dependency     'rdf',             '~> 2.0'
