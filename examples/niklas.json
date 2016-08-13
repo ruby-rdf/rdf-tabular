@@ -1,0 +1,11 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "url": "niklas.csv",
+  "tableSchema": {
+    "columns": [{
+      "name": "role",
+      "separator": ",",
+      "valueUrl": "http://id.loc.gov/vocabulary/relators/{/role*}"
+    }]
+  }
+}
