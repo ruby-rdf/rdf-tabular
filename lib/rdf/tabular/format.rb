@@ -24,10 +24,10 @@ module RDF::Tabular
   #
   # @see http://www.w3.org/TR/rdf-testcases/#ntriples
   class Format < RDF::Format
-    content_type     'text/csv',
+    content_type     'text/csv;q=0.4',
                      extensions: [:csv, :tsv],
                      alias: %w{
-                       text/tab-separated-values
+                       text/tab-separated-values;q=0.4
                        application/csvm+json
                      }
     content_encoding 'utf-8'
