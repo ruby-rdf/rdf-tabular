@@ -18,7 +18,7 @@ describe RDF::Tabular::Reader do
           m.entries.each do |t|
             next if t.approval =~ /Rejected/
             specify "#{t.id.split("/").last}: #{t.name} - #{t.comment}" do
-              pending "rdf#test158 should be isomorphic" if t.id.include?("rdf#test158")
+              pending "rdf#test283 literal normalization" if t.id.include?("rdf#test283")
               t.logger = RDF::Spec.logger
               t.logger.formatter = lambda {|severity, datetime, progname, msg| "#{severity}: #{msg}\n"}
               t.logger.info t.inspect
