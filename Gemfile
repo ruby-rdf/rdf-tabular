@@ -5,6 +5,7 @@ gem 'rdf',      github: "ruby-rdf/rdf",       branch: "develop"
 gem 'rdf-xsd',  github: "ruby-rdf/rdf-xsd",   branch: "develop"
 
 group :development do
+  gem 'linkeddata',         github: "ruby-rdf/linkeddata",          branch: "develop"
   gem 'ebnf',               github: "gkellogg/ebnf",                branch: "develop"
   gem 'json-ld',            github: "ruby-rdf/json-ld",             branch: "develop"
   gem 'rdf-aggregate-repo', github: "ruby-rdf/rdf-aggregate-repo",  branch: "develop"
@@ -14,11 +15,10 @@ group :development do
   gem 'rdf-vocab',          github: "ruby-rdf/rdf-vocab",           branch: "develop"
   gem 'sparql',             github: "ruby-rdf/sparql",              branch: "develop"
   gem 'sparql-client',      github: "ruby-rdf/sparql-client",       branch: "develop"
-  gem 'sxp',                github: "gkellogg/sxp-ruby",            branch: "develop"
+  gem 'sxp',                github: "dryruby/sxp.rb",               branch: "develop"
 end
 
 group :debug do
-  gem "wirble"
   gem "byebug",  platforms: :mri
 end
 

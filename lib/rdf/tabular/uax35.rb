@@ -7,50 +7,99 @@ module RDF::Tabular
   module UAX35
 
     ##
-    # Parse the date format (if provided), and match against the value (if provided)
-    # Otherwise, validate format and raise an error
+    # Parse the date pattern (if provided), and match against the value (if provided)
+    # Otherwise, validate pattern and raise an error.
     #
-    # @param [String] format
+    # Supported patterns are:
+    #
+    # * yyyy-MM-dd
+    # * yyyyMMdd
+    # * dd-MM-yyyy
+    # * d-M-yyyy
+    # * d-M-yy
+    # * d-M-y
+    # * MM-dd-yyyy
+    # * M-d-yyyy
+    # * M-d-yy
+    # * M-d-y
+    # * dd/MM/yyyy
+    # * d/M/yyyy
+    # * d/M/yy
+    # * d/M/y
+    # * MM/dd/yyyy
+    # * M/d/yyyy
+    # * M/d/yy
+    # * M/d/y
+    # * dd.MM.yyyy
+    # * d.M.yyyy
+    # * d.M.yy
+    # * d.M.y
+    # * MM.dd.yyyy
+    # * M.d.yyyy
+    # * M.d.yy
+    # * M.d.y
+    # * yyyy-MM-ddTHH:mm
+    # * yyyy-MM-ddTHH:mm:ss
+    # * yyyy-MM-ddTHH:mm:ss.S+
+    #
+    # Year comonents less than four digits are normalized to 1900 or 2000 based on if the value is <= 99 or >= 70, it is considered to be in the 1900 range, otherwise, based on 2000.
+    #
+    # @param [String] pattern
     # @param [String] value
     # @return [String] XMLSchema version of value
-    # @raise [ArgumentError] if format is not valid, or nil, if value does not match
-    def parse_uax35_date(format, value)
-      date_format, time_format = nil, nil
-      return value unless format
-      value ||= ""
+    # @raise [ArgumentError] if pattern is not valid, or nil
+    # @raise [ParseError] if value does not match
+    def parse_uax35_date(pattern, value)
+      date_pattern, time_pattern = nil, nil
+      return value unless pattern
+      orig_value = value ||= ""
+      orig_pattern = pattern
 
       # Extract tz info
-      if md = format.match(/^(.*[dyms])+(\s*[xX]+)$/)
-        format, tz_format = md[1], md[2]
+      if md = pattern.match(/^(.*[dyms])+(\s*[xX]+)$/)
+        pattern, tz_pattern = md[1], md[2]
       end
 
-      date_format, time_format = format.split(' ')
-      date_format, time_format = nil, date_format if self.base.to_sym == :time
+      date_pattern, time_pattern = pattern.split(' ')
+      # Snuff out if this is a Time pattern
+      date_pattern, time_pattern = nil, date_pattern if time_pattern.nil? && !date_pattern.match(/[TyMd]/)
 
       # Extract date, of specified
-      date_part = case date_format
+      date_part = case date_pattern
       when 'yyyy-MM-dd' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})/)
       when 'yyyyMMdd'   then value.match(/^(?<yr>\d{4})(?<mo>\d{2})(?<da>\d{2})/)
       when 'dd-MM-yyyy' then value.match(/^(?<da>\d{2})-(?<mo>\d{2})-(?<yr>\d{4})/)
       when 'd-M-yyyy'   then value.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{4})/)
+      when 'd-M-yy'     then value.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{2})/)
+      when 'd-M-y'      then value.match(/^(?<da>\d{1,2})-(?<mo>\d{1,2})-(?<yr>\d{1,4})/)
       when 'MM-dd-yyyy' then value.match(/^(?<mo>\d{2})-(?<da>\d{2})-(?<yr>\d{4})/)
       when 'M-d-yyyy'   then value.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{4})/)
-      when 'dd/MM/yyyy' then value.match(/^(?<da>\d{2})\/(?<mo>\d{2})\/(?<yr>\d{4})/)
+      when 'M-d-yy'     then value.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{2})/)
+      when 'M-d-y'      then value.match(/^(?<mo>\d{1,2})-(?<da>\d{1,2})-(?<yr>\d{1,4})/)
+      when 'dd/MM/yyyy' then value.match(/^(?<da>\d{2})\/(?<mo>\d{2})\/(?<yr>\d{1,4})/)
       when 'd/M/yyyy'   then value.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{4})/)
-      when 'MM/dd/yyyy' then value.match(/^(?<mo>\d{2})\/(?<da>\d{2})\/(?<yr>\d{4})/)
+      when 'd/M/yy'     then value.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{2})/)
+      when 'd/M/y'      then value.match(/^(?<da>\d{1,2})\/(?<mo>\d{1,2})\/(?<yr>\d{1,4})/)
+      when 'MM/dd/yyyy' then value.match(/^(?<mo>\d{2})\/(?<da>\d{2})\/(?<yr>\d{1,4})/)
       when 'M/d/yyyy'   then value.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{4})/)
+      when 'M/d/yy'     then value.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{2})/)
+      when 'M/d/y'      then value.match(/^(?<mo>\d{1,2})\/(?<da>\d{1,2})\/(?<yr>\d{1,4})/)
       when 'dd.MM.yyyy' then value.match(/^(?<da>\d{2})\.(?<mo>\d{2})\.(?<yr>\d{4})/)
       when 'd.M.yyyy'   then value.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{4})/)
+      when 'd.M.yy'     then value.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{2})/)
+      when 'd.M.y'      then value.match(/^(?<da>\d{1,2})\.(?<mo>\d{1,2})\.(?<yr>\d{1,4})/)
       when 'MM.dd.yyyy' then value.match(/^(?<mo>\d{2})\.(?<da>\d{2})\.(?<yr>\d{4})/)
       when 'M.d.yyyy'   then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{4})/)
+      when 'M.d.yy'     then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{2})/)
+      when 'M.d.y'      then value.match(/^(?<mo>\d{1,2})\.(?<da>\d{1,2})\.(?<yr>\d{1,4})/)
       when 'yyyy-MM-ddTHH:mm' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2})(?<se>(?<ms>))/)
       when 'yyyy-MM-ddTHH:mm:ss' then value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})(?<ms>)/)
       when /yyyy-MM-ddTHH:mm:ss\.S+/
         md = value.match(/^(?<yr>\d{4})-(?<mo>\d{2})-(?<da>\d{2})T(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})\.(?<ms>\d+)/)
-        num_ms = date_format.match(/S+/).to_s.length
+        num_ms = date_pattern.match(/S+/).to_s.length
         md if md && md[:ms].length <= num_ms
       else
-        raise ArgumentError, "unrecognized date/time format #{date_format}" if date_format
+        raise ArgumentError, "unrecognized date/time pattern #{date_pattern}" if date_pattern
         nil
       end
 
@@ -61,25 +110,25 @@ module RDF::Tabular
       end
 
       # Extract time, of specified
-      time_part = case time_format
+      time_part = case time_pattern
       when 'HH:mm:ss' then value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})(?<ms>)/)
       when 'HHmmss'   then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>\d{2})(?<ms>)/)
       when 'HH:mm'    then value.match(/^(?<hr>\d{2}):(?<mi>\d{2})(?<se>)(?<ms>)/)
       when 'HHmm'     then value.match(/^(?<hr>\d{2})(?<mi>\d{2})(?<se>)(?<ms>)/)
       when /HH:mm:ss\.S+/
         md = value.match(/^(?<hr>\d{2}):(?<mi>\d{2}):(?<se>\d{2})\.(?<ms>\d+)/)
-        num_ms = time_format.match(/S+/).to_s.length
+        num_ms = time_pattern.match(/S+/).to_s.length
         md if md && md[:ms].length <= num_ms
       else
-        raise ArgumentError, "unrecognized date/time format #{time_format}" if time_format
+        raise ArgumentError, "unrecognized date/time pattern #{pattern}" if time_pattern
         nil
       end
 
-      # If there's a date_format but no date_part, match fails
-      return nil if date_format && date_part.nil?
+      # If there's a date_pattern but no date_part, match fails
+      raise ParseError, "#{orig_value} does not match pattern #{orig_pattern}" if !orig_value.empty? && date_pattern && date_part.nil?
 
-      # If there's a time_format but no time_part, match fails
-      return nil if time_format && time_part.nil?
+      # If there's a time_pattern but no time_part, match fails
+      raise ParseError, "#{orig_value} does not match pattern #{orig_pattern}" if !orig_value.empty? && time_pattern && time_part.nil?
 
       # Forward past time part
       value = value[time_part.to_s.length..-1] if time_part
@@ -88,8 +137,8 @@ module RDF::Tabular
       time_part = date_part if date_part && date_part.names.include?("hr")
 
       # If there's a timezone, it may optionally start with whitespace
-      value = value.lstrip if tz_format.to_s.start_with?(' ')
-      tz_part = case tz_format.to_s.lstrip
+      value = value.lstrip if tz_pattern.to_s.start_with?(' ')
+      tz_part = case tz_pattern.to_s.lstrip
       when 'x'    then value.match(/^(?:(?<hr>[+-]\d{2})(?<mi>\d{2})?)$/)
       when 'X'    then value.match(/^(?:(?:(?<hr>[+-]\d{2})(?<mi>\d{2})?)|(?<z>Z))$/)
       when 'xx'   then value.match(/^(?:(?<hr>[+-]\d{2})(?<mi>\d{2}))|$/)
@@ -97,15 +146,30 @@ module RDF::Tabular
       when 'xxx'  then value.match(/^(?:(?<hr>[+-]\d{2}):(?<mi>\d{2}))$/)
       when 'XXX'  then value.match(/^(?:(?:(?<hr>[+-]\d{2}):(?<mi>\d{2}))|(?<z>Z))$/)
       else
-        raise ArgumentError, "unrecognized timezone format #{tz_format.to_s.lstrip}" if tz_format
+        raise ArgumentError, "unrecognized timezone pattern #{tz_pattern.to_s.lstrip}" if tz_pattern
         nil
       end
 
-      # If there's a tz_format but no time_part, match fails
-      return nil if tz_format && tz_part.nil?
+      # If there's a tz_pattern but no time_part, match fails
+      raise ParseError, "#{orig_value} does not match pattern #{orig_pattern}" if !orig_value.empty? && tz_pattern && tz_part.nil?
 
       # Compose normalized value
-      vd = ("%04d-%02d-%02d" % [date_part[:yr].to_i, date_part[:mo].to_i, date_part[:da].to_i]) if date_part
+      vd = if date_part
+        yr, mo, da = [date_part[:yr], date_part[:mo], date_part[:da]].map(&:to_i)
+
+        if date_part[:yr].length < 4
+          # Make sure that yr makes sense, if given
+          yr = case yr
+          when 0..69    then yr + 2000
+          when 100..999 then yr + 2000
+          when 70..99   then yr + 1900
+          else               yr
+          end
+        end
+
+        ("%04d-%02d-%02d" % [yr, mo, da])
+      end
+
       vt = ("%02d:%02d:%02d" % [time_part[:hr].to_i, time_part[:mi].to_i, time_part[:se].to_i]) if time_part
 
       # Add milliseconds, if matched
@@ -117,37 +181,74 @@ module RDF::Tabular
     end
 
     ##
-    # Parse the date format (if provided), and match against the value (if provided)
-    # Otherwise, validate format and raise an error
+    # Parse the date pattern (if provided), and match against the value (if provided)
+    # Otherwise, validate pattern and raise an error
     #
     # @param [String] pattern
     # @param [String] value
     # @param [String] groupChar
     # @param [String] decimalChar
     # @return [String] XMLSchema version of value or nil, if value does not match
-    # @raise [ArgumentError] if format is not valid
+    # @raise [ArgumentError] if pattern is not valid
     def parse_uax35_number(pattern, value, groupChar=",", decimalChar=".")
       value ||= ""
 
       re = build_number_re(pattern, groupChar, decimalChar)
 
+      raise ParseError, "#{value} has repeating #{groupChar.inspect}" if groupChar.length == 1 && value.include?(groupChar*2)
+
       # Upcase value and remove internal spaces
       value = value.upcase
 
       if value =~ re
-
         # Upcase value and remove internal spaces
         value = value.
-          upcase.
           gsub(/\s+/, '').
           gsub(groupChar, '').
           gsub(decimalChar, '.')
 
         # result re-assembles parts removed from value
         value
-      else
+      elsif !value.empty?
         # no match
-        nil
+        raise ParseError, "#{value.inspect} does not match #{pattern.inspect}"
+      end
+
+      # Extract percent or per-mille sign
+      case value
+      when /%/
+        value = value.sub('%', '')
+        lhs, rhs = value.split('.')
+
+        # Shift decimal
+        value = case lhs.length
+        when 0 then "0.00#{rhs}".sub('E', 'e')
+        when 1 then "0.0#{lhs}#{rhs}".sub('E', 'e')
+        when 2 then "0.#{lhs}#{rhs}".sub('E', 'e')
+        else
+          ll, lr = lhs[0..lhs.length-3], lhs[-2..-1]
+          ll = ll + "0" unless ll =~ /\d+/
+          "#{ll}.#{lr}#{rhs}".sub('E', 'e')
+        end
+      when /‰/
+        value = value.sub('‰', '')
+        lhs, rhs = value.split('.')
+
+        # Shift decimal
+        value = case lhs.length
+        when 0 then "0.000#{rhs}".sub('E', 'e')
+        when 1 then "0.00#{lhs}#{rhs}".sub('E', 'e')
+        when 2 then "0.0#{lhs}#{rhs}".sub('E', 'e')
+        when 3 then "0.#{lhs}#{rhs}".sub('E', 'e')
+        else
+          ll, lr = lhs[0..lhs.length-4], lhs[-3..-1]
+          ll = ll + "0" unless ll =~ /\d+/
+          "#{ll}.#{lr}#{rhs}".sub('E', 'e')
+        end
+      when /NAN/ then value.sub('NAN', 'NaN')
+      when /E/ then value.sub('E', 'e')
+      else
+        value
       end
     end
 
@@ -157,9 +258,10 @@ module RDF::Tabular
     # @param [String] groupChar
     # @param [String] decimalChar
     # @return [Regexp] Regular expression matching value
-    # @raise [ArgumentError] if format is not valid
+    # @raise [ArgumentError] if pattern is not valid
     def build_number_re(pattern, groupChar, decimalChar)
       # pattern must be composed of only 0, #, decimalChar, groupChar, E, %, and ‰
+
       ge = Regexp.escape groupChar
       de = Regexp.escape decimalChar
 
@@ -320,5 +422,8 @@ module RDF::Tabular
 
       Regexp.new("^(?<prefix>#{prefix})(?<numeric_part>#{integer_str}#{fractional_str}#{exponent_str})(?<suffix>#{suffix})$")
     end
+
+    # ParseError is raised when a value does not match the pattern
+    class ParseError < RuntimeError; end
   end
 end

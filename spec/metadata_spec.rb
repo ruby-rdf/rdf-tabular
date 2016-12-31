@@ -1136,7 +1136,7 @@ describe RDF::Tabular::Metadata do
           format: {"groupChar" => ";"},
           value: "123;;456.789",
           result: "123;;456.789",
-          errors: [/has repeating/]
+          errors: [/does not match numeric pattern/]
         },
         "decimal with explicit decimalChar" => {
           base: "decimal",
@@ -1184,19 +1184,19 @@ describe RDF::Tabular::Metadata do
         "invalid nonPositiveInteger" => {base: "nonPositiveInteger", value: "1", errors: ["1 is not a valid nonPositiveInteger"]},
         "valid nonNegativeInteger" => {base: "nonNegativeInteger", value: "0"},
         "invalid nonNegativeInteger" => {base: "nonNegativeInteger", value: "-1", errors: ["-1 is not a valid nonNegativeInteger"]},
-        "valid double" => {base: "double", value: "1234.456E789"},
+        "valid double" => {base: "double", value: "1234.456e789"},
         "invalid double" => {base: "double", value: "1z", errors: ["1z is not a valid double"]},
-        "NaN double" => {base: "double", value: "NaN"},
+        "NaN double" => {base: "double", value: "NaN", result: "NaN"},
         "INF double" => {base: "double", value: "INF"},
         "-INF double" => {base: "double", value: "-INF"},
-        "valid number" => {base: "number", value: "1234.456E789"},
+        "valid number" => {base: "number", value: "1234.456e789"},
         "invalid number" => {base: "number", value: "1z", errors: ["1z is not a valid number"]},
-        "NaN number" => {base: "number", value: "NaN"},
+        "NaN number" => {base: "number", value: "NaN", result: "NaN"},
         "INF number" => {base: "number", value: "INF"},
         "-INF number" => {base: "number", value: "-INF"},
-        "valid float" => {base: "float", value: "1234.456E7"},
+        "valid float" => {base: "float", value: "1234.456e7"},
         "invalid float" => {base: "float", value: "1z", errors: ["1z is not a valid float"]},
-        "NaN float" => {base: "float", value: "NaN"},
+        "NaN float" => {base: "float", value: "NaN", result: "NaN"},
         "INF float" => {base: "float", value: "INF"},
         "-INF float" => {base: "float", value: "-INF"},
 
@@ -1327,7 +1327,7 @@ describe RDF::Tabular::Metadata do
         "valid NMTOKEN" => {base: "NMTOKEN", value: "someThing", result: RDF::Literal("someThing", datatype: RDF::XSD.NMTOKEN)},
 
         # Aliases
-        "number is alias for double" => {base: "number", value: "1234.456E789", result: RDF::Literal("1234.456E789", datatype: RDF::XSD.double)},
+        "number is alias for double" => {base: "number", value: "1234.456e789", result: RDF::Literal("1234.456e789", datatype: RDF::XSD.double)},
         "binary is alias for base64Binary" => {base: "binary", value: "Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", result: RDF::Literal("Tm93IGlzIHRoZSB0aW1lIGZvciBhbGwgZ29vZCBjb2RlcnMKdG8gbGVhcm4g", datatype: RDF::XSD.base64Binary)},
         "datetime is alias for dateTime" => {base: "dateTime", value: "15-3-2015 1502",  format: "d-M-yyyy HHmm", result: RDF::Literal("2015-03-15T15:02:00", datatype: RDF::XSD.dateTime)},
         "any is alias for anyAtomicType" => {base: "any", value: "some thing", result: RDF::Literal("some thing", datatype: RDF::XSD.anyAtomicType)},

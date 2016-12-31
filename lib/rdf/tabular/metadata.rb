@@ -2171,33 +2171,13 @@ module RDF::Tabular
         decimalChar = format["decimalChar"] || '.'
         pattern = format["pattern"]
 
-        if !datatype.parse_uax35_number(pattern, value, groupChar || ",", decimalChar)
+        begin
+          value = datatype.parse_uax35_number(pattern, value, groupChar || ",", decimalChar)
+        rescue UAX35::ParseError
           value_errors << "#{value} does not match numeric pattern #{pattern ? pattern.inspect : 'default'}"
         end
 
-        # pattern facet failed
-        value_errors << "#{value} has repeating #{groupChar.inspect}" if groupChar && value.include?(groupChar*2)
-        value = value.gsub(groupChar || ',', '')
-        value = value.sub(decimalChar, '.')
-
-        # Extract percent or per-mille sign
-        percent = permille = false
-        case value
-        when /%/
-          value = value.sub('%', '')
-          percent = true
-        when /‰/
-          value = value.sub('‰', '')
-          permille = true
-        end
-
         lit = RDF::Literal(value, datatype: expanded_dt)
-        if percent || permille
-          o = lit.object
-          o = o / 100 if percent
-          o = o / 1000 if permille
-          lit = RDF::Literal(o, datatype: expanded_dt)
-        end
 
         if !lit.plain? && datatype.minimum && lit < datatype.minimum
           value_errors << "#{value} < minimum #{datatype.minimum}"
@@ -2238,10 +2218,11 @@ module RDF::Tabular
           end
         end
       when :date, :time, :dateTime, :dateTimeStamp, :datetime
-        if value = datatype.parse_uax35_date(format, value)
+        begin
+          value = datatype.parse_uax35_date(format, value)
           lit = RDF::Literal(value, datatype: expanded_dt)
-        else
-          value_errors << "#{original_value} does not match format #{format}"
+        rescue UAX35::ParseError
+          value_errors << "#{value} does not match format #{format}"
         end
       when :duration, :dayTimeDuration, :yearMonthDuration
         # SPEC CONFUSION: surely format also includes that for other duration types?
