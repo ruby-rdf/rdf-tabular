@@ -54,13 +54,14 @@ describe RDF::Tabular::Format do
           end
         })
     end
-    after(:each) {|example| puts logger.to_s if example.exception}
 
     require 'rdf/cli'
-    let(:input) {File.expand_path("../data/countries.json", __FILE__)}
+    let(:input) {"http://example.org/data/countries.json"}
     describe "#tabular-json" do
       it "serializes to JSON" do
-        expect {RDF::CLI.exec(["tabular-json", input], format: :tabular)}.to write.to(:output)
+        expect {
+          RDF::CLI.exec(["tabular-json", input], format: :tabular)
+      }.to write.to(:output)
       end
     end
   end

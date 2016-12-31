@@ -36,7 +36,7 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'rdf-spec',        '~> 2.0'
   gem.add_development_dependency 'rdf-turtle',      '~> 2.0'
   gem.add_development_dependency 'sparql',          '~> 2.0'
-  gem.add_development_dependency 'webmock',         '~> 1.17'
+  gem.add_development_dependency 'webmock',         '~> 2.3'
   gem.add_development_dependency 'yard' ,           '~> 0.8'
 
   gem.post_install_message  = nil
