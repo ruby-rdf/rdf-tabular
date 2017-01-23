@@ -31,7 +31,7 @@ describe RDF::Tabular::Format do
     specify {expect(described_class.to_sym).to eq :tabular}
   end
 
-  describe ".cli_commands" do
+  describe ".cli_commands", skip: ("TextMate OptionParser issues" if ENV['TM_SELECTED_FILE']) do
     before(:each) do
       WebMock.stub_request(:any, %r(.*example.org.*)).
         to_return(lambda {|request|
