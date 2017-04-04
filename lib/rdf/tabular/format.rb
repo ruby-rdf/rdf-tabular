@@ -54,7 +54,7 @@ module RDF::Tabular
       {
         :"tabular-json" => {
           description: "Generate tabular json output, rather than RDF for Tabular data",
-          help: "tabulary-json --input-format tabular files ...",
+          help: "tabular-json --input-format tabular files ...",
           prase: false,
           lambda: ->(argv, opts) do
             raise ArgumentError, "Outputting Tabular JSON only allowed when input format is tabular." unless opts[:format] == :tabular

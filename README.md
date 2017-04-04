@@ -232,6 +232,23 @@ It can also generate JSON output (not complete JSON-LD, but compatible with it),
 * [CSV on the Web](http://greggkellogg.net/CSV-on-the-Web)
 * [Implementing CSV on the Web](http://greggkellogg.net/2015/04/implementing-csv-on-the-web/)
 
+## Command Line
+When the `linkeddata` gem is installed, RDF.rb includes a `rdf` executable which acts as a wrapper to perform a number of different
+operations on RDF files using available readers and writers, including RDF::Tabular. The commands specific to RDF::Tabular is 
+
+* `tabular-json`: Parse the CSV file and emit data as Tabular JSON
+
+To use RDF::Tabular specific features, you must use the `--input-format tabular` option to the `rdf` executable.
+
+Other `rdf` commands and options treat CSV as a standard RDF format.
+
+Example usage:
+
+    rdf serialize https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv \
+      --output-format ttl
+    rdf tabular-json --input-format tabular https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv
+    rdf validate https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv
+
 ## RDF Reader
 RDF::Tabular also acts as a normal RDF reader, using the standard RDF.rb Reader interface:
 
