@@ -1,0 +1,174 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "url": "archive.csv",
+  "dc:title": "Archival Data for the John P. Johnson Collection",
+  "dc:creator": "The Philadelphia Museum of Art",
+  "tableSchema": {
+    "primaryKey": "object_number",
+    "aboutUrl": "http://data.philamuseum.org/archive/{object_number}",
+    "columns": [
+      {
+        "titles": "Object Number",
+        "name": "object_number",
+        "required": true,
+        "datatype": {
+          "base": "string",
+          "format": "^[A-Za-z0-9_\\-]+$"
+        }
+      },
+      {
+        "titles": "file name(s)",
+        "name": "filename",
+        "separator": "\n",
+        "ordered": true,
+        "datatype": "string"
+      },
+      {
+        "titles": "Box number",
+        "required": true,
+        "datatype": {
+          "base": "string",
+          "format": "^Box [0-9]+$"
+        }
+      },
+      {
+        "titles": "Folder number",
+        "required": true,
+        "datatype": {
+          "base": "string",
+          "format": "^Folder [0-9]+$"
+        }
+      },
+      {
+        "titles": "Extent",
+        "required": true,
+        "datatype": "string"
+      },
+
+      {
+        "titles": "Title of resource",
+        "required": true,
+        "datatype": "string"
+      },
+      {
+        "titles": "Accession number",
+        "datatype": {
+          "base": "string",
+          "format": "^[Cc]at\\. [0-9]+$"
+        }
+      },
+      {
+        "titles": "TMS Object ID",
+        "datatype": "number"
+      },
+      {
+        "titles": "Creator/photographer/artist",
+        "datatype": "string"
+      },
+      {
+        "titles": "LCNAF URI",
+        "name": "lcnaf_uri",
+        "valueUrl": "{+lcnaf_uri}"
+      },
+      {
+        "titles": "TMS Constituent ID",
+        "datatype": "number"
+      },
+      {
+        "titles": "Role (Relator)",
+        "datatype": "string",
+        "skos:editorialNote": "this might be pulling from a lookup list we could use?"
+      },
+      {
+        "titles": "Relator Code",
+        "datatype": {
+          "base": "string",
+          "format": "^[a-z]{3}$"
+        },
+        "skos:editorialNote": "confirm that this is always a three-letter code?"
+      },
+      {
+        "titles": "Type of Resource",
+        "datatype": "string",
+        "skos:editorialNote": "is this pulling from a vocabulary?"
+      },
+      {
+        "titles": "Date YYYY-MM-DD",
+        "datatype": "string",
+        "skos:editorialNote": "This is NOT YYY-MM-DD format."
+
+      },
+      {
+        "titles": "Location",
+        "datatype": "string"
+      },
+      {
+        "titles": "TGN ID",
+        "name": "tgn_id",
+        "datatype": "number",
+        "valueUrl": "http://vocab.getty.edu/tgn/{tgn_id}"
+      },
+      {
+        "titles": "Language",
+        "datatype": "string"
+      },
+      {
+        "titles": "ISO 639-2 code",
+        "name": "language_code",
+        "datatype": {
+          "base": "string",
+          "format": "^[a-z]{3}$"
+        },
+        "valueUrl": "http://www.lexvo.org/page/iso639-3/{language_code}",
+        "propertyUrl": "dc:language"
+      },
+      {
+        "titles": "Format",
+        "datatype": "string"
+      },
+      {
+        "titles": "AAT ID",
+        "name":"aat_id",
+        "datatype": "number",
+        "valueUrl": "http://vocab.getty.edu/aat/{aat_id}"
+      },
+      {
+        "titles": "Description/Misc.",
+        "datatype": "string"
+      },
+      {
+        "titles": "Rights information",
+        "datatype": "string"
+      },
+      {
+        "titles": "Digital Origin",
+        "datatype": "string"
+      },
+      {
+        "titles": "Internet Media type",
+        "datatype": {
+          "base": "string",
+          "dc:title": "Mime Type",
+          "format": "^(?=[-a-z]{1,127}/[-\\.a-z0-9]{1,127}$)[a-z]+(-[a-z]+)*/[a-z0-9]+([-\\.][a-z0-9]+)*$"
+        }
+      },
+      {
+        "titles": "Collection",
+        "datatype": "string"
+      },
+      {
+        "titles": "Finding Aid",
+        "datatype": "anyURI"
+      },
+      {
+        "titles": "Physical Location",
+        "datatype": "string"
+      },
+      {
+        "virtual": true,
+        "propertyUrl": "rdf:type",
+        "valueUrl": "dc:PhysicalMedium"
+      }
+    ]
+  }
+}

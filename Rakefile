@@ -42,20 +42,20 @@ end
 desc "Create CSVW vocabulary definition"
 task :vocab do
   puts "Generate lib/rdf/tabular/csvw.rb"
-  require 'linkeddata'
-  require 'rdf/cli/vocab-loader'
+  cmd = "bundle exec rdf"
+  cmd += " serialize --uri 'http://www.w3.org/ns/csvw#' --output-format vocabulary"
+  cmd += " --module-name RDF::Tabular"
+  cmd += " --class-name CSVW"
+  cmd += " --strict"
+  cmd += " -o lib/rdf/tabular/csvw.rb_t"
+  cmd += " etc/csvw.jsonld"
+  
   begin
-    File.open("lib/rdf/tabular/csvw.rb", "w") do |out|
-      loader = RDF::VocabularyLoader.new("CSVW")
-      loader.uri = "http://www.w3.org/ns/csvw#"
-      loader.source = "etc/csvw.jsonld"
-      loader.module_name = "RDF::Tabular"
-      loader.strict = true
-      loader.output = out
-      loader.run
-    end
+    %x{#{cmd} && mv lib/rdf/tabular/csvw.rb_t lib/rdf/tabular/csvw.rb}
   rescue
     puts "Failed to load CSVW: #{$!.message}"
+  ensure
+    %x{rm -f lib/rdf/tabular/csvw.rb_t}
   end
 end
 
