@@ -229,7 +229,7 @@ It can also generate JSON output (not complete JSON-LD, but compatible with it),
 
 ## Tutorials
 
-* [CSV on the Web](http://greggkellogg.net/CSV-on-the-Web)
+* [CSV on the Web](http://www.greggkellogg.net/2015/08/csv-on-the-web-presentation/)
 * [Implementing CSV on the Web](http://greggkellogg.net/2015/04/implementing-csv-on-the-web/)
 
 ## Command Line
