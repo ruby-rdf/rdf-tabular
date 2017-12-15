@@ -52,10 +52,12 @@ module RDF::Tabular
     # @return [Hash{Symbol => Lambda(Array, Hash)}]
     def self.cli_commands
       {
-        :"tabular-json" => {
-          description: "Generate tabular json output, rather than RDF for Tabular data",
-          help: "tabulary-json --input-format tabular files ...",
-          prase: false,
+        "tabular-json": {
+          description: "Serialize using tabular JSON",
+          parse: false,
+          filter: {format: :tabular},  # Only shows output format set
+          option_use: {output_format: :disabled},
+          help: "tabular-json --input-format tabular files ...\nGenerate tabular JSON output, rather than RDF for Tabular data",
           lambda: ->(argv, opts) do
             raise ArgumentError, "Outputting Tabular JSON only allowed when input format is tabular." unless opts[:format] == :tabular
             out = opts[:output] || $stdout

@@ -28,16 +28,19 @@ module RDF::Tabular
         RDF::CLI::Option.new(
           symbol: :metadata,
           datatype: RDF::URI,
+          control: :url2,
           on: ["--metadata URI"],
           description: "user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location.") {|arg| RDF::URI(arg)},
         RDF::CLI::Option.new(
           symbol: :minimal,
+          control: :checkbox,
           datatype: TrueClass,
           on: ["--minimal"],
           description: "Includes only the information gleaned from the cells of the tabular data.") {true},
         RDF::CLI::Option.new(
           symbol: :noProv,
           datatype: TrueClass,
+          control: :checkbox,
           on: ["--no-prov"],
           description: "do not output optional provenance information.") {true},
       ]
