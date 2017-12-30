@@ -6,7 +6,7 @@ gem 'rdf-xsd',  github: "ruby-rdf/rdf-xsd",   branch: "develop"
 
 group :development do
   gem 'linkeddata',         github: "ruby-rdf/linkeddata",          branch: "develop"
-  gem 'ebnf',               github: "gkellogg/ebnf",                branch: "develop"
+  gem 'ebnf',               github: "dryruby/ebnf",                 branch: "develop"
   gem 'json-ld',            github: "ruby-rdf/json-ld",             branch: "develop"
   gem 'rdf-aggregate-repo', github: "ruby-rdf/rdf-aggregate-repo",  branch: "develop"
   gem 'rdf-isomorphic',     github: "ruby-rdf/rdf-isomorphic",      branch: "develop"

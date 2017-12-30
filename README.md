@@ -266,8 +266,8 @@ Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-tabular/f
 
 ## Dependencies
 * [Ruby](http://ruby-lang.org/) (>= 2.2.2)
-* [RDF.rb](http://rubygems.org/gems/rdf) (>= 2.0)
-* [JSON](https://rubygems.org/gems/json) (>= 1.5)
+* [RDF.rb](http://rubygems.org/gems/rdf) (~> 3.0)
+* [JSON](https://rubygems.org/gems/json) (>= 2.0)
 
 ## Installation
 The recommended installation method is via [RubyGems](http://rubygems.org/).
