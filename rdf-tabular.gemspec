@@ -30,7 +30,7 @@ Gem::Specification.new do |gem|
   #gem.add_runtime_dependency     'json-ld',         '~> 3.0'
   gem.add_runtime_dependency     'json-ld',         '>= 2.1', '< 4.0'
   gem.add_runtime_dependency     'addressable',     '~> 2.3'
-  gem.add_development_dependency 'nokogiri',        '~> 1.6'
+  gem.add_development_dependency 'nokogiri',        '~> 1.8'
   gem.add_development_dependency 'rspec',           '~> 3.7'
   gem.add_development_dependency 'rspec-its',       '~> 1.2'
   gem.add_development_dependency 'rdf-isomorphic',  '~> 3.0'
