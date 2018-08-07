@@ -19,7 +19,6 @@ Gem::Specification.new do |gem|
   gem.require_paths         = %w(lib)
   gem.extensions            = %w()
   gem.test_files            = Dir.glob('spec/*.rb') + Dir.glob('spec/data/**')
-  gem.has_rdoc              = false
 
   gem.required_ruby_version = '>= 2.2.2'
   gem.requirements          = []
@@ -36,8 +35,7 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'rdf-isomorphic',  '~> 3.0'
   gem.add_development_dependency 'rdf-spec',        '~> 3.0'
   gem.add_development_dependency 'rdf-turtle',      '~> 3.0'
-  #gem.add_development_dependency 'sparql',          '~> 3.0'
-  gem.add_development_dependency 'sparql',          '>= 2.2', '< 4.0'
+  gem.add_development_dependency 'sparql',          '~> 3.0'
   gem.add_development_dependency 'webmock',         '~> 3.0'
   gem.add_development_dependency 'yard' ,           '~> 0.9.12'
 
