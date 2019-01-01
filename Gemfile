@@ -23,14 +23,7 @@ group :debug do
 end
 
 group :development, :test do
-  # Until version >= 3.4.2 with support for Ruby 2.6
-  gem "webmock",        git: "https://github.com/bblimke/webmock"
   gem 'simplecov',  require: false
   gem 'coveralls',  require: false
   gem 'psych',      platforms: [:mri, :rbx]
-end
-
-platforms :rbx do
-  gem 'rubysl', '~> 2.0'
-  gem 'rubinius', '~> 2.0'
 end
