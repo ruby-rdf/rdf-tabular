@@ -564,7 +564,7 @@ module RDF::Tabular
     end
 
     ##
-    # Validate metadata, raising an error containing all errors detected during validation
+    # Validate metadata and content, raising an error containing all errors detected during validation
     # @raise [Error] Raise error if metadata has any unexpected properties
     # @return [self]
     def validate
@@ -1042,7 +1042,7 @@ module RDF::Tabular
           if !ca.object.has_key?(:name) && !cb.object.has_key?(:name) && ta.empty? && tb.empty?
             true
           elsif ca.object.has_key?(:name) && cb.object.has_key?(:name)
-            raise Error, "Columns don't match on name: #{ca.name}, #{cb.name}" unless ca.name == cb.name
+            raise Error, "Column #{index + 1} doesn't match on name: #{ca.name || 'no name'}, #{cb.name || 'no name'}" unless ca.name == cb.name
           elsif @options[:validate] || !ta.empty? && !tb.empty?
             # If validating, column compatibility requires strict match between titles
             titles_match = case
@@ -1066,10 +1066,10 @@ module RDF::Tabular
               true
             elsif !@options[:validate]
               # If not validating, columns don't match, but processing continues
-              log_warn "Columns don't match on titles: #{ca.titles.inspect} vs #{cb.titles.inspect}"
+              log_warn "Column #{index + 1} doesn't match on titles: #{Array(ta['und']).join(',').inspect} vs #{Array(tb['und']).join(',').inspect}"
               true
             else
-              raise Error, "Columns don't match on titles: #{ca.titles.inspect} vs #{cb.titles.inspect}"
+              raise Error, "Column #{index + 1} doesn't match on titles: #{Array(ta['und']).join(',').inspect} vs #{Array(tb['und']).join(',').inspect}"
             end
           end
           index += 1

@@ -1,0 +1,39 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "tables": [
+      {
+          "url": "all_contents.csv",
+          "tableSchema": {
+              "aboutUrl": "{_row}",
+              "primaryKey": [
+                  "MS_ID",
+                  "item"
+              ],
+              "columns": [
+                {"name": "MS_ID", "titles": "MS_ID"},
+                {"name": "item", "titles": "item"}
+              ],
+              "foreignKeys": [
+                  {
+                      "columnReference": "MS_ID",
+                      "reference": {
+                          "resource": "all_manuscripts.csv",
+                          "columnReference": "MS_ID"
+                      }
+                  }
+              ]
+          }
+      },
+      {
+          "url": "all_manuscripts.csv",
+          "tableSchema": {
+              "aboutUrl": "{_row}",
+              "primaryKey": "MS_ID",
+              "columns": [
+                {"name": "MS_ID", "titles": "MS_ID"},
+                {"name": "man", "titles": "man"}
+              ]
+          }
+      }
+  ]
+}
