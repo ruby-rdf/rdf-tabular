@@ -1826,7 +1826,7 @@ module RDF::Tabular
           row.xpath('th').map(&:content).each_with_index do |value, index|
             # Skip columns
             skipCols = skipColumns.to_i
-            next if index < skipCols
+            next if index < skipCols || value.to_s.empty?
 
             # Trim value
             value.lstrip! if %w(true start).include?(trim.to_s)
@@ -1837,7 +1837,7 @@ module RDF::Tabular
             column = columns[index - skipCols] ||= {
               "titles" => {lang => []},
             }
-            column["titles"][lang] << value
+            column["titles"][lang] << value if value
           end
         end
       else
@@ -1858,7 +1858,7 @@ module RDF::Tabular
           Array(row_data).each_with_index do |value, index|
             # Skip columns
             skipCols = skipColumns.to_i
-            next if index < skipCols
+            next if index < skipCols || value.to_s.empty?
 
             # Trim value
             value.lstrip! if %w(true start).include?(trim.to_s)
