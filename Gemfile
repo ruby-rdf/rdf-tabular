@@ -5,8 +5,8 @@ gem 'rdf',      github: "ruby-rdf/rdf",       branch: "develop"
 gem 'rdf-xsd',  github: "ruby-rdf/rdf-xsd",   branch: "develop"
 
 group :development do
-  #gem 'linkeddata',         github: "ruby-rdf/linkeddata",          branch: "develop"
-  gem 'ebnf',               github: "gkellogg/ebnf",                branch: "develop"
+  gem 'linkeddata',         github: "ruby-rdf/linkeddata",          branch: "develop"
+  gem 'ebnf',               github: "dryruby/ebnf",                 branch: "develop"
   gem 'json-ld',            github: "ruby-rdf/json-ld",             branch: "develop"
   gem 'rdf-aggregate-repo', github: "ruby-rdf/rdf-aggregate-repo",  branch: "develop"
   gem 'rdf-isomorphic',     github: "ruby-rdf/rdf-isomorphic",      branch: "develop"
@@ -26,9 +26,4 @@ group :development, :test do
   gem 'simplecov',  require: false
   gem 'coveralls',  require: false
   gem 'psych',      platforms: [:mri, :rbx]
-end
-
-platforms :rbx do
-  gem 'rubysl', '~> 2.0'
-  gem 'rubinius', '~> 2.0'
 end

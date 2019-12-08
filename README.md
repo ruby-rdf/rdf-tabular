@@ -247,7 +247,9 @@ Example usage:
     rdf serialize https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv \
       --output-format ttl
     rdf tabular-json --input-format tabular https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv
-    rdf validate https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv
+    rdf validate https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv --validate
+
+Note that the `--validate` option must be used with the `validate` (or other) command to detect parse-time errors in addition to validating any resulting RDF triples.
 
 ## RDF Reader
 RDF::Tabular also acts as a normal RDF reader, using the standard RDF.rb Reader interface:
@@ -266,8 +268,8 @@ Full documentation available on [RubyDoc](http://rubydoc.info/gems/rdf-tabular/f
 
 ## Dependencies
 * [Ruby](http://ruby-lang.org/) (>= 2.2.2)
-* [RDF.rb](http://rubygems.org/gems/rdf) (>= 2.0)
-* [JSON](https://rubygems.org/gems/json) (>= 1.5)
+* [RDF.rb](http://rubygems.org/gems/rdf) (~> 3.0)
+* [JSON](https://rubygems.org/gems/json) (>= 2.0)
 
 ## Installation
 The recommended installation method is via [RubyGems](http://rubygems.org/).
