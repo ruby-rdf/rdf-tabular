@@ -33,7 +33,7 @@ def earl_preamble(options)
 )
 end
 
-def run_tc(t, options)
+def run_tc(t, **options)
   STDERR.write "run #{t.id}"
 
   if options[:verbose]
@@ -202,7 +202,7 @@ result_count = {}
   Fixtures::SuiteTest::Manifest.open(manifest, manifest[0..-8]) do |m|
     m.entries.each do |t|
       next unless ARGV.empty? || ARGV.any? {|n| t.id.match(/#{n}/)}
-      run_tc(t, options.merge(manifest: manifest, result_count: result_count))
+      run_tc(t, **options.merge(manifest: manifest, result_count: result_count))
     end
   end
 end

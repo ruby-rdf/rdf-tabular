@@ -25,11 +25,10 @@ describe RDF::Tabular::Reader do
               t.logger.info "source:\n#{t.input}"
               begin
                 RDF::Tabular::Reader.open(t.action,
-                  t.reader_options.merge(
-                    base_uri: t.base,
-                    validate: t.validation?,
-                    logger:   t.logger,
-                  )
+                  base_uri: t.base,
+                  validate: t.validation?,
+                  logger:   t.logger,
+                  **t.reader_options
                 ) do |reader|
                   expect(reader).to be_a RDF::Reader
 

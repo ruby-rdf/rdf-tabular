@@ -23,7 +23,7 @@ module RDF::Util
     #   HTTP Request headers.
     # @return [IO] File stream
     # @yield [IO] File stream
-    def self.open_file(filename_or_url, options = {}, &block)
+    def self.open_file(filename_or_url, **options, &block)
       case
       when filename_or_url.to_s =~ /^file:/
         path = filename_or_url.to_s[5..-1]
@@ -73,7 +73,7 @@ module RDF::Util
           end
         end
       else
-        original_open_file(filename_or_url, options) do |remote_document|
+        original_open_file(filename_or_url, **options) do |remote_document|
           # Add Link header, if necessary
           remote_document.headers[:link] = options[:httpLink] if options[:httpLink]
 

@@ -136,15 +136,15 @@ module RDF::Tabular
     #   see `RDF::Util::File.open_file` in RDF.rb and {new}
     # @yield [Metadata]
     # @raise [IOError] if file not found
-    def self.open(path, options = {})
+    def self.open(path, **options)
       options = options.merge(
         headers: {
           'Accept' => 'application/ld+json, application/json'
         }
       )
       path = "file:" + path unless path =~ /^\w+:/
-      RDF::Util::File.open_file(path, options) do |file|
-        self.new(file, options.merge(base: path, filenames: path))
+      RDF::Util::File.open_file(path, **options) do |file|
+        self.new(file, **options.merge(base: path, filenames: path))
       end
     end
 
@@ -173,16 +173,16 @@ module RDF::Tabular
     # @option options [RDF::URI] :base
     #   The Base URL to use when expanding the document. This overrides the value of `input` if it is a URL. If not specified and `input` is not an URL, the base URL defaults to the current document URL if in a browser context, or the empty string if there is no document context.
     # @return [Metadata]
-    def self.for_input(input, options = {})
+    def self.for_input(input, **options)
       base = options[:base]
 
       # Use user metadata, if provided
       metadata = case options[:metadata]
       when Metadata then options[:metadata]
       when Hash
-        Metadata.new(options[:metadata], options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
+        Metadata.new(options[:metadata], **options.merge(reason: "load user metadata: #{options[:metadata].inspect}"))
       when String, RDF::URI
-        Metadata.open(options[:metadata], options.merge(filenames: options[:metadata], reason: "load user metadata: #{options[:metadata].inspect}"))
+        Metadata.open(options[:metadata], **options.merge(filenames: options[:metadata], reason: "load user metadata: #{options[:metadata].inspect}"))
       end
 
       # Search for metadata until found
@@ -191,13 +191,13 @@ module RDF::Tabular
       if !metadata && input.respond_to?(:links) && 
         link = input.links.find_link(%w(rel describedby))
         link_loc = RDF::URI(base).join(link.href).to_s
-        md = Metadata.open(link_loc, options.merge(filenames: link_loc, reason: "load linked metadata: #{link_loc}"))
+        md = Metadata.open(link_loc, **options.merge(filenames: link_loc, reason: "load linked metadata: #{link_loc}"))
         if md
           # Metadata must describe file to be useful
           if md.describes_file?(base)
             metadata = md
           else
-            log_warn("Found metadata at #{link_loc}, which does not describe #{base}, ignoring", options)
+            log_warn("Found metadata at #{link_loc}, which does not describe #{base}, ignoring", **options)
           end
         end
       end
@@ -206,28 +206,28 @@ module RDF::Tabular
       # If we still don't have metadata, load the site-wide configuration file and use templates found there as locations
       if !metadata && base
         templates = site_wide_config(base)
-        log_debug("for_input", options) {"templates: #{templates.map(&:to_s).inspect}"}
+        log_debug("for_input", **options) {"templates: #{templates.map(&:to_s).inspect}"}
         locs = templates.map do |template|
           t = Addressable::Template.new(template)
           RDF::URI(base).join(t.expand(url: base).to_s)
         end
-        log_debug("for_input", options) {"locs: #{locs.map(&:to_s).inspect}"}
+        log_debug("for_input", **options) {"locs: #{locs.map(&:to_s).inspect}"}
 
         locs.each do |loc|
           metadata ||= begin
-            md = Metadata.open(loc, options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
+            md = Metadata.open(loc, **options.merge(filenames: loc, reason: "load found metadata: #{loc}"))
             # Metadata must describe file to be useful
             if md
               # Metadata must describe file to be useful
               if md.describes_file?(base)
                 md
               else
-                log_warn("Found metadata at #{loc}, which does not describe #{base}, ignoring", options)
+                log_warn("Found metadata at #{loc}, which does not describe #{base}, ignoring", **options)
                 nil
               end
             end
           rescue IOError
-            log_debug("for_input", options) {"failed to load found metadata #{loc}: #{$!}"}
+            log_debug("for_input", **options) {"failed to load found metadata #{loc}: #{$!}"}
             nil
           end
         end
@@ -236,8 +236,8 @@ module RDF::Tabular
       # Return either the merge or user- and found-metadata, any of these, or an empty TableGroup
       metadata = case
       when metadata then metadata
-      when base     then TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: base}]}, options)
-      else               TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: nil}]}, options)
+      when base     then TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: base}]}, **options)
+      else               TableGroup.new({"@context" => "http://www.w3.org/ns/csvw", tables: [{url: nil}]}, **options)
       end
 
       # Make TableGroup, if not already
@@ -246,7 +246,7 @@ module RDF::Tabular
 
     ##
     # @private
-    def self.new(input, options = {})
+    def self.new(input, **options)
       # Triveal case
       return input if input.is_a?(Metadata)
 
@@ -297,7 +297,7 @@ module RDF::Tabular
         end
 
       md = klass.allocate
-      md.send(:initialize, object, options)
+      md.send(:initialize, object, **options)
       md
     rescue ::JSON::ParserError
       raise Error, "Expected input to be a JSON Object"
@@ -318,7 +318,7 @@ module RDF::Tabular
     # @option options [Boolean] :validate Strict metadata validation
     # @raise [Error]
     # @return [Metadata]
-    def initialize(input, options = {})
+    def initialize(input, **options)
       @options = options.dup
 
       # Parent of this Metadata, if any
@@ -467,16 +467,16 @@ module RDF::Tabular
       object[:tableSchema] = case value
       when String
         link = context.base.join(value).to_s
-        md = Schema.open(link, @options.merge(parent: self, context: nil, normalize: true))
+        md = Schema.open(link, **@options.merge(parent: self, context: nil, normalize: true))
         md[:@id] ||= link
         md
       when Hash
-        Schema.new(value, @options.merge(parent: self, context: nil))
+        Schema.new(value, **@options.merge(parent: self, context: nil))
       when Schema
         value
       else
         log_warn "#{type} has invalid property 'tableSchema' (#{value.inspect}): expected a URL or object"
-        Schema.new({}, @options.merge(parent: self, context: nil))
+        Schema.new({}, **@options.merge(parent: self, context: nil))
       end
     end
 
@@ -491,7 +491,7 @@ module RDF::Tabular
       when object[:dialect] then object[:dialect]
       when parent then parent.dialect
       when is_a?(Table) || is_a?(TableGroup)
-        d = Dialect.new({}, @options.merge(parent: self, context: nil))
+        d = Dialect.new({}, **@options.merge(parent: self, context: nil))
         self.dialect = d unless self.parent
         d
       else
@@ -514,11 +514,11 @@ module RDF::Tabular
       @dialect = object[:dialect] = case value
       when String
         link = context.base.join(value).to_s
-        md = Metadata.open(link, @options.merge(parent: self, context: nil, normalize: true))
+        md = Metadata.open(link, **@options.merge(parent: self, context: nil, normalize: true))
         md[:@id] ||= link
         md
       when Hash
-        Dialect.new(value, @options.merge(parent: self, context: nil))
+        Dialect.new(value, **@options.merge(parent: self, context: nil))
       when Dialect
         value
       else
@@ -532,8 +532,8 @@ module RDF::Tabular
     # @raise [Error] if datatype is not valid
     def datatype=(value)
       val = case value
-      when Hash then Datatype.new(value, @options.merge(parent: self))
-      else           Datatype.new({base: value}, @options.merge(parent: self))
+      when Hash then Datatype.new(value, **@options.merge(parent: self))
+      else           Datatype.new({base: value}, **@options.merge(parent: self))
       end
 
       if val.valid? || value.is_a?(Hash)
@@ -872,7 +872,7 @@ module RDF::Tabular
           csv << data unless data.empty?
         end
       else
-        csv = ::CSV.new(input, csv_options)
+        csv = ::CSV.new(input, **csv_options)
         # Skip skipRows and headerRowCount
         skipped = (dialect.skipRows.to_i + dialect.headerRowCount)
         (1..skipped).each {csv.shift}
@@ -891,7 +891,7 @@ module RDF::Tabular
           next
         end
         number += 1
-        row = Row.new(data, self, number, number + skipped, @options)
+        row = Row.new(data, self, number, number + skipped, **@options)
         (self.object[:rows] ||= []) << row if @options[:validate] # Keep track of rows when validating
         yield(row)
       end
@@ -1036,7 +1036,7 @@ module RDF::Tabular
         end
         index = 0
         object_columns.all? do |cb|
-          ca = non_virtual_columns[index] || Column.new({}, @options)
+          ca = non_virtual_columns[index] || Column.new({}, **@options)
           ta = ca.titles || {}
           tb = cb.titles || {}
           if !ca.object.has_key?(:name) && !cb.object.has_key?(:name) && ta.empty? && tb.empty?
@@ -1235,13 +1235,13 @@ module RDF::Tabular
     end
 
     # General setter for array properties
-    def set_array_value(key, value, klass, options={})
+    def set_array_value(key, value, klass, **options)
       object[key] = case value
       when Array
         value.map do |v|
           case v
           when Hash
-            klass.new(v, @options.merge(options).merge(parent: self, context: nil))
+            klass.new(v, **@options.merge(options).merge(parent: self, context: nil))
           else v
           end
         end
@@ -1282,11 +1282,11 @@ module RDF::Tabular
     class DebugContext
       include RDF::Util::Logger
     end
-    def self.log_debug(*args, &block)
-      DebugContext.new.log_debug(*args, &block)
+    def self.log_debug(*args, **options, &block)
+      DebugContext.new.log_debug(*args, **options, &block)
     end
-    def self.log_warn(*args)
-      DebugContext.new.log_warn(*args)
+    def self.log_warn(*args, **options)
+      DebugContext.new.log_warn(*args, **options)
     end
   end
 
@@ -1434,7 +1434,7 @@ module RDF::Tabular
       content['@context'] = object.delete(:@context) if object[:@context]
       ctx = @context
       remove_instance_variable(:@context) if instance_variables.include?(:@context)
-      tg = TableGroup.new(content, @options.merge(context: ctx, filenames: @filenames, base: base))
+      tg = TableGroup.new(content, **@options.merge(context: ctx, filenames: @filenames, base: base))
       @parent = tg  # Link from parent
       tg
     end
@@ -1489,7 +1489,7 @@ module RDF::Tabular
           number += 1
           case v
           when Hash
-            Column.new(v, @options.merge(
+            Column.new(v, **@options.merge(
               table: (parent if parent.is_a?(Table)),
               parent: self,
               context: nil,
@@ -1621,8 +1621,8 @@ module RDF::Tabular
     def name
       self[:name] || if titles && (ts = titles[context.default_language || 'und'] || titles[self.lang || 'und'])
         n = Array(ts).first
-        n0 = URI.encode(n[0,1], /[^a-zA-Z0-9]/).encode("utf-8")
-        n1 = URI.encode(n[1..-1], /[^\w\.]/).encode("utf-8")
+        n0 = RDF::URI.encode(n[0,1], /[^a-zA-Z0-9]/).encode("utf-8")
+        n1 = RDF::URI.encode(n[1..-1], /[^\w\.]/).encode("utf-8")
         "#{n0}#{n1}"
       end || "_col.#{number}"
     end
@@ -1783,12 +1783,12 @@ module RDF::Tabular
     # @option options [String] :lang, language to set in table, if any
     # @return [Metadata] Tabular metadata
     # @see http://w3c.github.io/csvw/syntax/#parsing
-    def embedded_metadata(input, metadata, options = {})
+    def embedded_metadata(input, metadata, **options)
       options = options.dup
       options.delete(:context) # Don't accidentally use a passed context
       # Normalize input to an IO object
       if input.is_a?(String)
-        return ::RDF::Util::File.open_file(input) {|f| embedded_metadata(f, metadata, options.merge(base: input.to_s))}
+        return ::RDF::Util::File.open_file(input) {|f| embedded_metadata(f, metadata, **options.merge(base: input.to_s))}
       end
 
       table = {
@@ -1841,7 +1841,7 @@ module RDF::Tabular
           end
         end
       else
-        csv = ::CSV.new(input, csv_options)
+        csv = ::CSV.new(input, **csv_options)
         (1..skipRows.to_i).each do
           value = csv.shift.join(delimiter)  # Skip initial lines, these form comment annotations
           # Trim value
@@ -1876,7 +1876,7 @@ module RDF::Tabular
       log_debug("embedded_metadata") {"table: #{table.inspect}"}
       input.rewind if input.respond_to?(:rewind)
 
-      Table.new(table, options.merge(reason: "load embedded metadata: #{table['@id']}"))
+      Table.new(table, **options.merge(reason: "load embedded metadata: #{table['@id']}"))
     end
   end
 
@@ -2026,7 +2026,7 @@ module RDF::Tabular
     # @param [Hash{Symbol => Object}] options ({})
     # @option options [Boolean] :validate check for PK/FK consistency
     # @return [Row]
-    def initialize(row, metadata, number, source_number, options = {})
+    def initialize(row, metadata, number, source_number, **options)
       @table = metadata
       @number = number
       @sourceNumber = source_number
@@ -2058,13 +2058,13 @@ module RDF::Tabular
 
         # create column if necessary
         columns[index - skipColumns] ||=
-          Column.new({}, options.merge(table: metadata, parent: metadata.tableSchema, number: index + 1 - skipColumns))
+          Column.new({}, **options.merge(table: metadata, parent: metadata.tableSchema, number: index + 1 - skipColumns))
 
         column = columns[index - skipColumns]
 
         @values << cell = Cell.new(metadata, column, self, value)
 
-        datatype = column.datatype || Datatype.new({base: "string"}, options.merge(parent: column))
+        datatype = column.datatype || Datatype.new({base: "string"}, **options.merge(parent: column))
         value = value.gsub(/\r\n\t/, ' ') unless %w(string json xml html anyAtomicType).include?(datatype.base)
         value = value.strip.gsub(/\s+/, ' ') unless %w(string json xml html anyAtomicType normalizedString).include?(datatype.base)
         # if the resulting string is an empty string, apply the remaining steps to the string given by the default property
@@ -2110,7 +2110,7 @@ module RDF::Tabular
       # Map URLs for row
       @values.each_with_index do |cell, index|
         mapped_values = map_values.merge(
-          "_name" => URI.decode(cell.column.name),
+          "_name" => CGI.unescape(cell.column.name),
           "_column" => cell.column.number,
           "_sourceColumn" => cell.column.sourceNumber
         )
