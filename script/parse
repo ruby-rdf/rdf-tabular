@@ -10,7 +10,7 @@ end
 require 'rdf/tabular'
 require 'getoptlong'
 
-def run(input, options)
+def run(input, **options)
   reader_class = RDF::Reader.for(options[:input_format].to_sym)
   raise "Reader not found for #{options[:input_format]}" unless reader_class
 
@@ -81,10 +81,10 @@ end
 
 if ARGV.empty?
   s = input ? input : $stdin.read
-  run(StringIO.new(s), options)
+  run(StringIO.new(s), **options)
 else
   ARGV.each do |test_file|
-    run(test_file, options)
+    run(test_file, **options)
   end
 end
 puts

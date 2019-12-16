@@ -874,7 +874,7 @@ describe RDF::Tabular::Metadata do
           options ||= {}
           options[:logger] = logger
           options[:context] ||= 'http://www.w3.org/ns/csvw'
-          expect(described_class.new(input, options)).to be_a(klass)
+          expect(described_class.new(input, **options)).to be_a(klass)
           expect(logger.to_s).not_to match(/ERROR|WARN/)
         end
       end
@@ -1379,7 +1379,7 @@ describe RDF::Tabular::Metadata do
       context "Unsupported datatypes" do
         %w(anyType anySimpleType ENTITIES IDREFS NMTOKENS ENTITY ID IDREF NOTATAION foo).each do |base|
           it "detects #{base} as unsupported" do
-            md = RDF::Tabular::Table.new({
+            RDF::Tabular::Table.new({
              url: "http://example.com/table.csv",
               tableSchema: {
                 columns: [{

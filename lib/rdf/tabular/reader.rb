@@ -63,7 +63,7 @@ module RDF::Tabular
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored
     # @raise [RDF::ReaderError] if the CSV document cannot be loaded
-    def initialize(input = $stdin, options = {}, &block)
+    def initialize(input = $stdin, **options, &block)
       super do
         # Base would be how we are to take this
         @options[:base] ||= base_uri.to_s if base_uri
@@ -89,7 +89,7 @@ module RDF::Tabular
           # If input is JSON, then the input is the metadata
           content_type = @input.respond_to?(:content_type) ? @input.content_type : ""
           if @options[:base] =~ /\.json(?:ld)?$/ || content_type =~ %r(application/(csvm\+|ld\+)?json)
-            @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
+            @metadata = Metadata.new(@input, filenames: @options[:base], **@options)
             # If @metadata is for a Table, turn it into a TableGroup
             @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
             @metadata.normalize!
@@ -102,7 +102,7 @@ module RDF::Tabular
               def script.content_type; "application/csvm+json"; end
               log_debug("Reader#initialize") {"Process HTML script block"}
               @input = script
-              @metadata = Metadata.new(@input, @options.merge(filenames: @options[:base]))
+              @metadata = Metadata.new(@input, filenames: @options[:base], **@options)
               # If @metadata is for a Table, turn it into a TableGroup
               @metadata = @metadata.to_table_group if @metadata.is_a?(Table)
               @metadata.normalize!
@@ -119,7 +119,7 @@ module RDF::Tabular
             dialect.separator = "\t" if (input.content_type == "text/tsv" rescue nil)
             embed_options = @options.dup
             embed_options[:lang] = dialect_metadata.lang if dialect_metadata.lang
-            embedded_metadata = dialect.embedded_metadata(input, @options[:metadata], embed_options)
+            embedded_metadata = dialect.embedded_metadata(input, @options[:metadata], **embed_options)
 
             if (@metadata = @options[:metadata]) && @metadata.tableSchema
               @metadata.verify_compatible!(embedded_metadata)
@@ -136,7 +136,7 @@ module RDF::Tabular
           else
             # It's tabluar data. Find metadata and proceed as if it was specified in the first place
             @options[:original_input] = @input unless @options[:metadata]
-            @input = @metadata = Metadata.for_input(@input, @options).normalize!
+            @input = @metadata = Metadata.for_input(@input, **@options).normalize!
           end
 
           log_debug("Reader#initialize") {"input: #{input}, metadata: #{metadata.inspect}"}
@@ -186,7 +186,7 @@ module RDF::Tabular
               if options[:original_input] && !input.describes_file?(options[:base_uri])
                 table_resource = RDF::Node.new
                 add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
-                Reader.new(options[:original_input], options.merge(
+                Reader.new(options[:original_input], **options.merge(
                     metadata: input.tables.first,
                     base: input.tables.first.url,
                     no_found_metadata: true,
@@ -205,7 +205,7 @@ module RDF::Tabular
                   end.flatten.compact
                   table_resource = table.id || RDF::Node.new
                   add_statement(0, table_group, CSVW.table, table_resource) unless minimal?
-                  Reader.open(table.url, options.merge(
+                  Reader.open(table.url, **options.merge(
                       metadata: table,
                       base: table.url,
                       no_found_metadata: true,
@@ -421,9 +421,9 @@ module RDF::Tabular
 
       res = if io
         ::JSON::dump_default_options = json_state
-        ::JSON.dump(self.send(hash_fn, options), io)
+        ::JSON.dump(self.send(hash_fn, **options), io)
       else
-        hash = self.send(hash_fn, options)
+        hash = self.send(hash_fn, **options)
         ::JSON.generate(hash, json_state)
       end
 
@@ -443,7 +443,7 @@ module RDF::Tabular
     #
     # @param [Hash{Symbol => Object}] options
     # @return [Hash, Array]
-    def to_hash(options = {})
+    def to_hash(**options)
       # Construct metadata from that passed from file open, along with information from the file.
       if input.is_a?(Metadata)
         log_debug("each_statement: metadata") {input.inspect}
@@ -467,13 +467,13 @@ module RDF::Tabular
             table_group['tables'] = tables
 
             if options[:original_input] && !input.describes_file?(options[:base_uri])
-              Reader.new(options[:original_input], options.merge(
+              Reader.new(options[:original_input], **options.merge(
                   metadata:           input.tables.first,
                   base:               input.tables.first.url,
                   minimal:            minimal?,
                   no_found_metadata:  true,
               )) do |r|
-                case t = r.to_hash(options)
+                case t = r.to_hash(**options)
                 when Array then tables += t unless input.tables.first.suppressOutput
                 when Hash  then tables << t unless input.tables.first.suppressOutput
                 end
@@ -481,13 +481,13 @@ module RDF::Tabular
             else
               input.each_table do |table|
                 next if table.suppressOutput && !validate?
-                Reader.open(table.url, options.merge(
+                Reader.open(table.url, **options.merge(
                   metadata:           table,
                   base:               table.url,
                   minimal:            minimal?,
                   no_found_metadata:  true,
                 )) do |r|
-                  case t = r.to_hash(options)
+                  case t = r.to_hash(**options)
                   when Array then tables += t unless table.suppressOutput
                   when Hash  then tables << t unless table.suppressOutput
                   end
@@ -560,7 +560,7 @@ module RDF::Tabular
             co['@id'] = subject.to_s unless subject == 'null'
             prop = case cell.propertyUrl
             when RDF.type then '@type'
-            when nil then URI.decode(column.name) # Use URI-decoded name
+            when nil then CGI.unescape(column.name) # Use URI-decoded name
             else
               # Compact the property to a term or prefixed name
               metadata.context.compact_iri(cell.propertyUrl, vocab: true)

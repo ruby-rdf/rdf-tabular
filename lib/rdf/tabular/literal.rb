@@ -13,7 +13,7 @@ module RDF::Tabular
     ##
     # @param  [Object] value
     # @option options [String] :lexical (nil)
-    def initialize(value, options = {})
+    def initialize(value, **options)
       @datatype = options[:datatype] || DATATYPE
       @string   = options[:lexical] if options.has_key?(:lexical)
       if value.is_a?(String)
