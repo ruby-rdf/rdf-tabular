@@ -308,7 +308,7 @@ describe RDF::Tabular::Reader do
         ASK WHERE {
           [ prov:wasGeneratedBy [
               a prov:Activity;
-              prov:wasAssociatedWith <http://rubygems.org/gems/rdf-tabular>;
+              prov:wasAssociatedWith <https://rubygems.org/gems/rdf-tabular>;
               prov:startedAtTime ?start;
               prov:endedAtTime ?end;
               prov:qualifiedUsage [
@@ -331,7 +331,7 @@ describe RDF::Tabular::Reader do
         ASK WHERE {
           [ prov:wasGeneratedBy [
               a prov:Activity;
-              prov:wasAssociatedWith <http://rubygems.org/gems/rdf-tabular>;
+              prov:wasAssociatedWith <https://rubygems.org/gems/rdf-tabular>;
               prov:startedAtTime ?start;
               prov:endedAtTime ?end;
               prov:qualifiedUsage [

@@ -5,7 +5,7 @@ module RDF::Tabular
   ##
   # A Tabular Data to RDF parser in Ruby.
   #
-  # @author [Gregg Kellogg](http://greggkellogg.net/)
+  # @author [Gregg Kellogg](https://greggkellogg.net/)
   class Reader < RDF::Reader
     format Format
     include RDF::Util::Logger
@@ -22,7 +22,7 @@ module RDF::Tabular
 
     ##
     # Writer options
-    # @see http://www.rubydoc.info/github/ruby-rdf/rdf/RDF/Writer#options-class_method
+    # @see https://www.rubydoc.info/github/ruby-rdf/rdf/RDF/Writer#options-class_method
     def self.options
       super + [
         RDF::CLI::Option.new(
@@ -225,7 +225,7 @@ module RDF::Tabular
                 activity = RDF::Node.new
                 add_statement(0, table_group, RDF::Vocab::PROV.wasGeneratedBy, activity)
                 add_statement(0, activity, RDF.type, RDF::Vocab::PROV.Activity)
-                add_statement(0, activity, RDF::Vocab::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
+                add_statement(0, activity, RDF::Vocab::PROV.wasAssociatedWith, RDF::URI("https://rubygems.org/gems/rdf-tabular"))
                 add_statement(0, activity, RDF::Vocab::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
                 add_statement(0, activity, RDF::Vocab::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
 

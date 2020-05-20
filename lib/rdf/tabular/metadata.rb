@@ -16,7 +16,7 @@ require 'yaml'  # used by BCP47, which should have required it.
 # * Return Column-level annotations
 # * Return row iterator with column information
 #
-# @author [Gregg Kellogg](http://greggkellogg.net/)
+# @author [Gregg Kellogg](https://greggkellogg.net/)
 module RDF::Tabular
   class Metadata
     include RDF::Util::Logger

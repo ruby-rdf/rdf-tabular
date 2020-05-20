@@ -6,7 +6,7 @@ Gem::Specification.new do |gem|
   gem.date                  = File.mtime('VERSION').strftime('%Y-%m-%d')
 
   gem.name                  = "rdf-tabular"
-  gem.homepage              = "http://github.com/ruby-rdf/rdf-tabular"
+  gem.homepage              = "https://github.com/ruby-rdf/rdf-tabular"
   gem.license               = 'Unlicense'
   gem.summary               = "Tabular Data RDF Reader and JSON serializer."
   gem.description           = "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."

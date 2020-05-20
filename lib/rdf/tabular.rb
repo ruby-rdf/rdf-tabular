@@ -1,14 +1,14 @@
 $:.unshift(File.expand_path("..", __FILE__))
-require 'rdf' # @see http://rubygems.org/gems/rdf
+require 'rdf' # @see https://rubygems.org/gems/rdf
 require 'csv'
 
 module RDF
   ##
   # **`RDF::Tabular`** is a Tabular/CSV extension for RDF.rb.
   #
-  # @see http://w3c.github.io/csvw/
+  # @see https://w3c.github.io/csvw/
   #
-  # @author [Gregg Kellogg](http://greggkellogg.net/)
+  # @author [Gregg Kellogg](https://greggkellogg.net/)
   module Tabular
     require 'rdf/tabular/format'
     autoload :Column,         'rdf/tabular/metadata'

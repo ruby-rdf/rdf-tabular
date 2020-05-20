@@ -22,7 +22,7 @@ module RDF::Tabular
   # @example Obtaining serialization format file extension mappings
   #     RDF::Format.file_extensions    #=> {:csv => "text/csv"}
   #
-  # @see http://www.w3.org/TR/rdf-testcases/#ntriples
+  # @see https://www.w3.org/TR/rdf-testcases/#ntriples
   class Format < RDF::Format
     content_type     'text/csv;q=0.4',
                      extensions: [:csv, :tsv],

@@ -3,7 +3,7 @@ module RDF::Tabular
   ##
   # Utilities for parsing UAX35 dates and numbers.
   #
-  # @see http://www.unicode.org/reports/tr35
+  # @see https://www.unicode.org/reports/tr35
   module UAX35
 
     ##
