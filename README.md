@@ -96,7 +96,7 @@ This results in the following Turtle:
          <http://www.w3.org/TR/tabular-metadata/>,
          <http://www.w3.org/TR/csv2rdf/>,
          <http://www.w3.org/TR/csv2json/>;
-       doap:license <http://creativecommons.org/publicdomain/zero/1.0/>;
+       doap:license <https://unlicense.org/>;
        doap:mailing-list <http://lists.w3.org/Archives/Public/public-rdf-ruby/>;
        doap:maintainer <http://greggkellogg.net/foaf#me>;
        doap:name "RDF::Tabular";
@@ -166,7 +166,7 @@ It can also generate JSON output (not complete JSON-LD, but compatible with it),
                   "http://usefulinc.com/ns/doap#name": "RDF::Tabular",
                   "@type": "http://usefulinc.com/ns/doap#Project",
                   "http://usefulinc.com/ns/doap#homepage": "http://ruby-rdf.github.com/rdf-tabular",
-                  "http://usefulinc.com/ns/doap#license": "http://creativecommons.org/publicdomain/zero/1.0/",
+                  "http://usefulinc.com/ns/doap#license": "https://unlicense.org/",
                   "http://usefulinc.com/ns/doap#shortdesc": "Tabular Data RDF Reader and JSON serializer.",
                   "http://usefulinc.com/ns/doap#description": "RDF::Tabular processes tabular data with metadata creating RDF or JSON output.",
                   "http://usefulinc.com/ns/doap#created": "2015-01-05",
