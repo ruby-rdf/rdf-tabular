@@ -1,0 +1,35 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "url": "countries.csv",
+  "aboutUrl": "https://example.org/countries",
+  "@type": "Table",
+  "tableSchema": {
+    "@type": "Schema",
+    "columns": [{
+      "name": "countryCode",
+      "titles": "countryCode",
+      "propertyUrl": "https://example.org/countries.csv#countryCode"
+    }, {
+      "name": "latitude",
+      "titles": "latitude",
+      "propertyUrl": "https://example.org/countries.csv#latitude"
+    }, {
+      "name": "longitude",
+      "titles": "longitude",
+      "propertyUrl": "https://example.org/countries.csv#longitude"
+    }, {
+      "name": "name",
+      "titles": "name",
+      "propertyUrl": "https://example.org/countries.csv#name"
+    }, {
+      "virtual": true,
+      "propertyUrl": "https://example.org/countries.csv#virt1",
+      "valueUrl": "https://example.org/countries.csv#virt1"
+    }, {
+      "virtual": true,
+      "propertyUrl": "https://example.org/countries.csv#virt2",
+      "default": "default",
+      "datatype": "string"
+    }]
+  }
+}
