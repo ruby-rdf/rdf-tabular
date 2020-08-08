@@ -14,7 +14,7 @@ def run(input, **options)
   reader_class = RDF::Reader.for(options[:input_format].to_sym)
   raise "Reader not found for #{options[:input_format]}" unless reader_class
 
-  reader_class.send((input.is_a?(String) ? :open : :new), input, options[:parser_options]) do |reader|
+  reader_class.send((input.is_a?(String) ? :open : :new), input, **options[:parser_options]) do |reader|
     if [:json, :atd].include?(options[:output_format])
       options[:output].puts reader.to_json(atd: options[:output_format] == :atd)
     else

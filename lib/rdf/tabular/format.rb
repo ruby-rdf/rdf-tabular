@@ -62,7 +62,7 @@ module RDF::Tabular
             raise ArgumentError, "Outputting Tabular JSON only allowed when input format is tabular." unless opts[:format] == :tabular
             out = opts[:output] || $stdout
             out.set_encoding(Encoding::UTF_8) if RUBY_PLATFORM == "java"
-            RDF::CLI.parse(argv, opts) do |reader|
+            RDF::CLI.parse(argv, **opts) do |reader|
               out.puts reader.to_json
             end
           end
