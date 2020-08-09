@@ -43,6 +43,13 @@ module RDF::Tabular
           control: :checkbox,
           on: ["--no-prov"],
           description: "do not output optional provenance information.") {true},
+        RDF::CLI::Option.new(
+          symbol: :decode_uri,
+          datatype: TrueClass,
+          control: :checkbox,
+          on: ["--decode-uri"],
+          description: "decode %-encodings in the result of a URI Template operation."
+        )
       ]
     end
 
@@ -54,11 +61,13 @@ module RDF::Tabular
     #   or an Array used as an internalized array of arrays
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Reader#initialize`)
+    # @option options [Boolean] :decode_uri
+    #   Decode %-encodings in the result of a URI Template operation.
+    # @option options [Array<Hash>] :fks_referencing_table
+    #   When called with Table metadata, a list of the foreign keys referencing this table
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
     # @option options [Boolean] :minimal includes only the information gleaned from the cells of the tabular data
     # @option options [Boolean] :noProv do not output optional provenance information
-    # @option optinons [Array<Hash>] :fks_referencing_table
-    #   When called with Table metadata, a list of the foreign keys referencing this table
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored

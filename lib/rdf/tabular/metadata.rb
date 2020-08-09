@@ -209,7 +209,9 @@ module RDF::Tabular
         log_debug("for_input", **options) {"templates: #{templates.map(&:to_s).inspect}"}
         locs = templates.map do |template|
           t = Addressable::Template.new(template)
-          RDF::URI(base).join(t.expand(url: base).to_s)
+          mapped = t.expand(url: base).to_s
+          mapped = RDF::URI.decode(mapped) if options[:decode_uri]
+          RDF::URI(base).join(mapped)
         end
         log_debug("for_input", **options) {"locs: #{locs.map(&:to_s).inspect}"}
 
@@ -314,6 +316,8 @@ module RDF::Tabular
     #   Context used for this metadata. Taken from input if not provided
     # @option options [RDF::URI] :base
     #   The Base URL to use when expanding the document. This overrides the value of `input` if it is a URL. If not specified and `input` is not an URL, the base URL defaults to the current document URL if in a browser context, or the empty string if there is no document context.
+    # @option options [Boolean] :decode_uri
+    #   Decode %-encodings in the result of a URI Template operation.
     # @option options [Boolean] :normalize normalize the object
     # @option options [Boolean] :validate Strict metadata validation
     # @raise [Error]
@@ -1947,13 +1951,14 @@ module RDF::Tabular
   class Row
     # Class for returning values
     Cell = Struct.new(:table, :column, :row, :stringValue, :aboutUrl, :propertyUrl, :valueUrl, :value, :errors) do
-      def set_urls(mapped_values)
+      def set_urls(mapped_values, decode_uri)
         %w(aboutUrl propertyUrl valueUrl).each do |prop|
           # If the cell value is nil, and it is not a virtual column
           next if prop == "valueUrl" && value.nil? && !column.virtual
           if v = column.send(prop.to_sym)
             t = Addressable::Template.new(v)
             mapped = t.expand(mapped_values).to_s
+            mapped = RDF::URI.decode(mapped) if decode_uri
             # FIXME: don't expand here, do it in CSV2RDF
             url = row.context.expand_iri(mapped, documentRelative: true)
             self.send("#{prop}=".to_sym, url)
@@ -2114,7 +2119,7 @@ module RDF::Tabular
           "_column" => cell.column.number,
           "_sourceColumn" => cell.column.sourceNumber
         )
-        cell.set_urls(mapped_values)
+        cell.set_urls(mapped_values, options[:decode_uri])
       end
     end
 
