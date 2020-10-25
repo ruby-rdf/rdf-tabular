@@ -9,22 +9,22 @@ require File.expand_path(File.join(File.dirname(__FILE__), "..", 'spec', 'spec_h
 require File.expand_path(File.join(File.dirname(__FILE__), "..", 'spec', 'suite_helper'))
 require 'getoptlong'
 
-ASSERTOR = "http://greggkellogg.net/foaf#me"
+ASSERTOR = "https://greggkellogg.net/foaf#me"
 RUN_TIME = Time.now
 
 def earl_preamble(options)
   options[:output].write File.read(File.expand_path("../../etc/doap.ttl", __FILE__))
   options[:output].puts %(
-<> foaf:primaryTopic <http://rubygems.org/gems/rdf-tabular> ;
+<> foaf:primaryTopic <https://rubygems.org/gems/rdf-tabular> ;
   dc:issued "#{RUN_TIME.xmlschema}"^^xsd:dateTime ;
   foaf:maker <#{ASSERTOR}> .
 
 <#{ASSERTOR}> a foaf:Person, earl:Assertor;
   foaf:name "Gregg Kellogg";
   foaf:title "Implementor";
-  foaf:homepage <http://greggkellogg.net/> .
+  foaf:homepage <https://greggkellogg.net/> .
 
-<http://rubygems.org/gems/rdf-tabular>
+<https://rubygems.org/gems/rdf-tabular>
   doap:release <https://github.com/ruby-rdf/rdf-tabular/tree/#{RDF::Tabular::VERSION}> .
 
 <https://github.com/ruby-rdf/rdf-tabular/tree/#{RDF::Tabular::VERSION}> a doap:Version;
@@ -130,7 +130,7 @@ def run_tc(t, **options)
     options[:output].puts %{
 [ a earl:Assertion;
   earl:assertedBy <#{ASSERTOR}>;
-  earl:subject <http://rubygems.org/gems/rdf-tabular>;
+  earl:subject <https://rubygems.org/gems/rdf-tabular>;
   earl:test <#{RDF::URI(options[:manifest]).join(t.id)}>;
   earl:result [
     a earl:TestResult;

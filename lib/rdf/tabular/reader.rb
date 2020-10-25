@@ -5,7 +5,7 @@ module RDF::Tabular
   ##
   # A Tabular Data to RDF parser in Ruby.
   #
-  # @author [Gregg Kellogg](http://greggkellogg.net/)
+  # @author [Gregg Kellogg](https://greggkellogg.net/)
   class Reader < RDF::Reader
     format Format
     include RDF::Util::Logger
@@ -22,7 +22,7 @@ module RDF::Tabular
 
     ##
     # Writer options
-    # @see http://www.rubydoc.info/github/ruby-rdf/rdf/RDF/Writer#options-class_method
+    # @see https://www.rubydoc.info/github/ruby-rdf/rdf/RDF/Writer#options-class_method
     def self.options
       super + [
         RDF::CLI::Option.new(
@@ -43,6 +43,13 @@ module RDF::Tabular
           control: :checkbox,
           on: ["--no-prov"],
           description: "do not output optional provenance information.") {true},
+        RDF::CLI::Option.new(
+          symbol: :decode_uri,
+          datatype: TrueClass,
+          control: :checkbox,
+          on: ["--decode-uri"],
+          description: "decode %-encodings in the result of a URI Template operation."
+        )
       ]
     end
 
@@ -54,11 +61,13 @@ module RDF::Tabular
     #   or an Array used as an internalized array of arrays
     # @param  [Hash{Symbol => Object}] options
     #   any additional options (see `RDF::Reader#initialize`)
+    # @option options [Boolean] :decode_uri
+    #   Decode %-encodings in the result of a URI Template operation.
+    # @option options [Array<Hash>] :fks_referencing_table
+    #   When called with Table metadata, a list of the foreign keys referencing this table
     # @option options [Metadata, Hash, String, RDF::URI] :metadata user supplied metadata, merged on top of extracted metadata. If provided as a URL, Metadata is loade from that location
     # @option options [Boolean] :minimal includes only the information gleaned from the cells of the tabular data
     # @option options [Boolean] :noProv do not output optional provenance information
-    # @option optinons [Array<Hash>] :fks_referencing_table
-    #   When called with Table metadata, a list of the foreign keys referencing this table
     # @yield  [reader] `self`
     # @yieldparam  [RDF::Reader] reader
     # @yieldreturn [void] ignored
@@ -225,7 +234,7 @@ module RDF::Tabular
                 activity = RDF::Node.new
                 add_statement(0, table_group, RDF::Vocab::PROV.wasGeneratedBy, activity)
                 add_statement(0, activity, RDF.type, RDF::Vocab::PROV.Activity)
-                add_statement(0, activity, RDF::Vocab::PROV.wasAssociatedWith, RDF::URI("http://rubygems.org/gems/rdf-tabular"))
+                add_statement(0, activity, RDF::Vocab::PROV.wasAssociatedWith, RDF::URI("https://rubygems.org/gems/rdf-tabular"))
                 add_statement(0, activity, RDF::Vocab::PROV.startedAtTime, RDF::Literal::DateTime.new(start_time))
                 add_statement(0, activity, RDF::Vocab::PROV.endedAtTime, RDF::Literal::DateTime.new(Time.now))
 

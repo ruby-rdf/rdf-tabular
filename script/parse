@@ -14,7 +14,7 @@ def run(input, **options)
   reader_class = RDF::Reader.for(options[:input_format].to_sym)
   raise "Reader not found for #{options[:input_format]}" unless reader_class
 
-  reader_class.send((input.is_a?(String) ? :open : :new), input, options[:parser_options]) do |reader|
+  reader_class.send((input.is_a?(String) ? :open : :new), input, **options[:parser_options]) do |reader|
     if [:json, :atd].include?(options[:output_format])
       options[:output].puts reader.to_json(atd: options[:output_format] == :atd)
     else
@@ -55,6 +55,7 @@ input = nil
 opts = GetoptLong.new(
   ["--dbg", GetoptLong::NO_ARGUMENT],
   ["--execute", "-e", GetoptLong::REQUIRED_ARGUMENT],
+  ["--decode-uri", GetoptLong::NO_ARGUMENT], 
   ["--format", GetoptLong::REQUIRED_ARGUMENT],
   ["--minimal", GetoptLong::NO_ARGUMENT],
   ["--output", "-o", GetoptLong::REQUIRED_ARGUMENT],
@@ -66,6 +67,7 @@ opts = GetoptLong.new(
 opts.each do |opt, arg|
   case opt
   when '--dbg'          then logger.level = Logger::DEBUG
+  when "--decode-uri"   then parser_options[:decode_uri] = true
   when '--execute'      then input = arg
   when '--format'       then options[:output_format] = arg.to_sym
   when '--minimal'      then parser_options[:minimal] = true

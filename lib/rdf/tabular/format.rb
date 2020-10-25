@@ -22,7 +22,7 @@ module RDF::Tabular
   # @example Obtaining serialization format file extension mappings
   #     RDF::Format.file_extensions    #=> {:csv => "text/csv"}
   #
-  # @see http://www.w3.org/TR/rdf-testcases/#ntriples
+  # @see https://www.w3.org/TR/rdf-testcases/#ntriples
   class Format < RDF::Format
     content_type     'text/csv;q=0.4',
                      extensions: [:csv, :tsv],
@@ -62,7 +62,7 @@ module RDF::Tabular
             raise ArgumentError, "Outputting Tabular JSON only allowed when input format is tabular." unless opts[:format] == :tabular
             out = opts[:output] || $stdout
             out.set_encoding(Encoding::UTF_8) if RUBY_PLATFORM == "java"
-            RDF::CLI.parse(argv, opts) do |reader|
+            RDF::CLI.parse(argv, **opts) do |reader|
               out.puts reader.to_json
             end
           end

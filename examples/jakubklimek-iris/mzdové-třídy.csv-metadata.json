@@ -1,0 +1,81 @@
+{
+	"@id": "https://data.mff.cuni.cz/soubory/číselníky/mzdové-třídy.csv-metadata.json",
+	"@context": [
+		"http://www.w3.org/ns/csvw",
+		{
+			"@language": "cs"
+		}
+	],
+	"url": "mzdové-třídy.csv",
+	"tableSchema": {
+		"columns": [{
+			"name": "ciselnik",
+			"titles": "číselník",
+			"dc:description": "IRI číselníku",
+			"aboutUrl": "{+ciselnik}",
+			"propertyUrl": "rdf:type",
+			"valueUrl": "skos:ConceptScheme",
+			"required": true,
+			"datatype": "anyURI"
+		}, {
+			"name": "ciselnik_nazev_cs",
+			"titles": "číselník_název_cs",
+			"dc:description": "Název číselníku v češtině",
+			"aboutUrl": "{+ciselnik}",
+			"propertyUrl": "skos:prefLabel",
+			"required": true,
+			"datatype": "string",
+			"lang": "cs"
+		}, {
+			"name": "ciselnik_nazev_en",
+			"titles": "číselník_název_en",
+			"dc:description": "Název číselníku v angličtině",
+			"aboutUrl": "{+ciselnik}",
+			"propertyUrl": "skos:prefLabel",
+			"required": true,
+			"datatype": "string",
+			"lang": "en"
+		}, {
+			"name": "polozka",
+			"titles": "položka",
+			"dc:description": "IRI položky",
+			"aboutUrl": "{+polozka}",
+			"propertyUrl": "rdf:type",
+			"valueUrl": "skos:Concept",
+			"required": true,
+			"datatype": "anyURI"
+		}, {
+			"name": "polozka_kod",
+			"titles": "položka_kód",
+			"dc:description": "Kód položky",
+			"aboutUrl": "{+polozka}",
+			"propertyUrl": "skos:notation",
+			"required": true,
+			"datatype": "string"
+		}, {
+			"name": "polozka_nazev_cs",
+			"titles": "položka_název_cs",
+			"dc:description": "Název položky v češtině",
+			"aboutUrl": "{+polozka}",
+			"propertyUrl": "skos:prefLabel",
+			"required": true,
+			"datatype": "string",
+			"lang": "cs"
+		}, {
+			"name": "polozka_nazev_en",
+			"titles": "položka_název_en",
+			"dc:description": "Název položky v angličtině",
+			"aboutUrl": "{+polozka}",
+			"propertyUrl": "skos:prefLabel",
+			"required": true,
+			"datatype": "string",
+			"lang": "en"
+		}, {
+			"aboutUrl": "{+polozka}",
+			"propertyUrl": "skos:inScheme",
+			"valueUrl": "{+ciselnik}",
+			"virtual": true
+		}],
+		"primaryKey": "polozka"
+	}
+}

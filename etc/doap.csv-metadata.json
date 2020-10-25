@@ -2,7 +2,7 @@
   "@context": "http://www.w3.org/ns/csvw",
   "url": "doap.csv",
   "tableSchema": {
-    "aboutUrl": "http://rubygems.org/gems/rdf-tabular",
+    "aboutUrl": "https://rubygems.org/gems/rdf-tabular",
     "propertyUrl": "http://usefulinc.com/ns/doap#{_name}",
     "null": "",
     "columns": [

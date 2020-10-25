@@ -1082,6 +1082,89 @@ describe RDF::Tabular::Metadata do
           end
         end
       end
+
+      context "virtual columns" do
+        subject {
+          described_class.new(JSON.parse(%({
+            "@context": "http://www.w3.org/ns/csvw",
+            "url": "https://example.org/countries.csv",
+            "aboutUrl": "https://example.org/countries",
+            "@type": "Table",
+            "tableSchema": {
+              "@type": "Schema",
+              "columns": [{
+                "name": "countryCode",
+                "titles": "countryCode",
+                "propertyUrl": "https://example.org/countries.csv#countryCode"
+              }, {
+                "name": "latitude",
+                "titles": "latitude",
+                "propertyUrl": "https://example.org/countries.csv#latitude"
+              }, {
+                "name": "longitude",
+                "titles": "longitude",
+                "propertyUrl": "https://example.org/countries.csv#longitude"
+              }, {
+                "name": "name",
+                "titles": "name",
+                "propertyUrl": "https://example.org/countries.csv#name"
+              }, {
+                "virtual": true,
+                "propertyUrl": "https://example.org/countries.csv#virt1",
+                "valueUrl": "https://example.org/countries.csv#virt1"
+              }, {
+                "virtual": true,
+                "propertyUrl": "https://example.org/countries.csv#virt2",
+                "default": "default",
+                "datatype": "string"
+              }]
+            }
+          })), base: RDF::URI("http://example.org/base"), logger: logger)
+        }
+        let(:input) {RDF::Util::File.open_file("https://example.org/countries.csv")}
+        let(:rows) {subject.to_enum(:each_row, input).to_a}
+
+        it "has expected aboutUrls" do
+          subject.each_row(input) do |row|
+            expect(row.values[0].aboutUrl).to eq "https://example.org/countries"
+            expect(row.values[1].aboutUrl).to eq "https://example.org/countries"
+            expect(row.values[2].aboutUrl).to eq "https://example.org/countries"
+            expect(row.values[3].aboutUrl).to eq "https://example.org/countries"
+            expect(row.values[4].aboutUrl).to eq "https://example.org/countries"
+            expect(row.values[5].aboutUrl).to eq "https://example.org/countries"
+          end
+        end
+
+        it "has expected propertyUrls" do
+          subject.each_row(input) do |row|
+            expect(row.values[0].propertyUrl).to eq "https://example.org/countries.csv#countryCode"
+            expect(row.values[1].propertyUrl).to eq "https://example.org/countries.csv#latitude"
+            expect(row.values[2].propertyUrl).to eq "https://example.org/countries.csv#longitude"
+            expect(row.values[3].propertyUrl).to eq "https://example.org/countries.csv#name"
+            expect(row.values[4].propertyUrl).to eq "https://example.org/countries.csv#virt1"
+            expect(row.values[5].propertyUrl).to eq "https://example.org/countries.csv#virt2"
+          end
+        end
+
+        it "has expected valueUrls" do
+          subject.each_row(input) do |row|
+            expect(row.values[0].valueUrl).to be_nil
+            expect(row.values[1].valueUrl).to be_nil
+            expect(row.values[2].valueUrl).to be_nil
+            expect(row.values[3].valueUrl).to be_nil
+            expect(row.values[4].valueUrl).to eq "https://example.org/countries.csv#virt1"
+            expect(row.values[5].valueUrl).to be_nil
+          end
+        end
+
+        it "has expected values" do
+          rows = subject.to_enum(:each_row, input).to_a
+          expect(rows[0].values.map(&:to_s)).to produce(%w(AD 42.546245 1.601554 Andorra).push("", "default"), logger)
+          expect(rows[1].values.map(&:to_s)).to produce((%w(AE 23.424076 53.847818).push("United Arab Emirates", "", "default")), logger)
+          expect(rows[2].values.map(&:to_s)).to produce(%w(AF 33.93911 67.709953 Afghanistan).push("", "default"), logger)
+        end
+      end
+      
     end
 
     context "datatypes" do
