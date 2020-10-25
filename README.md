@@ -289,7 +289,11 @@ To install the latest official release of the `RDF::Tabular` gem, do:
   [tutorial][YARD-GS] or just look at the existing code for examples.
 * Don't touch the `rdf-tabular.gemspec`, `VERSION` or `AUTHORS` files. If you need to change them, do so on your private branch only.
 * Do feel free to add yourself to the `CREDITS` file and the corresponding list in the the `README`. Alphabetical order applies.
-* Do note that in order for us to merge any non-trivial changes (as a rule of thumb, additions larger than about 15 lines of code), we need an explicit [public domain dedication][PDD] on record from you.
+* Do note that in order for us to merge any non-trivial changes (as a rule
+  of thumb, additions larger than about 15 lines of code), we need an
+  explicit [public domain dedication][PDD] on record from you,
+  which you will be asked to agree to on the first commit to a repo within the organization.
+  Note that the agreement applies to all repos in the [Ruby RDF](https://github.com/ruby-rdf/) organization.
 
 License
 -------
@@ -301,7 +305,7 @@ see <https://unlicense.org/> or the accompanying {file:UNLICENSE} file.
 [RDF]:              https://www.w3.org/RDF/
 [YARD]:             https://yardoc.org/
 [YARD-GS]:          https://rubydoc.info/docs/yard/file/docs/GettingStarted.md
-[PDD]:              https://lists.w3.org/Archives/Public/public-rdf-ruby/2010May/0013.html
+[PDD]:              https://unlicense.org/#unlicensing-contributions
 [RDF.rb]:           https://rubygems.org/gems/rdf
 [CSV]:              https://en.wikipedia.org/wiki/Comma-separated_values
 [W3C CSVW]:         https://www.w3.org/2013/csvw/wiki/Main_Page
