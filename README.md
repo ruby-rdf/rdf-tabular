@@ -3,8 +3,9 @@
 [CSV][] reader for [RDF.rb][] and fully JSON serializer.
 
 [![Gem Version](https://badge.fury.io/rb/rdf-tabular.png)](https://badge.fury.io/rb/rdf-tabular)
-[![Build Status](https://secure.travis-ci.org/ruby-rdf/rdf-tabular.png?branch=master)](https://travis-ci.org/ruby-rdf/rdf-tabular)
-[![Coverage Status](https://coveralls.io/repos/ruby-rdf/rdf-tabular/badge.svg)](https://coveralls.io/r/ruby-rdf/rdf-tabular)
+[![Build Status](https://github.com/ruby-rdf/rdf-tabular/workflows/CI/badge.svg?branch=develop)](https://github.com/ruby-rdf/rdf-tabular/actions?query=workflow%3ACI)
+[![Coverage Status](https://coveralls.io/repos/ruby-rdf/rdf-tabular/badge.svg)](https://coveralls.io/github/ruby-rdf/rdf-tabular)
+[![Gitter chat](https://badges.gitter.im/ruby-rdf/rdf.png)](https://gitter.im/ruby-rdf/rdf)
 
 ## Features
 
