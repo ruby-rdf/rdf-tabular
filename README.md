@@ -21,7 +21,7 @@ Install with `gem install rdf-tabular`
 ## Description
 RDF::Tabular parses CSVs, TSVs, and potentially other tabular data formats. Using rules defined for [W3C CSVW][], it can also parse metadata files (in JSON-LD format) to find a set of tabular data files, or locate a metadata file given a CSV:
 
-* Given a CSV `http://example.org/mycsv.csv` look for `http://example.org/mycsv.csv-metata.json` or `http://example.org/metadata.json`. Metadata can also be specified using the `describedby` link header to reference a metadata file.
+* Given a CSV `http://example.org/mycsv.csv` look for `http://example.org/mycsv.csv-metadata.json` or `http://example.org/metadata.json`. Metadata can also be specified using the `describedby` link header to reference a metadata file.
 * Given a metadata file, locate one or more CSV files described within the metadata file.
 * Also, extract _embedded metadata_ from the CSV (limited to column titles right now).
 
