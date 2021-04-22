@@ -4,7 +4,7 @@
 
 [![Gem Version](https://badge.fury.io/rb/rdf-tabular.png)](https://badge.fury.io/rb/rdf-tabular)
 [![Build Status](https://github.com/ruby-rdf/rdf-tabular/workflows/CI/badge.svg?branch=develop)](https://github.com/ruby-rdf/rdf-tabular/actions?query=workflow%3ACI)
-[![Coverage Status](https://coveralls.io/repos/ruby-rdf/rdf-tabular/badge.svg)](https://coveralls.io/github/ruby-rdf/rdf-tabular)
+[![Coverage Status](https://coveralls.io/repos/ruby-rdf/rdf-tabular/badge.svg?branch=develop)](https://coveralls.io/github/ruby-rdf/rdf-tabular?branch=develop)
 [![Gitter chat](https://badges.gitter.im/ruby-rdf/rdf.png)](https://gitter.im/ruby-rdf/rdf)
 
 ## Features
