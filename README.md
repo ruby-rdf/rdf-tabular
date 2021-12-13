@@ -267,9 +267,9 @@ Full documentation available on [RubyDoc](https://rubydoc.info/gems/rdf-tabular/
   * {RDF::Tabular::Reader}
 
 ## Dependencies
-* [Ruby](https://ruby-lang.org/) (>= 2.2.2)
-* [RDF.rb](https://rubygems.org/gems/rdf) (~> 3.0)
-* [JSON](https://rubygems.org/gems/json) (>= 2.0)
+* [Ruby](https://ruby-lang.org/) (>= 2.6)
+* [RDF.rb](https://rubygems.org/gems/rdf) (~> 3.2)
+* [JSON](https://rubygems.org/gems/json) (>= 2.6)
 
 ## Installation
 The recommended installation method is via [RubyGems](https://rubygems.org/).
