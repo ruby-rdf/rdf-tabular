@@ -11,8 +11,8 @@
   doap:name          "RDF::Tabular" ;
   doap:homepage      <https://ruby-rdf.github.com/rdf-tabular> ;
   doap:license       <https://unlicense.org/1.0/> ;
-  doap:shortdesc     "Tabular Data RDF Reader and JSON serializer."@en ;
-  doap:description   "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."@en ;
+  doap:shortdesc     "Tabular Data RDF Reader and JSON serializer for RDF.rb."@en ;
+  doap:description   "RDF::Tabular processes tabular data with metadata creating RDF or JSON output for the RDF.rb library suite."@en ;
   doap:created       "2015-01-05"^^xsd:date ;
   doap:programming-language "Ruby" ;
   doap:implements    <http://www.w3.org/TR/tabular-data-model/>,
@@ -29,8 +29,5 @@
   doap:maintainer    <https://greggkellogg.net/foaf#me> ;
   doap:documenter    <https://greggkellogg.net/foaf#me> ;
   foaf:maker         <https://greggkellogg.net/foaf#me> ;
-  dc:title           "RDF::Tabular" ;
-  dc:description     "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."@en ;
-  dc:date            "2015-01-05"^^xsd:date ;
   dc:creator         <https://greggkellogg.net/foaf#me> ;
   dc:isPartOf        <https://rubygems.org/gems/rdf> .

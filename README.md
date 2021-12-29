@@ -3,8 +3,9 @@
 [CSV][] reader for [RDF.rb][] and fully JSON serializer.
 
 [![Gem Version](https://badge.fury.io/rb/rdf-tabular.png)](https://badge.fury.io/rb/rdf-tabular)
-[![Build Status](https://secure.travis-ci.org/ruby-rdf/rdf-tabular.png?branch=master)](https://travis-ci.org/ruby-rdf/rdf-tabular)
-[![Coverage Status](https://coveralls.io/repos/ruby-rdf/rdf-tabular/badge.svg)](https://coveralls.io/r/ruby-rdf/rdf-tabular)
+[![Build Status](https://github.com/ruby-rdf/rdf-tabular/workflows/CI/badge.svg?branch=develop)](https://github.com/ruby-rdf/rdf-tabular/actions?query=workflow%3ACI)
+[![Coverage Status](https://coveralls.io/repos/ruby-rdf/rdf-tabular/badge.svg?branch=develop)](https://coveralls.io/github/ruby-rdf/rdf-tabular?branch=develop)
+[![Gitter chat](https://badges.gitter.im/ruby-rdf/rdf.png)](https://gitter.im/ruby-rdf/rdf)
 
 ## Features
 
@@ -20,7 +21,7 @@ Install with `gem install rdf-tabular`
 ## Description
 RDF::Tabular parses CSVs, TSVs, and potentially other tabular data formats. Using rules defined for [W3C CSVW][], it can also parse metadata files (in JSON-LD format) to find a set of tabular data files, or locate a metadata file given a CSV:
 
-* Given a CSV `http://example.org/mycsv.csv` look for `http://example.org/mycsv.csv-metata.json` or `http://example.org/metadata.json`. Metadata can also be specified using the `describedby` link header to reference a metadata file.
+* Given a CSV `http://example.org/mycsv.csv` look for `http://example.org/mycsv.csv-metadata.json` or `http://example.org/metadata.json`. Metadata can also be specified using the `describedby` link header to reference a metadata file.
 * Given a metadata file, locate one or more CSV files described within the metadata file.
 * Also, extract _embedded metadata_ from the CSV (limited to column titles right now).
 
@@ -266,9 +267,9 @@ Full documentation available on [RubyDoc](https://rubydoc.info/gems/rdf-tabular/
   * {RDF::Tabular::Reader}
 
 ## Dependencies
-* [Ruby](https://ruby-lang.org/) (>= 2.2.2)
-* [RDF.rb](https://rubygems.org/gems/rdf) (~> 3.0)
-* [JSON](https://rubygems.org/gems/json) (>= 2.0)
+* [Ruby](https://ruby-lang.org/) (>= 2.6)
+* [RDF.rb](https://rubygems.org/gems/rdf) (~> 3.2)
+* [JSON](https://rubygems.org/gems/json) (>= 2.6)
 
 ## Installation
 The recommended installation method is via [RubyGems](https://rubygems.org/).
@@ -289,7 +290,11 @@ To install the latest official release of the `RDF::Tabular` gem, do:
   [tutorial][YARD-GS] or just look at the existing code for examples.
 * Don't touch the `rdf-tabular.gemspec`, `VERSION` or `AUTHORS` files. If you need to change them, do so on your private branch only.
 * Do feel free to add yourself to the `CREDITS` file and the corresponding list in the the `README`. Alphabetical order applies.
-* Do note that in order for us to merge any non-trivial changes (as a rule of thumb, additions larger than about 15 lines of code), we need an explicit [public domain dedication][PDD] on record from you.
+* Do note that in order for us to merge any non-trivial changes (as a rule
+  of thumb, additions larger than about 15 lines of code), we need an
+  explicit [public domain dedication][PDD] on record from you,
+  which you will be asked to agree to on the first commit to a repo within the organization.
+  Note that the agreement applies to all repos in the [Ruby RDF](https://github.com/ruby-rdf/) organization.
 
 License
 -------
@@ -301,7 +306,7 @@ see <https://unlicense.org/> or the accompanying {file:UNLICENSE} file.
 [RDF]:              https://www.w3.org/RDF/
 [YARD]:             https://yardoc.org/
 [YARD-GS]:          https://rubydoc.info/docs/yard/file/docs/GettingStarted.md
-[PDD]:              https://lists.w3.org/Archives/Public/public-rdf-ruby/2010May/0013.html
+[PDD]:              https://unlicense.org/#unlicensing-contributions
 [RDF.rb]:           https://rubygems.org/gems/rdf
 [CSV]:              https://en.wikipedia.org/wiki/Comma-separated_values
 [W3C CSVW]:         https://www.w3.org/2013/csvw/wiki/Main_Page
