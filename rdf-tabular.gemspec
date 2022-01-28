@@ -10,6 +10,13 @@ Gem::Specification.new do |gem|
   gem.license               = 'Unlicense'
   gem.summary               = "Tabular Data RDF Reader and JSON serializer."
   gem.description           = "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."
+  gem.metadata           = {
+    "documentation_uri" => "https://ruby-rdf.github.io/rdf-tabular",
+    "bug_tracker_uri"   => "https://github.com/ruby-rdf/rdf-tabular/issues",
+    "homepage_uri"      => "https://github.com/ruby-rdf/rdf-tabular",
+    "mailing_list_uri"  => "https://lists.w3.org/Archives/Public/public-rdf-ruby/",
+    "source_code_uri"   => "https://github.com/ruby-rdf/rdf-tabular",
+  }
 
   gem.authors               = ['Gregg Kellogg']
   gem.email                 = 'public-rdf-ruby@w3.org'

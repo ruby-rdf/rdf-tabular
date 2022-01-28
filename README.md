@@ -91,7 +91,7 @@ This results in the following Turtle:
        doap:developer <http://greggkellogg.net/foaf#me>;
        doap:documenter <http://greggkellogg.net/foaf#me>;
        doap:download-page <https://rubygems.org/gems/rdf-tabular>;
-       doap:homepage <http://ruby-rdf.github.com/rdf-tabular>;
+       doap:homepage <https://ruby-rdf.github.io/rdf-tabular>;
        doap:implements <http://www.w3.org/TR/tabular-data-model/>,
          <http://www.w3.org/TR/tabular-metadata/>,
          <http://www.w3.org/TR/csv2rdf/>,
@@ -165,7 +165,7 @@ It can also generate JSON output (not complete JSON-LD, but compatible with it),
                   "@id": "https://rubygems.org/gems/rdf-tabular",
                   "http://usefulinc.com/ns/doap#name": "RDF::Tabular",
                   "@type": "http://usefulinc.com/ns/doap#Project",
-                  "http://usefulinc.com/ns/doap#homepage": "http://ruby-rdf.github.com/rdf-tabular",
+                  "http://usefulinc.com/ns/doap#homepage": "https://ruby-rdf.github.io/rdf-tabular",
                   "http://usefulinc.com/ns/doap#license": "https://unlicense.org/1.0/",
                   "http://usefulinc.com/ns/doap#shortdesc": "Tabular Data RDF Reader and JSON serializer.",
                   "http://usefulinc.com/ns/doap#description": "RDF::Tabular processes tabular data with metadata creating RDF or JSON output.",
