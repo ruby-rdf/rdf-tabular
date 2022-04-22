@@ -43,7 +43,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
   wintests:
-    name: Ruby ${{ matrix.ruby }}
+    name: Win64 Ruby ${{ matrix.ruby }}
     if: "contains(github.event.commits[0].message, '[ci skip]') == false"
     runs-on: windows-latest
     env:
