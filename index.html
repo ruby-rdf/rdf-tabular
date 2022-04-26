@@ -135,40 +135,41 @@
 <pre class="code ruby"><code class="ruby">@prefix csvw: &lt;http://www.w3.org/ns/csvw#&gt; .
 @prefix dc: &lt;http://purl.org/dc/terms/&gt; .
 @prefix doap: &lt;http://usefulinc.com/ns/doap#&gt; .
+@prefix earl: &lt;http://www.w3.org/ns/earl#&gt; .
 @prefix foaf: &lt;http://xmlns.com/foaf/0.1/&gt; .
 @prefix prov: &lt;http://www.w3.org/ns/prov#&gt; .
 @prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
 @prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt; .
 
 &lt;https://rubygems.org/gems/rdf-tabular&gt; a doap:Project,
-     &lt;http://www.w3.org/ns/earl#TestSubject&gt;,
-     &lt;http://www.w3.org/ns/earl#Software&gt;;
-   dc:title &quot;RDF::Tabular&quot;;
-   dc:creator &lt;http://greggkellogg.net/foaf#me&gt;;
-   dc:date &quot;2015-01-05&quot;^^xsd:date;
-   dc:description &quot;RDF::Tabular processes tabular data with metadata creating RDF or JSON output.&quot;@en;
-   dc:isPartOf &lt;https://rubygems.org/gems/rdf&gt;;
-   doap:blog &lt;http://greggkellogg.net/&gt;;
-   doap:bug-database &lt;https://github.com/ruby-rdf/rdf-tabular/issues&gt;;
-   doap:category &lt;http://dbpedia.org/resource/Resource_Description_Framework&gt;,
-     &lt;http://dbpedia.org/resource/Ruby_(programming_language)&gt;;
-   doap:created &quot;2015-01-05&quot;^^xsd:date;
-   doap:description &quot;RDF::Tabular processes tabular data with metadata creating RDF or JSON output.&quot;@en;
-   doap:developer &lt;http://greggkellogg.net/foaf#me&gt;;
-   doap:documenter &lt;http://greggkellogg.net/foaf#me&gt;;
-   doap:download-page &lt;https://rubygems.org/gems/rdf-tabular&gt;;
-   doap:homepage &lt;https://ruby-rdf.github.io/rdf-tabular&gt;;
-   doap:implements &lt;http://www.w3.org/TR/tabular-data-model/&gt;,
-     &lt;http://www.w3.org/TR/tabular-metadata/&gt;,
-     &lt;http://www.w3.org/TR/csv2rdf/&gt;,
-     &lt;http://www.w3.org/TR/csv2json/&gt;;
-   doap:license &lt;https://unlicense.org/1.0/&gt;;
-   doap:mailing-list &lt;http://lists.w3.org/Archives/Public/public-rdf-ruby/&gt;;
-   doap:maintainer &lt;http://greggkellogg.net/foaf#me&gt;;
-   doap:name &quot;RDF::Tabular&quot;;
-   doap:programming-language &quot;Ruby&quot;;
-   doap:shortdesc &quot;Tabular Data RDF Reader and JSON serializer.&quot;@en;
-   foaf:maker &lt;http://greggkellogg.net/foaf#me&gt; .
+    earl:TestSubject,
+    earl:Software;
+  dc:title &quot;RDF::Tabular&quot;;
+  dc:creator &lt;http://greggkellogg.net/foaf#me&gt;;
+  dc:date &quot;2015-01-05&quot;^^xsd:date;
+  dc:description &quot;RDF::Tabular processes tabular data with metadata creating RDF or JSON output.&quot;@en;
+  dc:isPartOf &lt;https://rubygems.org/gems/rdf&gt;;
+  doap:blog &lt;http://greggkellogg.net/&gt;;
+  doap:bug-database &lt;https://github.com/ruby-rdf/rdf-tabular/issues&gt;;
+  doap:category &lt;http://dbpedia.org/resource/Resource_Description_Framework&gt;,
+    &lt;http://dbpedia.org/resource/Ruby_(programming_language)&gt;;
+  doap:created &quot;2015-01-05&quot;^^xsd:date;
+  doap:description &quot;RDF::Tabular processes tabular data with metadata creating RDF or JSON output.&quot;@en;
+  doap:developer &lt;http://greggkellogg.net/foaf#me&gt;;
+  doap:documenter &lt;http://greggkellogg.net/foaf#me&gt;;
+  doap:download-page &lt;https://rubygems.org/gems/rdf-tabular&gt;;
+  doap:homepage &lt;https://ruby-rdf.github.io/rdf-tabular&gt;;
+  doap:implements &lt;http://www.w3.org/TR/tabular-data-model/&gt;,
+    &lt;http://www.w3.org/TR/tabular-metadata/&gt;,
+    &lt;http://www.w3.org/TR/csv2rdf/&gt;,
+    &lt;http://www.w3.org/TR/csv2json/&gt;;
+  doap:license &lt;https://unlicense.org/1.0/&gt;;
+  doap:mailing-list &lt;http://lists.w3.org/Archives/Public/public-rdf-ruby/&gt;;
+  doap:maintainer &lt;http://greggkellogg.net/foaf#me&gt;;
+  doap:name &quot;RDF::Tabular&quot;;
+  doap:programming-language &quot;Ruby&quot;;
+  doap:shortdesc &quot;Tabular Data RDF Reader and JSON serializer.&quot;@en;
+  foaf:maker &lt;http://greggkellogg.net/foaf#me&gt; .
 
  [
     a csvw:TableGroup;
@@ -178,41 +179,41 @@
         a csvw:Row;
         csvw:describes &lt;https://rubygems.org/gems/rdf-tabular&gt;;
         csvw:rownum 1;
-        csvw:url &lt;file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=2&gt;
-      ],  [
+        csvw:url &lt;https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=2&gt;
+      ], [
         a csvw:Row;
         csvw:describes &lt;https://rubygems.org/gems/rdf-tabular&gt;;
         csvw:rownum 2;
-        csvw:url &lt;file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=3&gt;
-      ],  [
+        csvw:url &lt;https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=3&gt;
+      ], [
         a csvw:Row;
         csvw:describes &lt;https://rubygems.org/gems/rdf-tabular&gt;;
         csvw:rownum 3;
-        csvw:url &lt;file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=4&gt;
-      ],  [
+        csvw:url &lt;https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=4&gt;
+      ], [
         a csvw:Row;
         csvw:describes &lt;https://rubygems.org/gems/rdf-tabular&gt;;
         csvw:rownum 4;
-        csvw:url &lt;file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=5&gt;
+        csvw:url &lt;https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=5&gt;
       ];
-      csvw:url &lt;file://users/gregg/Projects/rdf-tabular/etc/doap.csv&gt;
+      csvw:url &lt;https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv&gt;
     ];
     prov:wasGeneratedBy [
       a prov:Activity;
-      prov:endedAtTime &quot;2015-04-11T12:33:26Z&quot;^^xsd:dateTime;
+      prov:endedAtTime &quot;2022-04-20T12:45:20.616-07:00&quot;^^xsd:dateTime;
       prov:qualifiedUsage [
         a prov:Usage;
-        prov:entity &lt;file://users/gregg/Projects/rdf-tabular/etc/doap.csv&gt;;
+        prov:entity &lt;https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv&gt;;
         prov:hadRole csvw:csvEncodedTabularData
-      ],  [
+      ], [
         a prov:Usage;
-        prov:entity &lt;file://users/gregg/Projects/rdf-tabular/etc/doap.csv-metadata.json&gt;;
+        prov:entity &lt;https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv-metadata.json&gt;;
         prov:hadRole csvw:tabularMetadata
       ];
-      prov:startedAtTime &quot;2015-04-11T12:33:25Z&quot;^^xsd:dateTime;
+      prov:startedAtTime &quot;2022-04-20T12:45:20.351-07:00&quot;^^xsd:dateTime;
       prov:wasAssociatedWith &lt;https://rubygems.org/gems/rdf-tabular&gt;
     ]
- ] .
+  ] .
 </code></pre>
 
 <p>The provenance on table-source information can be excluded by using the <code>:minimal</code> option to the reader.</p>
@@ -220,78 +221,63 @@
 <p>It can also generate JSON output (not complete JSON-LD, but compatible with it), using the <span class='object_link'><a href="RDF/Tabular/Reader.html#to_json-instance_method" title="RDF::Tabular::Reader#to_json (method)">RDF::Tabular::Reader#to_json</a></span> method:</p>
 
 <pre class="code ruby"><code class="ruby"><span class='lbrace'>{</span>
-  <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>table</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span>
-    <span class='lbrace'>{</span>
-      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>file://users/gregg/Projects/rdf-tabular/etc/doap.csv</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>row</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span>
-        <span class='lbrace'>{</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=2</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>rownum</span><span class='label_end'>&quot;:</span> <span class='int'>1</span><span class='comma'>,</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>describes</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span>
-            <span class='lbrace'>{</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@id</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#name</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>RDF::Tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@type</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#Project</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#homepage</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://ruby-rdf.github.io/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#license</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://unlicense.org/1.0/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#shortdesc</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Tabular Data RDF Reader and JSON serializer.</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#description</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>RDF::Tabular processes tabular data with metadata creating RDF or JSON output.</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#created</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>2015-01-05</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#programming-language</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Ruby</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#implements</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/TR/tabular-data-model/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#category</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://dbpedia.org/resource/Resource_Description_Framework</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#download-page</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#mailing-list</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://lists.w3.org/Archives/Public/public-rdf-ruby/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#bug-database</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://github.com/ruby-rdf/rdf-tabular/issues</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#blog</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#developer</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#maintainer</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#documenter</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>foaf:maker</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:title</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>RDF::Tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:description</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>RDF::Tabular processes tabular data with metadata creating RDF or JSON output.</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:date</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>2015-01-05</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:creator</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:isPartOf</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf</span><span class='tstring_end'>&quot;</span></span>
-            <span class='rbrace'>}</span>
-          <span class='rbracket'>]</span>
-        <span class='rbrace'>}</span><span class='comma'>,</span>
-        <span class='lbrace'>{</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=3</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>rownum</span><span class='label_end'>&quot;:</span> <span class='int'>2</span><span class='comma'>,</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>describes</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span>
-            <span class='lbrace'>{</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@id</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@type</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/ns/earl#TestSubject</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#implements</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/TR/tabular-metadata/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#category</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://dbpedia.org/resource/Ruby_(programming_language)</span><span class='tstring_end'>&quot;</span></span>
-            <span class='rbrace'>}</span>
-          <span class='rbracket'>]</span>
-        <span class='rbrace'>}</span><span class='comma'>,</span>
-        <span class='lbrace'>{</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=4</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>rownum</span><span class='label_end'>&quot;:</span> <span class='int'>3</span><span class='comma'>,</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>describes</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span>
-            <span class='lbrace'>{</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@id</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@type</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/ns/earl#Software</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#implements</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/TR/csv2rdf/</span><span class='tstring_end'>&quot;</span></span>
-            <span class='rbrace'>}</span>
-          <span class='rbracket'>]</span>
-        <span class='rbrace'>}</span><span class='comma'>,</span>
-        <span class='lbrace'>{</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=5</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>rownum</span><span class='label_end'>&quot;:</span> <span class='int'>4</span><span class='comma'>,</span>
-          <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>describes</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span>
-            <span class='lbrace'>{</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@id</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
-              <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#implements</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/TR/csv2json/</span><span class='tstring_end'>&quot;</span></span>
-            <span class='rbrace'>}</span>
-          <span class='rbracket'>]</span>
-        <span class='rbrace'>}</span>
-      <span class='rbracket'>]</span>
-    <span class='rbrace'>}</span>
-  <span class='rbracket'>]</span>
+  <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>tables</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span><span class='lbrace'>{</span>
+    <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+    <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>row</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span><span class='lbrace'>{</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=2</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>rownum</span><span class='label_end'>&quot;:</span> <span class='int'>1</span><span class='comma'>,</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>describes</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span><span class='lbrace'>{</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@id</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#name</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>RDF::Tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@type</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#Project</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#homepage</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://ruby-rdf.github.io/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#license</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://unlicense.org/1.0/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#shortdesc</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Tabular Data RDF Reader and JSON serializer.</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#description</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>RDF::Tabular processes tabular data with metadata creating RDF or JSON output.</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#created</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>2015-01-05</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#programming-language</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>Ruby</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#implements</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/TR/tabular-data-model/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#category</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://dbpedia.org/resource/Resource_Description_Framework</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#download-page</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#mailing-list</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://lists.w3.org/Archives/Public/public-rdf-ruby/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#bug-database</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://github.com/ruby-rdf/rdf-tabular/issues</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#blog</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#developer</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#maintainer</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#documenter</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>foaf:maker</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:title</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>RDF::Tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:description</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>RDF::Tabular processes tabular data with metadata creating RDF or JSON output.</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:date</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>2015-01-05</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:creator</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://greggkellogg.net/foaf#me</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>dc:isPartOf</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf</span><span class='tstring_end'>&quot;</span></span>
+      <span class='rbrace'>}</span><span class='rbracket'>]</span>
+    <span class='rbrace'>}</span><span class='comma'>,</span> <span class='lbrace'>{</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=3</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>rownum</span><span class='label_end'>&quot;:</span> <span class='int'>2</span><span class='comma'>,</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>describes</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span><span class='lbrace'>{</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@id</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@type</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/ns/earl#TestSubject</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#implements</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/TR/tabular-metadata/</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#category</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://dbpedia.org/resource/Ruby_(programming_language)</span><span class='tstring_end'>&quot;</span></span>
+      <span class='rbrace'>}</span><span class='rbracket'>]</span>
+    <span class='rbrace'>}</span><span class='comma'>,</span> <span class='lbrace'>{</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=4</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>rownum</span><span class='label_end'>&quot;:</span> <span class='int'>3</span><span class='comma'>,</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>describes</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span><span class='lbrace'>{</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@id</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@type</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/ns/earl#Software</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#implements</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/TR/csv2rdf/</span><span class='tstring_end'>&quot;</span></span>
+      <span class='rbrace'>}</span><span class='rbracket'>]</span>
+    <span class='rbrace'>}</span><span class='comma'>,</span> <span class='lbrace'>{</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>url</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=5</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>rownum</span><span class='label_end'>&quot;:</span> <span class='int'>4</span><span class='comma'>,</span>
+      <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>describes</span><span class='label_end'>&quot;:</span> <span class='lbracket'>[</span><span class='lbrace'>{</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>@id</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>https://rubygems.org/gems/rdf-tabular</span><span class='tstring_end'>&quot;</span></span><span class='comma'>,</span>
+        <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://usefulinc.com/ns/doap#implements</span><span class='label_end'>&quot;:</span> <span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_content'>http://www.w3.org/TR/csv2json/</span><span class='tstring_end'>&quot;</span></span>
+      <span class='rbrace'>}</span><span class='rbracket'>]</span>
+    <span class='rbrace'>}</span><span class='rbracket'>]</span>
+  <span class='rbrace'>}</span><span class='rbracket'>]</span>
 <span class='rbrace'>}</span>
 </code></pre>
 
@@ -394,9 +380,9 @@ rdf validate https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/
 </div></div>
 
       <div id="footer">
-  Generated on Fri Jan 28 19:49:05 2022 by
+  Generated on Tue Apr 26 15:51:17 2022 by
   <a href="http://yardoc.org" title="Yay! A Ruby Documentation Tool" target="_parent">yard</a>
-  0.9.27 (ruby-3.1.0).
+  0.9.27 (ruby-3.1.2).
 </div>
 
     </div>
