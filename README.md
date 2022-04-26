@@ -69,40 +69,41 @@ This results in the following Turtle:
     @prefix csvw: <http://www.w3.org/ns/csvw#> .
     @prefix dc: <http://purl.org/dc/terms/> .
     @prefix doap: <http://usefulinc.com/ns/doap#> .
+    @prefix earl: <http://www.w3.org/ns/earl#> .
     @prefix foaf: <http://xmlns.com/foaf/0.1/> .
     @prefix prov: <http://www.w3.org/ns/prov#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
     <https://rubygems.org/gems/rdf-tabular> a doap:Project,
-         <http://www.w3.org/ns/earl#TestSubject>,
-         <http://www.w3.org/ns/earl#Software>;
-       dc:title "RDF::Tabular";
-       dc:creator <http://greggkellogg.net/foaf#me>;
-       dc:date "2015-01-05"^^xsd:date;
-       dc:description "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."@en;
-       dc:isPartOf <https://rubygems.org/gems/rdf>;
-       doap:blog <http://greggkellogg.net/>;
-       doap:bug-database <https://github.com/ruby-rdf/rdf-tabular/issues>;
-       doap:category <http://dbpedia.org/resource/Resource_Description_Framework>,
-         <http://dbpedia.org/resource/Ruby_(programming_language)>;
-       doap:created "2015-01-05"^^xsd:date;
-       doap:description "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."@en;
-       doap:developer <http://greggkellogg.net/foaf#me>;
-       doap:documenter <http://greggkellogg.net/foaf#me>;
-       doap:download-page <https://rubygems.org/gems/rdf-tabular>;
-       doap:homepage <http://ruby-rdf.github.com/rdf-tabular>;
-       doap:implements <http://www.w3.org/TR/tabular-data-model/>,
-         <http://www.w3.org/TR/tabular-metadata/>,
-         <http://www.w3.org/TR/csv2rdf/>,
-         <http://www.w3.org/TR/csv2json/>;
-       doap:license <https://unlicense.org/1.0/>;
-       doap:mailing-list <http://lists.w3.org/Archives/Public/public-rdf-ruby/>;
-       doap:maintainer <http://greggkellogg.net/foaf#me>;
-       doap:name "RDF::Tabular";
-       doap:programming-language "Ruby";
-       doap:shortdesc "Tabular Data RDF Reader and JSON serializer."@en;
-       foaf:maker <http://greggkellogg.net/foaf#me> .
+        earl:TestSubject,
+        earl:Software;
+      dc:title "RDF::Tabular";
+      dc:creator <http://greggkellogg.net/foaf#me>;
+      dc:date "2015-01-05"^^xsd:date;
+      dc:description "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."@en;
+      dc:isPartOf <https://rubygems.org/gems/rdf>;
+      doap:blog <http://greggkellogg.net/>;
+      doap:bug-database <https://github.com/ruby-rdf/rdf-tabular/issues>;
+      doap:category <http://dbpedia.org/resource/Resource_Description_Framework>,
+        <http://dbpedia.org/resource/Ruby_(programming_language)>;
+      doap:created "2015-01-05"^^xsd:date;
+      doap:description "RDF::Tabular processes tabular data with metadata creating RDF or JSON output."@en;
+      doap:developer <http://greggkellogg.net/foaf#me>;
+      doap:documenter <http://greggkellogg.net/foaf#me>;
+      doap:download-page <https://rubygems.org/gems/rdf-tabular>;
+      doap:homepage <https://ruby-rdf.github.io/rdf-tabular>;
+      doap:implements <http://www.w3.org/TR/tabular-data-model/>,
+        <http://www.w3.org/TR/tabular-metadata/>,
+        <http://www.w3.org/TR/csv2rdf/>,
+        <http://www.w3.org/TR/csv2json/>;
+      doap:license <https://unlicense.org/1.0/>;
+      doap:mailing-list <http://lists.w3.org/Archives/Public/public-rdf-ruby/>;
+      doap:maintainer <http://greggkellogg.net/foaf#me>;
+      doap:name "RDF::Tabular";
+      doap:programming-language "Ruby";
+      doap:shortdesc "Tabular Data RDF Reader and JSON serializer."@en;
+      foaf:maker <http://greggkellogg.net/foaf#me> .
 
      [
         a csvw:TableGroup;
@@ -112,119 +113,104 @@ This results in the following Turtle:
             a csvw:Row;
             csvw:describes <https://rubygems.org/gems/rdf-tabular>;
             csvw:rownum 1;
-            csvw:url <file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=2>
-          ],  [
+            csvw:url <https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=2>
+          ], [
             a csvw:Row;
             csvw:describes <https://rubygems.org/gems/rdf-tabular>;
             csvw:rownum 2;
-            csvw:url <file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=3>
-          ],  [
+            csvw:url <https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=3>
+          ], [
             a csvw:Row;
             csvw:describes <https://rubygems.org/gems/rdf-tabular>;
             csvw:rownum 3;
-            csvw:url <file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=4>
-          ],  [
+            csvw:url <https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=4>
+          ], [
             a csvw:Row;
             csvw:describes <https://rubygems.org/gems/rdf-tabular>;
             csvw:rownum 4;
-            csvw:url <file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=5>
+            csvw:url <https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=5>
           ];
-          csvw:url <file://users/gregg/Projects/rdf-tabular/etc/doap.csv>
+          csvw:url <https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv>
         ];
         prov:wasGeneratedBy [
           a prov:Activity;
-          prov:endedAtTime "2015-04-11T12:33:26Z"^^xsd:dateTime;
+          prov:endedAtTime "2022-04-20T12:45:20.616-07:00"^^xsd:dateTime;
           prov:qualifiedUsage [
             a prov:Usage;
-            prov:entity <file://users/gregg/Projects/rdf-tabular/etc/doap.csv>;
+            prov:entity <https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv>;
             prov:hadRole csvw:csvEncodedTabularData
-          ],  [
+          ], [
             a prov:Usage;
-            prov:entity <file://users/gregg/Projects/rdf-tabular/etc/doap.csv-metadata.json>;
+            prov:entity <https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv-metadata.json>;
             prov:hadRole csvw:tabularMetadata
           ];
-          prov:startedAtTime "2015-04-11T12:33:25Z"^^xsd:dateTime;
+          prov:startedAtTime "2022-04-20T12:45:20.351-07:00"^^xsd:dateTime;
           prov:wasAssociatedWith <https://rubygems.org/gems/rdf-tabular>
         ]
-     ] .
+      ] .
 
 The provenance on table-source information can be excluded by using the `:minimal` option to the reader.
 
 It can also generate JSON output (not complete JSON-LD, but compatible with it), using the {RDF::Tabular::Reader#to_json} method:
 
     {
-      "table": [
-        {
-          "url": "file://users/gregg/Projects/rdf-tabular/etc/doap.csv",
-          "row": [
-            {
-              "url": "file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=2",
-              "rownum": 1,
-              "describes": [
-                {
-                  "@id": "https://rubygems.org/gems/rdf-tabular",
-                  "http://usefulinc.com/ns/doap#name": "RDF::Tabular",
-                  "@type": "http://usefulinc.com/ns/doap#Project",
-                  "http://usefulinc.com/ns/doap#homepage": "http://ruby-rdf.github.com/rdf-tabular",
-                  "http://usefulinc.com/ns/doap#license": "https://unlicense.org/1.0/",
-                  "http://usefulinc.com/ns/doap#shortdesc": "Tabular Data RDF Reader and JSON serializer.",
-                  "http://usefulinc.com/ns/doap#description": "RDF::Tabular processes tabular data with metadata creating RDF or JSON output.",
-                  "http://usefulinc.com/ns/doap#created": "2015-01-05",
-                  "http://usefulinc.com/ns/doap#programming-language": "Ruby",
-                  "http://usefulinc.com/ns/doap#implements": "http://www.w3.org/TR/tabular-data-model/",
-                  "http://usefulinc.com/ns/doap#category": "http://dbpedia.org/resource/Resource_Description_Framework",
-                  "http://usefulinc.com/ns/doap#download-page": "https://rubygems.org/gems/rdf-tabular",
-                  "http://usefulinc.com/ns/doap#mailing-list": "http://lists.w3.org/Archives/Public/public-rdf-ruby/",
-                  "http://usefulinc.com/ns/doap#bug-database": "https://github.com/ruby-rdf/rdf-tabular/issues",
-                  "http://usefulinc.com/ns/doap#blog": "http://greggkellogg.net/",
-                  "http://usefulinc.com/ns/doap#developer": "http://greggkellogg.net/foaf#me",
-                  "http://usefulinc.com/ns/doap#maintainer": "http://greggkellogg.net/foaf#me",
-                  "http://usefulinc.com/ns/doap#documenter": "http://greggkellogg.net/foaf#me",
-                  "foaf:maker": "http://greggkellogg.net/foaf#me",
-                  "dc:title": "RDF::Tabular",
-                  "dc:description": "RDF::Tabular processes tabular data with metadata creating RDF or JSON output.",
-                  "dc:date": "2015-01-05",
-                  "dc:creator": "http://greggkellogg.net/foaf#me",
-                  "dc:isPartOf": "https://rubygems.org/gems/rdf"
-                }
-              ]
-            },
-            {
-              "url": "file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=3",
-              "rownum": 2,
-              "describes": [
-                {
-                  "@id": "https://rubygems.org/gems/rdf-tabular",
-                  "@type": "http://www.w3.org/ns/earl#TestSubject",
-                  "http://usefulinc.com/ns/doap#implements": "http://www.w3.org/TR/tabular-metadata/",
-                  "http://usefulinc.com/ns/doap#category": "http://dbpedia.org/resource/Ruby_(programming_language)"
-                }
-              ]
-            },
-            {
-              "url": "file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=4",
-              "rownum": 3,
-              "describes": [
-                {
-                  "@id": "https://rubygems.org/gems/rdf-tabular",
-                  "@type": "http://www.w3.org/ns/earl#Software",
-                  "http://usefulinc.com/ns/doap#implements": "http://www.w3.org/TR/csv2rdf/"
-                }
-              ]
-            },
-            {
-              "url": "file://users/gregg/Projects/rdf-tabular/etc/doap.csv#row=5",
-              "rownum": 4,
-              "describes": [
-                {
-                  "@id": "https://rubygems.org/gems/rdf-tabular",
-                  "http://usefulinc.com/ns/doap#implements": "http://www.w3.org/TR/csv2json/"
-                }
-              ]
-            }
-          ]
-        }
-      ]
+      "tables": [{
+        "url": "https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv",
+        "row": [{
+          "url": "https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=2",
+          "rownum": 1,
+          "describes": [{
+            "@id": "https://rubygems.org/gems/rdf-tabular",
+            "http://usefulinc.com/ns/doap#name": "RDF::Tabular",
+            "@type": "http://usefulinc.com/ns/doap#Project",
+            "http://usefulinc.com/ns/doap#homepage": "https://ruby-rdf.github.io/rdf-tabular",
+            "http://usefulinc.com/ns/doap#license": "https://unlicense.org/1.0/",
+            "http://usefulinc.com/ns/doap#shortdesc": "Tabular Data RDF Reader and JSON serializer.",
+            "http://usefulinc.com/ns/doap#description": "RDF::Tabular processes tabular data with metadata creating RDF or JSON output.",
+            "http://usefulinc.com/ns/doap#created": "2015-01-05",
+            "http://usefulinc.com/ns/doap#programming-language": "Ruby",
+            "http://usefulinc.com/ns/doap#implements": "http://www.w3.org/TR/tabular-data-model/",
+            "http://usefulinc.com/ns/doap#category": "http://dbpedia.org/resource/Resource_Description_Framework",
+            "http://usefulinc.com/ns/doap#download-page": "https://rubygems.org/gems/rdf-tabular",
+            "http://usefulinc.com/ns/doap#mailing-list": "http://lists.w3.org/Archives/Public/public-rdf-ruby/",
+            "http://usefulinc.com/ns/doap#bug-database": "https://github.com/ruby-rdf/rdf-tabular/issues",
+            "http://usefulinc.com/ns/doap#blog": "http://greggkellogg.net/",
+            "http://usefulinc.com/ns/doap#developer": "http://greggkellogg.net/foaf#me",
+            "http://usefulinc.com/ns/doap#maintainer": "http://greggkellogg.net/foaf#me",
+            "http://usefulinc.com/ns/doap#documenter": "http://greggkellogg.net/foaf#me",
+            "foaf:maker": "http://greggkellogg.net/foaf#me",
+            "dc:title": "RDF::Tabular",
+            "dc:description": "RDF::Tabular processes tabular data with metadata creating RDF or JSON output.",
+            "dc:date": "2015-01-05",
+            "dc:creator": "http://greggkellogg.net/foaf#me",
+            "dc:isPartOf": "https://rubygems.org/gems/rdf"
+          }]
+        }, {
+          "url": "https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=3",
+          "rownum": 2,
+          "describes": [{
+            "@id": "https://rubygems.org/gems/rdf-tabular",
+            "@type": "http://www.w3.org/ns/earl#TestSubject",
+            "http://usefulinc.com/ns/doap#implements": "http://www.w3.org/TR/tabular-metadata/",
+            "http://usefulinc.com/ns/doap#category": "http://dbpedia.org/resource/Ruby_(programming_language)"
+          }]
+        }, {
+          "url": "https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=4",
+          "rownum": 3,
+          "describes": [{
+            "@id": "https://rubygems.org/gems/rdf-tabular",
+            "@type": "http://www.w3.org/ns/earl#Software",
+            "http://usefulinc.com/ns/doap#implements": "http://www.w3.org/TR/csv2rdf/"
+          }]
+        }, {
+          "url": "https://raw.githubusercontent.com/ruby-rdf/rdf-tabular/develop/etc/doap.csv#row=5",
+          "rownum": 4,
+          "describes": [{
+            "@id": "https://rubygems.org/gems/rdf-tabular",
+            "http://usefulinc.com/ns/doap#implements": "http://www.w3.org/TR/csv2json/"
+          }]
+        }]
+      }]
     }
 
 ## Tutorials

@@ -152,7 +152,7 @@
         }
       ],
       "doapDesc": "RDF::Tabular processes tabular data with metadata creating RDF or JSON output.",
-      "homepage": "http://ruby-rdf.github.com/rdf-tabular",
+      "homepage": "https://ruby-rdf.github.io/rdf-tabular",
       "language": "Ruby"
     }
   ],

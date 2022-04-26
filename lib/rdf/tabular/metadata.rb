@@ -142,7 +142,7 @@ module RDF::Tabular
           'Accept' => 'application/ld+json, application/json'
         }
       )
-      path = "file:" + path unless path =~ /^\w+:/
+      path = "file:#{path}" if RDF::URI(path).relative?
       RDF::Util::File.open_file(path, **options) do |file|
         self.new(file, **options.merge(base: path, filenames: path))
       end

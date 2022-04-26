@@ -22,7 +22,7 @@ module RDF::Tabular
 
     ##
     # Writer options
-    # @see https://www.rubydoc.info/github/ruby-rdf/rdf/RDF/Writer#options-class_method
+    # @see https://ruby-rdf.github.io/rdf/RDF/Writer#options-class_method
     def self.options
       super + [
         RDF::CLI::Option.new(
@@ -80,7 +80,8 @@ module RDF::Tabular
         @options[:base] ||= input.path if input.respond_to?(:path)
         @options[:base] ||= input.filename if input.respond_to?(:filename)
         if RDF::URI(@options[:base]).relative? && File.exist?(@options[:base].to_s)
-          @options[:base] = RDF::URI("file:/#{File.expand_path(@options[:base])}").normalize
+          file_uri = "file:" + File.expand_path(@options[:base])
+          @options[:base] = RDF::URI(file_uri.to_s).normalize
         end
 
         log_debug("Reader#initialize") {"input: #{input.inspect}, base: #{@options[:base]}"}
