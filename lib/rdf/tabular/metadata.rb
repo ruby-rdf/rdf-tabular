@@ -146,6 +146,8 @@ module RDF::Tabular
       RDF::Util::File.open_file(path, **options) do |file|
         self.new(file, **options.merge(base: path, filenames: path))
       end
+    rescue Errno::ENOENT => e
+      raise IOError, e.message
     end
 
     # Return the well-known configuration for a file, and remember using a weak-reference cache to avoid uncessary retreivles.
