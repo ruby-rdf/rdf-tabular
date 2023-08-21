@@ -2,7 +2,7 @@
 
 require 'json'
 require 'json/ld'
-require 'bcp47'
+require 'bcp47_spec'
 require 'addressable/template'
 require 'rdf/xsd'
 require 'yaml'  # used by BCP47, which should have required it.
@@ -368,7 +368,7 @@ module RDF::Tabular
 
       @options[:base] = @context ? @context.base : RDF::URI(opt_base)
 
-      if @context && @context.default_language && !BCP47::Language.identify(@context.default_language.to_s)
+      if @context && @context.default_language && !BCP47.valid?(@context.default_language.to_s)
         log_warn "Context has invalid @language (#{@context.default_language.inspect}): expected valid BCP47 language tag"
         @context.default_language = nil
       end
@@ -439,7 +439,7 @@ module RDF::Tabular
         when :aboutUrl, :default, :propertyUrl, :valueUrl
           "string" unless value.is_a?(String)
         when :lang
-          "valid BCP47 language tag" unless BCP47::Language.identify(value.to_s)
+          "valid BCP47 language tag" unless BCP47.valid?(value.to_s)
         when :null
           # To be valid, it must be a string or array
           "string or array of strings" unless !value.is_a?(Hash) && Array(value).all? {|v| v.is_a?(String)}
@@ -839,7 +839,7 @@ module RDF::Tabular
         "a valid natural language property" unless value.all? {|v| v.is_a?(String)}
       when Hash
         "a valid natural language property" if
-          value.keys.any? {|k| k.to_s != "und" && !BCP47::Language.identify(k)} ||
+          value.keys.any? {|k| k.to_s != "und" && !BCP47.valid?(k)} ||
           value.values.any? {|v| valid_natural_language_property?(v).is_a?(String)}
       else
         "a valid natural language property"
@@ -1172,7 +1172,7 @@ module RDF::Tabular
             log_error "Value object may not contain keys other than @value, @type, or @language: #{value.to_json}"
           elsif (value.keys.sort & %w(@language @type)) == %w(@language @type)
             log_error "Value object may not contain both @type and @language: #{value.to_json}"
-          elsif value['@language'] && !BCP47::Language.identify(value['@language'].to_s)
+          elsif value['@language'] && !BCP47.valid?(value['@language'].to_s)
             log_error "Value object with @language must use valid language: #{value.to_json}"
           elsif value['@type'] && (value['@type'].start_with?('_:') || !context.expand_iri(value['@type'], vocab: true).absolute?)
             log_error "Value object with @type must defined type: #{value.to_json}"
@@ -1232,7 +1232,7 @@ module RDF::Tabular
       when String then value
       when Array then value.select {|v| v.is_a?(String)}
       when Hash
-        value.delete_if {|k, v| !BCP47::Language.identify(k)}
+        value.delete_if {|k, v| !BCP47.valid?(k)}
         value.each do |k, v|
           value[k] = Array(v).select {|vv| vv.is_a?(String)}
         end

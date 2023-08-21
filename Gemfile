@@ -11,6 +11,7 @@ group :development do
   gem 'rdf-aggregate-repo', github: "ruby-rdf/rdf-aggregate-repo",  branch: "develop"
   gem 'rdf-isomorphic',     github: "ruby-rdf/rdf-isomorphic",      branch: "develop"
   gem "rdf-spec",           github: "ruby-rdf/rdf-spec",            branch: "develop"
+  gem 'rdf-trig',           github: "ruby-rdf/rdf-trig",          branch: "develop"
   gem 'rdf-turtle',         github: "ruby-rdf/rdf-turtle",          branch: "develop"
   gem 'rdf-vocab',          github: "ruby-rdf/rdf-vocab",           branch: "develop"
   gem 'sparql',             github: "ruby-rdf/sparql",              branch: "develop"
