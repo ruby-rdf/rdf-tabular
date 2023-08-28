@@ -31,8 +31,8 @@ Gem::Specification.new do |gem|
   gem.requirements          = []
   gem.add_runtime_dependency     'bcp47_spec',      '~> 0.2'
   gem.add_runtime_dependency     'rdf',             '~> 3.3'
-  gem.add_runtime_dependency     'rdf-vocab',       '~> 3.2'
-  gem.add_runtime_dependency     'rdf-xsd',         '~> 3.2'
+  gem.add_runtime_dependency     'rdf-vocab',       '~> 3.3'
+  gem.add_runtime_dependency     'rdf-xsd',         '~> 3.3'
   gem.add_runtime_dependency     'json-ld',         '~> 3.3'
   gem.add_runtime_dependency     'addressable',     '~> 2.8'
   gem.add_development_dependency 'nokogiri',        '~> 1.15', '>= 1.13.4'
@@ -40,8 +40,8 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'rspec-its',       '~> 1.3'
   gem.add_development_dependency 'rdf-isomorphic',  '~> 3.3'
   gem.add_development_dependency 'rdf-spec',        '~> 3.3'
-  gem.add_development_dependency 'rdf-turtle',      '~> 3.2'
-  gem.add_development_dependency 'sparql',          '~> 3.2'
+  gem.add_development_dependency 'rdf-turtle',      '~> 3.3'
+  gem.add_development_dependency 'sparql',          '~> 3.3'
   gem.add_development_dependency 'webmock',         '~> 3.19'
   gem.add_development_dependency 'yard' ,           '~> 0.9'
 
