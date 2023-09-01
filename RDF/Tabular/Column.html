@@ -397,12 +397,12 @@
       <pre class="lines">
 
 
-1600
-1601
-1602</pre>
+1602
+1603
+1604</pre>
     </td>
     <td>
-      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1600</span>
+      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1602</span>
 
 <span class='kw'>def</span> <span class='id identifier rubyid_has_annotations?'>has_annotations?</span>
   <span class='kw'>super</span> <span class='op'>||</span> <span class='id identifier rubyid_columns'>columns</span><span class='period'>.</span><span class='id identifier rubyid_any?'>any?</span> <span class='lbrace'>{</span><span class='op'>|</span><span class='id identifier rubyid_c'>c</span><span class='op'>|</span> <span class='id identifier rubyid_c'>c</span><span class='period'>.</span><span class='id identifier rubyid_has_annotations?'>has_annotations?</span> <span class='rbrace'>}</span>
@@ -451,13 +451,13 @@
       <pre class="lines">
 
 
-1636
-1637
 1638
-1639</pre>
+1639
+1640
+1641</pre>
     </td>
     <td>
-      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1636</span>
+      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1638</span>
 
 <span class='kw'>def</span> <span class='id identifier rubyid_id'>id</span><span class='semicolon'>;</span>
   <span class='id identifier rubyid_url'>url</span> <span class='op'>=</span> <span class='id identifier rubyid_table'>table</span> <span class='op'>?</span> <span class='id identifier rubyid_table'>table</span><span class='period'>.</span><span class='id identifier rubyid_url'>url</span> <span class='op'>:</span> <span class='const'><span class='object_link'><a href="../../RDF.html" title="RDF (module)">RDF</a></span></span><span class='op'>::</span><span class='const'>URI</span><span class='lparen'>(</span><span class='tstring'><span class='tstring_beg'>&quot;</span><span class='tstring_end'>&quot;</span></span><span class='rparen'>)</span>
@@ -494,17 +494,17 @@
       <pre class="lines">
 
 
-1625
-1626
 1627
 1628
 1629
 1630
 1631
-1632</pre>
+1632
+1633
+1634</pre>
     </td>
     <td>
-      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1625</span>
+      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1627</span>
 
 <span class='kw'>def</span> <span class='id identifier rubyid_name'>name</span>
   <span class='kw'>self</span><span class='lbracket'>[</span><span class='symbol'>:name</span><span class='rbracket'>]</span> <span class='op'>||</span> <span class='kw'>if</span> <span class='id identifier rubyid_titles'>titles</span> <span class='op'>&amp;&amp;</span> <span class='lparen'>(</span><span class='id identifier rubyid_ts'>ts</span> <span class='op'>=</span> <span class='id identifier rubyid_titles'>titles</span><span class='lbracket'>[</span><span class='id identifier rubyid_context'>context</span><span class='period'>.</span><span class='id identifier rubyid_default_language'>default_language</span> <span class='op'>||</span> <span class='tstring'><span class='tstring_beg'>&#39;</span><span class='tstring_content'>und</span><span class='tstring_end'>&#39;</span></span><span class='rbracket'>]</span> <span class='op'>||</span> <span class='id identifier rubyid_titles'>titles</span><span class='lbracket'>[</span><span class='kw'>self</span><span class='period'>.</span><span class='id identifier rubyid_lang'>lang</span> <span class='op'>||</span> <span class='tstring'><span class='tstring_beg'>&#39;</span><span class='tstring_content'>und</span><span class='tstring_end'>&#39;</span></span><span class='rbracket'>]</span><span class='rparen'>)</span>
@@ -563,12 +563,12 @@
       <pre class="lines">
 
 
-1585
-1586
-1587</pre>
+1587
+1588
+1589</pre>
     </td>
     <td>
-      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1585</span>
+      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1587</span>
 
 <span class='kw'>def</span> <span class='id identifier rubyid_number'>number</span>
   <span class='ivar'>@options</span><span class='period'>.</span><span class='id identifier rubyid_fetch'>fetch</span><span class='lparen'>(</span><span class='symbol'>:number</span><span class='comma'>,</span> <span class='int'>0</span><span class='rparen'>)</span>
@@ -630,13 +630,13 @@
       <pre class="lines">
 
 
-1593
-1594
 1595
-1596</pre>
+1596
+1597
+1598</pre>
     </td>
     <td>
-      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1593</span>
+      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1595</span>
 
 <span class='kw'>def</span> <span class='id identifier rubyid_sourceNumber'>sourceNumber</span>
   <span class='id identifier rubyid_skipColumns'>skipColumns</span> <span class='op'>=</span> <span class='id identifier rubyid_table'>table</span> <span class='op'>?</span> <span class='id identifier rubyid_dialect'>dialect</span><span class='period'>.</span><span class='id identifier rubyid_skipColumns'>skipColumns</span><span class='period'>.</span><span class='id identifier rubyid_to_i'>to_i</span> <span class='op'>:</span> <span class='int'>0</span>
@@ -686,10 +686,10 @@
       <pre class="lines">
 
 
-1581</pre>
+1583</pre>
     </td>
     <td>
-      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1581</span>
+      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1583</span>
 
 <span class='kw'>def</span> <span class='id identifier rubyid_table'>table</span><span class='semicolon'>;</span> <span class='ivar'>@options</span><span class='lbracket'>[</span><span class='symbol'>:table</span><span class='rbracket'>]</span><span class='semicolon'>;</span> <span class='kw'>end</span></pre>
     </td>
@@ -723,8 +723,6 @@
       <pre class="lines">
 
 
-1642
-1643
 1644
 1645
 1646
@@ -737,10 +735,12 @@
 1653
 1654
 1655
-1656</pre>
+1656
+1657
+1658</pre>
     </td>
     <td>
-      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1642</span>
+      <pre class="code"><span class="info file"># File 'lib/rdf/tabular/metadata.rb', line 1644</span>
 
 <span class='kw'>def</span> <span class='id identifier rubyid_to_atd'>to_atd</span>
   <span class='id identifier rubyid_object'>object</span><span class='period'>.</span><span class='id identifier rubyid_inject'>inject</span><span class='lparen'>(</span><span class='lbrace'>{</span>
@@ -767,9 +767,9 @@
 </div>
 
       <div id="footer">
-  Generated on Tue Apr 26 15:51:20 2022 by
-  <a href="http://yardoc.org" title="Yay! A Ruby Documentation Tool" target="_parent">yard</a>
-  0.9.27 (ruby-3.1.2).
+  Generated on Fri Sep  1 20:44:31 2023 by
+  <a href="https://yardoc.org" title="Yay! A Ruby Documentation Tool" target="_parent">yard</a>
+  0.9.34 (ruby-3.1.4).
 </div>
 
     </div>
