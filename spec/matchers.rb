@@ -1,7 +1,7 @@
 require 'rdf/isomorphic'
 require 'rspec/matchers'
 
-Info = Struct.new(:id, :debug, :action, :result, :metadata)
+Info = Struct.new(:id, :logger, :action, :result, :metadata)
 
 RSpec::Matchers.define :pass_query do |expected, info|
   match do |actual|
@@ -10,7 +10,6 @@ RSpec::Matchers.define :pass_query do |expected, info|
     elsif info.is_a?(Hash)
       Info.new(info[:id], info[:logger], info[:action], info.fetch(:result, RDF::Literal::TRUE), info[:metadata])
     end
-    @info.debug = Array(@info.debug).join("\n")
 
     @expected = expected.respond_to?(:read) ? expected.read : expected
 

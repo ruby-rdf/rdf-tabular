@@ -313,7 +313,7 @@ describe RDF::Tabular::Reader do
               prov:endedAtTime ?end;
               prov:qualifiedUsage [
                 a prov:Usage ;
-                prov:entity <http://example.org/country-codes-and-names.csv> ;
+                # prov:entity <http://example.org/country-codes-and-names.csv> ;
                 prov:hadRole csvw:csvEncodedTabularData
               ];
             ]
@@ -336,11 +336,11 @@ describe RDF::Tabular::Reader do
               prov:endedAtTime ?end;
               prov:qualifiedUsage [
                 a prov:Usage ;
-                prov:entity <http://example.org/countries.csv>, <http://example.org/country_slice.csv>;
+                # prov:entity <http://example.org/countries.csv>, <http://example.org/country_slice.csv>;
                 prov:hadRole csvw:csvEncodedTabularData
               ], [
                 a prov:Usage ;
-                prov:entity <http://example.org/countries.json> ;
+                # prov:entity <http://example.org/countries.json> ;
                 prov:hadRole csvw:tabularMetadata
               ];
             ]

@@ -2,7 +2,7 @@
 
 [CSV][] reader for [RDF.rb][] and fully JSON serializer.
 
-[![Gem Version](https://badge.fury.io/rb/rdf-tabular.png)](https://badge.fury.io/rb/rdf-tabular)
+[![Gem Version](https://badge.fury.io/rb/rdf-tabular.svg)](https://badge.fury.io/rb/rdf-tabular)
 [![Build Status](https://github.com/ruby-rdf/rdf-tabular/workflows/CI/badge.svg?branch=develop)](https://github.com/ruby-rdf/rdf-tabular/actions?query=workflow%3ACI)
 [![Coverage Status](https://coveralls.io/repos/ruby-rdf/rdf-tabular/badge.svg?branch=develop)](https://coveralls.io/github/ruby-rdf/rdf-tabular?branch=develop)
 [![Gitter chat](https://badges.gitter.im/ruby-rdf/rdf.png)](https://gitter.im/ruby-rdf/rdf)
@@ -253,8 +253,8 @@ Full documentation available on [RubyDoc](https://rubydoc.info/gems/rdf-tabular/
   * {RDF::Tabular::Reader}
 
 ## Dependencies
-* [Ruby](https://ruby-lang.org/) (>= 2.6)
-* [RDF.rb](https://rubygems.org/gems/rdf) (~> 3.2)
+* [Ruby](https://ruby-lang.org/) (>= 3.0)
+* [RDF.rb](https://rubygems.org/gems/rdf) (~> 3.3)
 * [JSON](https://rubygems.org/gems/json) (>= 2.6)
 
 ## Installation

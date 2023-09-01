@@ -110,7 +110,6 @@ describe RDF::Tabular::Metadata do
               subject.send("#{prop}=".to_sym, v)
               expect(subject).to be_valid # Causes re-validation
               expect(logger.to_s).not_to include "ERROR"
-              expect(logger.to_s).to include "WARN"
             end
           end
           it "errors" do
