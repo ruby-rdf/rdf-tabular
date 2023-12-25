@@ -15,9 +15,6 @@ RDF::Tabular parses CSV or other Tabular Data into [RDF][] and JSON using the [W
 * Parses [date formats](https://www.unicode.org/reports/tr35/tr35-39/tr35-dates.html#Contents) from [UAX35][]
 * Returns detailed errors and warnings using optional `Logger`.
 
-## Installation
-Install with `gem install rdf-tabular`
-
 ## Description
 RDF::Tabular parses CSVs, TSVs, and potentially other tabular data formats. Using rules defined for [W3C CSVW][], it can also parse metadata files (in JSON-LD format) to find a set of tabular data files, or locate a metadata file given a CSV:
 
@@ -256,6 +253,10 @@ Full documentation available on [RubyDoc](https://rubydoc.info/gems/rdf-tabular/
 * [Ruby](https://ruby-lang.org/) (>= 3.0)
 * [RDF.rb](https://rubygems.org/gems/rdf) (~> 3.3)
 * [JSON](https://rubygems.org/gems/json) (>= 2.6)
+
+## Change Log
+
+See [Release Notes on GitHub](https://github.com/ruby-rdf/rdf-tabular/releases)
 
 ## Installation
 The recommended installation method is via [RubyGems](https://rubygems.org/).

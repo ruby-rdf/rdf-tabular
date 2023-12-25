@@ -29,6 +29,7 @@ Gem::Specification.new do |gem|
 
   gem.required_ruby_version = '>= 3.0'
   gem.requirements          = []
+  gem.add_runtime_dependency     'csv',             '~> 3.2', '>= 3.2.8'
   gem.add_runtime_dependency     'bcp47_spec',      '~> 0.2'
   gem.add_runtime_dependency     'rdf',             '~> 3.3'
   gem.add_runtime_dependency     'rdf-vocab',       '~> 3.3'
