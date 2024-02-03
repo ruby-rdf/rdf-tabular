@@ -54,7 +54,7 @@ def run_tc(t, **options)
     options = {base_uri:  t.base}.merge(options)
 
     RDF::Tabular::Reader.open(t.action,
-                             t.reader_options.merge(
+                             **t.reader_options.merge(
                                base_uri:  t.base,
                                validate:  t.validation?,
                                logger:    t.logger)
