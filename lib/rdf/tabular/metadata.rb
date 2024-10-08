@@ -142,7 +142,15 @@ module RDF::Tabular
           'Accept' => 'application/ld+json, application/json'
         }
       )
-      path = "file:#{path}" if RDF::URI(path).relative?
+      if RDF::URI(path).relative?
+        path = File.expand_path(path, __FILE__)
+        if Gem.win_platform?
+          # Expanded path starts with drive letter
+          "file:/" + File.expand_path(path, __FILE__)
+        else
+          path = "file:#{File.expand_path(path, __FILE__)}"
+        end
+      end
       RDF::Util::File.open_file(path, **options) do |file|
         self.new(file, **options.merge(base: path, filenames: path))
       end

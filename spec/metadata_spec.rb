@@ -753,7 +753,7 @@ describe RDF::Tabular::Metadata do
       context filename do
         subject {RDF::Tabular::Metadata.open(filename, logger: logger)}
         it {is_expected.to be_valid}
-        its(:filenames) {is_expected.to include("file:#{filename}")}
+        its(:filenames) {is_expected.to include("file:/#{filename.sub(/^\//, '')}")}
       end
       after(:each) do
         expect(logger.to_s).not_to match(/ERROR|WARN/)
@@ -818,7 +818,7 @@ describe RDF::Tabular::Metadata do
             subject.validate
             expect(logger.to_s).to be_empty
           end
-          its(:filenames) {is_expected.to include("file:#{filename}")}
+          its(:filenames) {is_expected.to include("file:/#{filename.sub(/^\//, '')}")}
         end
       end
     end
