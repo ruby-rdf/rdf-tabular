@@ -142,14 +142,9 @@ module RDF::Tabular
           'Accept' => 'application/ld+json, application/json'
         }
       )
-      if RDF::URI(path).relative?
-        path = if Gem.win_platform?
-          # Expanded path starts with drive letter
-          "file:/" + File.expand_path(path, __FILE__)
-        else
-          "file:#{File.expand_path(path, __FILE__)}"
-        end
-      end
+
+      # Resolve relative paths to use the file scheme, bearing in mind that Windows expanded paths always start with a drive letter, not a slash.
+      path = (Gem.win_platform? ? "file:/" : "file:") + File.expand_path(path) if RDF::URI(path).relative?
       RDF::Util::File.open_file(path, **options) do |file|
         self.new(file, **options.merge(base: path, filenames: path))
       end

@@ -80,12 +80,7 @@ module RDF::Tabular
         @options[:base] ||= input.path if input.respond_to?(:path)
         @options[:base] ||= input.filename if input.respond_to?(:filename)
         if RDF::URI(@options[:base]).relative? && File.exist?(@options[:base].to_s)
-          file_uri = if Gem.win_platform?
-            # Expanded path starts with drive letter
-            "file:/" + File.expand_path(@options[:base], __FILE__)
-          else
-            "file:" + File.expand_path(@options[:base], __FILE__)
-          end
+          file_uri = (Gem.win_platform? ? "file:/" : "file:") + @options[:base]
           @options[:base] = RDF::URI(file_uri.to_s).normalize
         end
 
