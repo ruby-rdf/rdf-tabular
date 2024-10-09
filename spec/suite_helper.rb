@@ -25,13 +25,6 @@ module RDF::Util
     # @yield [IO] File stream
     def self.open_file(filename_or_url, **options, &block)
       case
-      when filename_or_url.to_s =~ /^file:/
-        path = RDF::URI(filename_or_url).path
-        if path.match?(/^\/[A-Za-z]:/) && Gem.win_platform?
-          # Turns "/D:foo" into "D:foo"
-          path = path[1..-1]
-        end
-        Kernel.open(path.to_s, &block)
       when filename_or_url.to_s =~ %r{http://www.w3.org/ns/csvw/?}
         ::File.open(::File.expand_path("../../etc/csvw.jsonld", __FILE__), &block)
       when filename_or_url.to_s == "http://www.w3.org/.well-known/csvm"
