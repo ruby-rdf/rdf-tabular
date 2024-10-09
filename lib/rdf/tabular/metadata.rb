@@ -143,12 +143,11 @@ module RDF::Tabular
         }
       )
       if RDF::URI(path).relative?
-        path = File.expand_path(path, __FILE__)
-        if Gem.win_platform?
+        path = if Gem.win_platform?
           # Expanded path starts with drive letter
           "file:/" + File.expand_path(path, __FILE__)
         else
-          path = "file:#{File.expand_path(path, __FILE__)}"
+          "file:#{File.expand_path(path, __FILE__)}"
         end
       end
       RDF::Util::File.open_file(path, **options) do |file|
