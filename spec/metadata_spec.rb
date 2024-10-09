@@ -818,7 +818,9 @@ describe RDF::Tabular::Metadata do
             subject.validate
             expect(logger.to_s).to be_empty
           end
-          its(:filenames) {is_expected.to include("file:/#{filename.sub(/^\//, '')}")}
+          it "has expected filenames" do
+            expect(Array(subject.filenames).map(&:to_s)).to include("file:/#{filename.sub(/^\//, '')}")
+          end
         end
       end
     end
